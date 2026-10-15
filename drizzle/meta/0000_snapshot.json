@@ -1,9 +1,218 @@
 {
-  "id": "3188d5da-795e-4fbe-b5a0-4ec541fe0531",
+  "id": "408e06c1-8471-4d67-9efc-7f8f290d3b44",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.holiday": {
+      "name": "holiday",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "holiday_date": {
+          "name": "holiday_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "holiday_date_unique": {
+          "name": "holiday_date_unique",
+          "columns": [
+            {
+              "expression": "holiday_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "holiday_created_by_users_id_fk": {
+          "name": "holiday_created_by_users_id_fk",
+          "tableFrom": "holiday",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notification_outbox": {
+      "name": "notification_outbox",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "reservation_id": {
+          "name": "reservation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'BOOKING_CODE'"
+        },
+        "to_email": {
+          "name": "to_email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "outbox_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "outbox_pending_idx": {
+          "name": "outbox_pending_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notification_outbox_reservation_id_reservation_id_fk": {
+          "name": "notification_outbox_reservation_id_reservation_id_fk",
+          "tableFrom": "notification_outbox",
+          "tableTo": "reservation",
+          "columnsFrom": [
+            "reservation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.reservation": {
       "name": "reservation",
       "schema": "",
@@ -13,7 +222,7 @@
           "type": "uuid",
           "primaryKey": true,
           "notNull": true,
-          "default": "uuid_generate_v4()"
+          "default": "gen_random_uuid()"
         },
         "user_id": {
           "name": "user_id",
@@ -27,9 +236,22 @@
           "primaryKey": false,
           "notNull": true
         },
+        "booking_mode": {
+          "name": "booking_mode",
+          "type": "booking_mode",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "booking_date": {
+          "name": "booking_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
         "booking_code": {
           "name": "booking_code",
-          "type": "varchar(10)",
+          "type": "varchar(6)",
           "primaryKey": false,
           "notNull": true
         },
@@ -53,14 +275,8 @@
           "notNull": true,
           "default": "'PENDING'"
         },
-        "entered_at": {
-          "name": "entered_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "returned_at": {
-          "name": "returned_at",
+        "key_entered_at": {
+          "name": "key_entered_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -68,6 +284,12 @@
         "key_entered_by": {
           "name": "key_entered_by",
           "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_returned_at": {
+          "name": "key_returned_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -103,7 +325,86 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "reservation_code_per_day": {
+          "name": "reservation_code_per_day",
+          "columns": [
+            {
+              "expression": "booking_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "booking_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservation_status_start_idx": {
+          "name": "reservation_status_start_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "start_time",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservation_user_time_idx": {
+          "name": "reservation_user_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "start_time",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reservation_booking_date_idx": {
+          "name": "reservation_booking_date_idx",
+          "columns": [
+            {
+              "expression": "booking_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "reservation_user_id_users_id_fk": {
           "name": "reservation_user_id_users_id_fk",
@@ -172,20 +473,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "reservation_booking_code_unique": {
-          "name": "reservation_booking_code_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "booking_code"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "check_time_validity": {
-          "name": "check_time_validity",
+        "reservation_time_validity": {
+          "name": "reservation_time_validity",
           "value": "\"reservation\".\"end_time\" > \"reservation\".\"start_time\""
+        },
+        "reservation_code_digits": {
+          "name": "reservation_code_digits",
+          "value": "\"reservation\".\"booking_code\" ~ '^[0-9]{6}$'"
         }
       },
       "isRLSEnabled": false
@@ -199,7 +496,7 @@
           "type": "uuid",
           "primaryKey": true,
           "notNull": true,
-          "default": "uuid_generate_v4()"
+          "default": "gen_random_uuid()"
         },
         "room_id": {
           "name": "room_id",
@@ -225,30 +522,18 @@
           "primaryKey": false,
           "notNull": true
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
         "created_by": {
           "name": "created_by",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "deleted_at": {
-          "name": "deleted_at",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": false
-        },
-        "deleted_by": {
-          "name": "deleted_by",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -278,27 +563,14 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "room_block_deleted_by_users_id_fk": {
-          "name": "room_block_deleted_by_users_id_fk",
-          "tableFrom": "room_block",
-          "tableTo": "users",
-          "columnsFrom": [
-            "deleted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "check_block_time_validity": {
-          "name": "check_block_time_validity",
+        "room_block_time_validity": {
+          "name": "room_block_time_validity",
           "value": "\"room_block\".\"end_time\" > \"room_block\".\"start_time\""
         }
       },
@@ -313,13 +585,33 @@
           "type": "uuid",
           "primaryKey": true,
           "notNull": true,
-          "default": "uuid_generate_v4()"
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(1)",
+          "primaryKey": false,
+          "notNull": true
         },
         "type_name": {
           "name": "type_name",
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
+        },
+        "booking_mode": {
+          "name": "booking_mode",
+          "type": "booking_mode",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "min_duration_minutes": {
+          "name": "min_duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 60
         },
         "created_at": {
           "name": "created_at",
@@ -342,6 +634,22 @@
         }
       },
       "indexes": {
+        "room_type_code_unique": {
+          "name": "room_type_code_unique",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"room_type\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "room_type_name_unique": {
           "name": "room_type_name_unique",
           "columns": [
@@ -377,7 +685,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "room_type_min_duration_positive": {
+          "name": "room_type_min_duration_positive",
+          "value": "\"room_type\".\"min_duration_minutes\" > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.rooms": {
@@ -389,7 +702,7 @@
           "type": "uuid",
           "primaryKey": true,
           "notNull": true,
-          "default": "uuid_generate_v4()"
+          "default": "gen_random_uuid()"
         },
         "room_type_id": {
           "name": "room_type_id",
@@ -484,7 +797,108 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "rooms_max_capacity_positive": {
+          "name": "rooms_max_capacity_positive",
+          "value": "\"rooms\".\"max_capacity\" IS NULL OR \"rooms\".\"max_capacity\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.service_period": {
+      "name": "service_period",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "open_time": {
+          "name": "open_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "close_time": {
+          "name": "close_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_to": {
+          "name": "effective_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "service_period_created_by_users_id_fk": {
+          "name": "service_period_created_by_users_id_fk",
+          "tableFrom": "service_period",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "service_period_kind_valid": {
+          "name": "service_period_kind_valid",
+          "value": "\"service_period\".\"kind\" IN ('NORMAL', 'EXAM')"
+        },
+        "service_period_time_validity": {
+          "name": "service_period_time_validity",
+          "value": "\"service_period\".\"close_time\" > \"service_period\".\"open_time\""
+        },
+        "service_period_range_validity": {
+          "name": "service_period_range_validity",
+          "value": "\"service_period\".\"effective_to\" IS NULL OR \"service_period\".\"effective_to\" >= \"service_period\".\"effective_from\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.users": {
@@ -503,6 +917,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "full_name": {
+          "name": "full_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_url": {
+          "name": "image_url",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "role": {
           "name": "role",
           "type": "user_role",
@@ -510,6 +936,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'user'"
+        },
+        "is_blocked": {
+          "name": "is_blocked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "blocked_at": {
+          "name": "blocked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "blocked_by": {
+          "name": "blocked_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_login_at": {
+          "name": "last_login_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -520,7 +971,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "users_blocked_by_users_id_fk": {
+          "name": "users_blocked_by_users_id_fk",
+          "tableFrom": "users",
+          "tableTo": "users",
+          "columnsFrom": [
+            "blocked_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "users_email_unique": {
@@ -532,11 +997,33 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "users_email_ku": {
+          "name": "users_email_ku",
+          "value": "lower(\"users\".\"email\") LIKE '%@ku.th'"
+        }
+      },
       "isRLSEnabled": false
     }
   },
   "enums": {
+    "public.booking_mode": {
+      "name": "booking_mode",
+      "schema": "public",
+      "values": [
+        "EXCLUSIVE",
+        "CAPACITY"
+      ]
+    },
+    "public.outbox_status": {
+      "name": "outbox_status",
+      "schema": "public",
+      "values": [
+        "PENDING",
+        "SENT",
+        "FAILED"
+      ]
+    },
     "public.reservation_status": {
       "name": "reservation_status",
       "schema": "public",

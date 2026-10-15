@@ -5,15 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1791804837790,
-      "tag": "0000_sticky_forge",
+      "when": 1792062866044,
+      "tag": "0000_initial",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1791805796508,
-      "tag": "0001_brave_satana",
+      "when": 1792062866834,
+      "tag": "0001_reservation_rules",
       "breakpoints": true
     }
   ]

@@ -44,7 +44,7 @@
 - **ห้ามลบผู้ใช้** ออกจากฐานข้อมูลโดยเด็ดขาด เพื่อรักษาความเชื่อมโยงของประวัติการจอง
 - ผู้ใช้ที่ถูกบล็อกจะยังอยู่ในฐานข้อมูล แต่เข้าสู่ระบบ/ใช้งานไม่ได้ — บันทึก `is_blocked`, `blocked_at`, `blocked_by`
 - **แอดมินคนแรก** เกิดจากการเพิ่มข้อมูลโดยตรงผ่าน DB (seed) หลังจากนั้นแอดมินเป็นผู้เปลี่ยน role ให้เอง
-- การเปลี่ยน role และการบล็อกผู้ใช้ทุกครั้งต้องบันทึกใน `audit_log`
+- การเปลี่ยน role และการบล็อก/ปลดบล็อกผู้ใช้ บันทึกผลไว้บนแถวผู้ใช้ (`role`, `is_blocked`, `blocked_at`, `blocked_by`) — เวอร์ชันแรกยังไม่มีตาราง audit รวม (ดูข้อ 12)
 
 ---
 
@@ -76,7 +76,7 @@
 > เพื่อให้แอดมินแก้ช่วงสอบได้โดยไม่แตะโค้ด และลดความซับซ้อน หากต้องการ override รายห้องในอนาคตสามารถเพิ่มได้ภายหลัง
 
 ### 5.2 การเลือกช่วงเวลาที่มีผล
-- วันใดอยู่ในช่วง `EXAM` ใด ๆ (ที่ยังไม่ถูกลบ) ให้ใช้เวลาของ `EXAM` ที่สร้างล่าสุด มิฉะนั้นใช้ `NORMAL`
+- วันใดอยู่ในช่วง `EXAM` ใด ๆ ให้ใช้เวลาของ `EXAM` ที่สร้างล่าสุด มิฉะนั้นใช้ `NORMAL`
 - ช่วง `NORMAL` ห้ามทับกันเอง และช่วง `EXAM` ห้ามทับกันเอง (บังคับด้วย exclusion constraint) แต่ `EXAM` ทับช่วง `NORMAL` ได้
 
 ### 5.3 Slot
@@ -132,7 +132,7 @@
 - แอดมินยืนยันการรับกุญแจ → `ACTIVE`
 - แอดมินยืนยันการคืนกุญแจ → ถ้า `returned_at > end_time` เป็น `LATE_RETURN` มิฉะนั้นเป็น `COMPLETED` (ไม่ auto-complete)
 - **`NO_SHOW` อัตโนมัติ:** ถ้ายังเป็น `PENDING` และเวลาผ่านไปเกิน `start_time + 30 นาที` ให้ `pg_cron` ตั้งสถานะเป็น `NO_SHOW`
-- **แอดมินสามารถ override สถานะได้เสมอ** เมื่อเกิดข้อผิดพลาด และทุกการ override ต้องบันทึก `audit_log`
+- **แอดมินสามารถ override สถานะได้เสมอ** เมื่อเกิดข้อผิดพลาด และบันทึกเหตุผล/ผู้ดำเนินการไว้ที่ (`canceled_at`, `canceled_by`, `canceled_reason`) สำหรับการยกเลิก
 
 ---
 
@@ -159,9 +159,12 @@
 
 ## 10. การจัดการข้อมูลห้อง
 
-- **Soft delete + Restore:** ใช้กับ `rooms`, `room_type`, `room_block`, `holiday`, `service_period`
-  - ลบ = ตั้ง `deleted_at` / `deleted_by` (ไม่ลบจริง)
-  - กู้คืน = ล้างค่า soft delete — การลบและการกู้คืนต้องบันทึกใน `audit_log`
+- **Soft delete + Restore: ใช้เฉพาะ `rooms` และ `room_type`**
+  - ลบ = ตั้ง `deleted_at` / `deleted_by` (ไม่ลบจริง) — กู้คืน = ล้างค่าดังกล่าว
+  - **ห้าม soft delete `room_type` ที่ยังมีห้องที่ใช้งานอยู่** — บังคับด้วย trigger `room_type_guard_delete` ที่ระดับ DB
+  - **Restore = นำกลับมาใช้ซ้ำ (reuse):** เมื่อเพิ่มห้อง/ประเภทห้องที่ชื่อหรือรหัสตรงกับแถวที่ถูกลบอยู่ ให้ **กู้คืนแถวเดิม** (ตั้ง `deleted_at = NULL`) แทนการสร้างแถวใหม่ เพื่อรักษา FK ของประวัติย้อนหลัง
+    - แนวทาง implement: ลอง `INSERT` ก่อน ถ้าชน unique violation ให้หาแถวที่ถูกลบซึ่งตรงกันแล้ว `UPDATE` กู้คืน
+- ตารางอื่น (`room_block`, `holiday`, `service_period`) **ลบจริง (hard delete)** เพราะเป็นข้อมูลเชิงเวลา ไม่ถูกอ้างอิงจากประวัติการจอง
 - ห้อง/ประเภทห้องที่ถูกลบต้องไม่ถูกนำไปจอง
 - **ชื่อห้อง / ชื่อประเภทห้อง / รหัสประเภทห้อง ห้ามซ้ำเฉพาะรายการที่ยังไม่ถูกลบ** (partial unique index) — ลบแล้วสร้างชื่อเดิมใหม่ได้
 - การจองไม่ถูกลบ (ใช้สถานะ `CANCELLED` แทน) และผู้ใช้ไม่ถูกลบ
@@ -179,12 +182,15 @@
 
 ## 12. การตรวจสอบย้อนหลัง (Audit Trail)
 
-ทุกเหตุการณ์สำคัญต้องบันทึกใน `audit_log` (`actor_id`, `action`, `entity`, `entity_id`, `before`, `after`, `reason`, `created_at`)
+> **เลื่อนไปเฟสถัดไป:** เวอร์ชันแรก **ไม่สร้างตาราง `audit_log` รวม** เพื่อประหยัดพื้นที่ฐานข้อมูล
 
-เหตุการณ์ที่ต้องบันทึกอย่างน้อย:
-- เปลี่ยน role ผู้ใช้, บล็อก/ปลดบล็อกผู้ใช้
-- override สถานะการจอง, ยกเลิกการจอง
-- สร้าง/แก้ไข/ลบ/กู้คืน: ห้อง, ประเภทห้อง, การบล็อกห้อง, วันหยุด, ช่วงเวลาให้บริการ
+ปัจจุบันอาศัยคอลัมน์บนแถวข้อมูลเป็นร่องรอยหลัก:
+- ผู้ใช้: `role`, `is_blocked`, `blocked_at`, `blocked_by`
+- การจอง: `created_at`, `canceled_at`, `canceled_by`, `canceled_reason`, `key_entered_by/at`, `key_returned_by/at`
+- ห้อง / ประเภทห้อง: `created_at`, `deleted_at`, `deleted_by`
+- บล็อกห้อง / ช่วงเวลาให้บริการ / วันหยุด: `created_by`, `created_at`
+
+เหตุการณ์ที่อนาคตควรมีตาราง audit รวม: เปลี่ยน role/บล็อกผู้ใช้, override สถานะการจอง, ลบ/กู้คืนห้องและประเภทห้อง
 
 ---
 
@@ -209,8 +215,9 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;   -- รองรับ EXCLUDE ... U
 CREATE TYPE user_role           AS ENUM ('user','admin');
 CREATE TYPE reservation_status  AS ENUM ('PENDING','ACTIVE','COMPLETED','LATE_RETURN','CANCELLED','NO_SHOW');
 CREATE TYPE booking_mode        AS ENUM ('EXCLUSIVE','CAPACITY');
-CREATE TYPE service_period_kind AS ENUM ('NORMAL','EXAM');
 CREATE TYPE outbox_status       AS ENUM ('PENDING','SENT','FAILED');
+-- หมายเหตุ: service_period.kind เก็บเป็น varchar + CHECK แทน enum
+-- เพราะ exclusion constraint ต้องใช้ค่าใน index expression และ enum -> text ไม่ IMMUTABLE
 ```
 
 ### A.2 users
@@ -244,6 +251,20 @@ CREATE TABLE room_type (
 );
 CREATE UNIQUE INDEX room_type_code_unique ON room_type (code)      WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX room_type_name_unique ON room_type (type_name) WHERE deleted_at IS NULL;
+
+-- ห้าม soft delete ประเภทห้องที่ยังมีห้องใช้งาน (บังคับระดับ DB)
+CREATE OR REPLACE FUNCTION room_type_guard_delete() RETURNS trigger AS $$
+BEGIN
+  IF NEW.deleted_at IS NOT NULL AND OLD.deleted_at IS NULL
+     AND EXISTS (SELECT 1 FROM rooms WHERE room_type_id = NEW.id AND deleted_at IS NULL) THEN
+    RAISE EXCEPTION 'room_type % still has active rooms', NEW.id USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER room_type_guard_delete
+BEFORE UPDATE OF deleted_at ON room_type
+FOR EACH ROW EXECUTE FUNCTION room_type_guard_delete();
 ```
 
 ### A.4 rooms
@@ -340,22 +361,21 @@ SELECT count(*) FROM reservation
 CREATE TABLE service_period (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name           varchar(100) NOT NULL,
-  kind           service_period_kind NOT NULL,
+  kind           varchar(16) NOT NULL,      -- 'NORMAL' / 'EXAM' (เก็บเป็น varchar เพราะ exclusion ต้องใช้ค่าใน index)
   open_time      time NOT NULL,
   close_time     time NOT NULL,
   effective_from date NOT NULL,
   effective_to   date,                      -- NULL = เปิดต่อไปเรื่อย ๆ
   created_by     varchar(255) NOT NULL REFERENCES users(id),
   created_at     timestamptz NOT NULL DEFAULT now(),
-  deleted_at     timestamptz,
-  deleted_by     varchar(255) REFERENCES users(id),
+  CONSTRAINT service_period_kind_valid    CHECK (kind IN ('NORMAL','EXAM')),
   CONSTRAINT service_period_time_validity  CHECK (close_time > open_time),
   CONSTRAINT service_period_range_validity CHECK (effective_to IS NULL OR effective_to >= effective_from),
   -- NORMAL ห้ามทับ NORMAL, EXAM ห้ามทับ EXAM แต่ EXAM ทับ NORMAL ได้
   CONSTRAINT service_period_no_overlap EXCLUDE USING gist (
-      (kind::text) WITH =,
+      kind WITH =,
       daterange(effective_from, COALESCE(effective_to, 'infinity'::date), '[]') WITH &&
-  ) WHERE (deleted_at IS NULL)
+  )
 );
 ```
 
@@ -367,11 +387,9 @@ CREATE TABLE holiday (
   name         varchar(200) NOT NULL,
   note         text,
   created_by   varchar(255) NOT NULL REFERENCES users(id),
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  deleted_at   timestamptz,
-  deleted_by   varchar(255) REFERENCES users(id)
+  created_at   timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX holiday_date_unique ON holiday (holiday_date) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX holiday_date_unique ON holiday (holiday_date);
 ```
 
 ### A.8 room_block
@@ -384,13 +402,11 @@ CREATE TABLE room_block (
   reason     text NOT NULL,
   created_by varchar(255) NOT NULL REFERENCES users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
-  deleted_at timestamptz,
-  deleted_by varchar(255) REFERENCES users(id),
   CONSTRAINT room_block_time_validity CHECK (end_time > start_time),
   CONSTRAINT room_block_no_overlap EXCLUDE USING gist (
       room_id WITH =,
       tstzrange(start_time, end_time, '[)') WITH &&
-  ) WHERE (deleted_at IS NULL)
+  )
 );
 ```
 
@@ -413,22 +429,9 @@ CREATE TABLE notification_outbox (
 CREATE INDEX outbox_pending_idx ON notification_outbox (status, next_attempt_at);
 ```
 
-### A.10 audit_log
-```sql
-CREATE TABLE audit_log (
-  id         bigserial PRIMARY KEY,
-  actor_id   varchar(255) REFERENCES users(id),
-  action     varchar(50) NOT NULL,   -- ROLE_CHANGE, USER_BLOCK, STATUS_OVERRIDE, RESERVATION_CANCEL, ROOM_CREATE/UPDATE/DELETE/RESTORE, ...
-  entity     varchar(50) NOT NULL,   -- user, room, room_type, room_block, service_period, holiday, reservation
-  entity_id  varchar(255) NOT NULL,
-  before     jsonb,
-  after      jsonb,
-  reason     text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX audit_log_entity_idx ON audit_log (entity, entity_id);
-CREATE INDEX audit_log_actor_idx  ON audit_log (actor_id);
-```
+### A.10 Audit Log — เลื่อนไปเฟสถัดไป
+เวอร์ชันแรก **ไม่สร้างตาราง `audit_log`** เพื่อประหยัดพื้นที่ ใช้คอลัมน์ร่องรอยบนแถวข้อมูลแทน (ดูข้อ 12)
+เมื่อมีความจำเป็น สามารถเพิ่มภายหลังได้โดยไม่กระทบ schema เดิม
 
 ### A.11 Seed ประเภทห้อง
 ```sql
@@ -442,6 +445,8 @@ INSERT INTO room_type (code, type_name, booking_mode, min_duration_minutes) VALU
 - `EXCLUDE ... WHERE`, `tstzrange(...)`, trigger และ `CREATE EXTENSION` **ประกาศใน `schema.ts` ไม่ได้** ต้อง generate migration แล้วแก้ไฟล์ SQL เอง หรือใช้ custom migration แยก
 - คอลัมน์ `booking_mode` และ `booking_date` เป็นค่าที่ trigger เซ็ต — app ไม่ต้องเชื่อค่าที่ส่งมา (trigger เขียนทับทุกครั้ง)
 - การตรวจ weekend / holiday / service window / ระยะเวลาขั้นต่ำ / ขอบเขต slot / จำนวนบล็อก เป็นหน้าที่ชั้น server (สามารถเสริมเป็น BEFORE trigger `reservation_guard()` ภายหลังได้)
+- **Soft delete** จำกัดเฉพาะ `rooms` และ `room_type`; การกู้คืนให้ **reuse แถวเดิม** (ลอง insert → ถ้าชน unique ให้ update แถวที่ถูกลบให้ `deleted_at = NULL`) เพื่อรักษา FK
+- **`room_type` ที่ยังมีห้องใช้งานอยู่ห้ามลบ** — บังคับด้วย trigger `room_type_guard_delete`
 
 ---
 
