@@ -1,149 +1,457 @@
-# เอกสารกำหนดขอบเขตและรายละเอียดโครงการ (Terms of Reference: TOR)
+# ระบบจองห้องทำงาน — เอกสารกำหนดขอบเขตและรายละเอียดโครงการ (Terms of Reference: TOR)
 
-## ระบบจองห้อง (Room Reservation System)
+> **ฉบับปรับปรุง:** รวบรวมผลการวิเคราะห์และข้อตกลงการออกแบบ (business rule freeze + data model)
+> **สถานะ:** กติกาธุรกิจได้รับการยืนยันครบแล้ว · ยังไม่เริ่มพัฒนา
+> **Timezone อ้างอิง:** Asia/Bangkok (การคำนวณ "วัน", slot, วันหยุด ทั้งหมดใช้เขตเวลานี้)
 
-## 1. เทคโนโลยีที่ใช้ (Technology Stack)
+---
 
-- **Frontend และ API:** Next.js
-- **Database และ Backend Services:** Supabase
-  - PostgreSQL สำหรับจัดเก็บข้อมูล
-  - Supabase Auth สำหรับการยืนยันตัวตน
-  - Supabase REST API สำหรับการเข้าถึงข้อมูล
+## 1. ภาพรวมและขอบเขต
 
-## 2. การจัดการสิทธิ์และการเข้าสู่ระบบ (Authentication & Roles)
+ระบบสำหรับจองห้องทำงานภายในมหาวิทยาลัย ผู้ใช้ยืนยันตัวตนด้วยบัญชีอีเมลมหาวิทยาลัย (`@ku.th`) เท่านั้น
+ระบบรองรับการจองเป็นช่วงบล็อกละ 1 ชั่วโมง การรับ–คืนกุญแจ การบล็อกห้อง/วันหยุด และการตรวจสอบย้อนหลัง
 
-### 2.1 การเข้าสู่ระบบ
+---
 
-- ระบบต้องอนุญาตให้เข้าสู่ระบบผ่าน OAuth โดยใช้บัญชีอีเมลของมหาวิทยาลัยที่ลงท้ายด้วย `@ku.th` เท่านั้น
-- ระบบต้องตรวจสอบบัญชีที่เข้าสู่ระบบให้เป็นไปตามเงื่อนไขดังกล่าวก่อนอนุญาตให้ใช้งาน
+## 2. เทคโนโลยีที่ใช้ (Technology Stack)
 
-### 2.2 บทบาทและสิทธิ์การใช้งาน
+- **Frontend / API:** Next.js (App Router) + TypeScript
+- **Database:** PostgreSQL (Supabase) — เข้าถึงผ่าน **Drizzle ORM แบบ server-only** (server component / server action)
+  - ตรวจเงื่อนไขทางธุรกิจทั้งหมดฝั่ง server
+  - **ไม่เปิด RLS** ให้ client เข้าถึงตารางโดยตรง
+- **Authentication:** Supabase Auth (OAuth) จำกัดโดเมน `@ku.th`
+- **อีเมล:** Resend (ส่งผ่านคิว `notification_outbox`)
+- **ตัวจัดตารางงาน:** `pg_cron` (ตั้งสถานะ `NO_SHOW`, ยิงส่งอีเมลจากคิว)
+- **ไดรเวอร์/UUID:** ใช้ `gen_random_uuid()` (built-in) แทน `uuid_generate_v4()`
 
-ระบบแบ่งบทบาทผู้ใช้งานออกเป็น 2 ระดับ ได้แก่
+---
 
-- **`user`:** ผู้ใช้ทั่วไป สามารถใช้งานฟังก์ชันการจองห้องตามสิทธิ์ที่ระบบกำหนด
-- **`admin`:** ผู้ดูแลระบบ สามารถจัดการข้อมูลห้อง ประเภทห้อง การบล็อกห้อง และดำเนินการเกี่ยวกับการรับ–คืนกุญแจ รวมถึงจัดการสิทธิ์ผู้ใช้ตามขอบเขตที่กำหนด
+## 3. การเข้าสู่ระบบและบทบาทผู้ใช้
 
-### 2.3 การจัดการบัญชีผู้ใช้
+### 3.1 การเข้าสู่ระบบ
+- เข้าสู่ระบบผ่าน OAuth และ **อนุญาตเฉพาะอีเมลที่ลงท้ายด้วย `@ku.th`**
+- บังคับเงื่อนไข **2 ชั้น**:
+  1. ส่งค่า `hd=ku.th` ไปกับ OAuth (Google Workspace domain hint)
+  2. ตรวจ suffix ของอีเมลที่ server อีกครั้ง **ก่อน** upsert เข้าตาราง `users` — ถ้าไม่ใช่ ให้ปฏิเสธ
 
-- ระบบต้องไม่อนุญาตให้ลบข้อมูลผู้ใช้ออกจากฐานข้อมูลโดยเด็ดขาด เพื่อรักษาความถูกต้องและความเชื่อมโยงของประวัติการจอง
-- ผู้ดูแลระบบคนแรกต้องได้รับสิทธิ์ `admin` ผ่านการกำหนดข้อมูลในฐานข้อมูลโดยตรง (Database Seeding)
-- ผู้ดูแลระบบสามารถเปลี่ยนบทบาทของผู้ใช้คนอื่นจาก `user` เป็น `admin` ได้
-- ระบบต้องเก็บข้อมูลผู้ใช้ไว้ แม้ผู้ใช้จะไม่สามารถเข้าใช้งานระบบแล้วก็ตาม เพื่อรักษาประวัติที่เกี่ยวข้องกับข้อมูลการจอง
-
-## 3. กฎและเงื่อนไขการจอง (Business Logic & Booking Rules)
-
-### 3.1 เวลาให้บริการ
-
-- ระบบอนุญาตให้จองห้องได้เฉพาะช่วงเวลา **09:00–19:00 น.** เท่านั้น
-- เวลาเริ่มต้นและเวลาสิ้นสุดของการจองต้องอยู่ภายในช่วงเวลาให้บริการ
-
-### 3.2 ระยะเวลาและโควต้าการจอง
-
-- การจองหนึ่งรายการต้องมีระยะเวลาอย่างน้อย **1 ชั่วโมง** และไม่เกิน **2 ชั่วโมง**
-- ผู้ใช้แต่ละคนจองได้รวมสูงสุด **120 นาที (2 ชั่วโมง) ต่อวัน**
-- ผู้ใช้สามารถใช้โควต้ารายวันได้ทั้งรูปแบบต่อไปนี้
-  - จองครั้งเดียวต่อเนื่อง 2 ชั่วโมง
-  - จอง 1 ชั่วโมง จำนวน 2 ครั้ง โดยเป็นคนละช่วงเวลาและอาจเป็นคนละห้อง
-- ระบบต้องตรวจสอบโควต้ารายวันก่อนยืนยันการจองทุกครั้ง
-
-### 3.3 การป้องกันการจองซ้ำซ้อน (Conflict Prevention)
-
-- ผู้ใช้ไม่สามารถจองห้องที่มีการจองซึ่งทับซ้อนกับช่วงเวลาที่ต้องการได้
-- ผู้ใช้ไม่สามารถจองห้องในช่วงเวลาที่ห้องถูกผู้ดูแลระบบบล็อกไว้ใน `room_block` ได้
-- ผู้ใช้หนึ่งคนไม่สามารถมีการจองหลายรายการที่มีช่วงเวลาทับซ้อนกันได้ แม้จะเป็นคนละห้องก็ตาม
-- หากผู้ใช้ต้องการเปลี่ยนห้องหรือเวลา ต้องยกเลิกการจองเดิมก่อน แล้วจึงทำรายการจองใหม่
-- ระบบต้องตรวจสอบความขัดแย้งของเวลา โควต้ารายวัน และสถานะของห้องก่อนบันทึกการจอง เพื่อป้องกันข้อมูลการจองที่ไม่ถูกต้อง
-
-## 4. ระบบรับ–คืนกุญแจและการจัดการสถานะ (Key & Status Management)
-
-### 4.1 สถานะการจอง
-
-ระบบต้องรองรับสถานะการจองดังต่อไปนี้
-
-| สถานะ | ความหมาย |
+### 3.2 บทบาท (Roles)
+| บทบาท | สิทธิ์ |
 |---|---|
-| `PENDING` | มีการจองแล้ว และยังไม่ได้รับกุญแจ |
-| `ACTIVE` | ผู้ใช้รับกุญแจและกำลังใช้งานห้อง |
-| `COMPLETED` | ผู้ใช้คืนกุญแจเรียบร้อยแล้วภายในเวลาที่กำหนด |
-| `LATE_RETURN` | ผู้ใช้คืนกุญแจล่าช้ากว่าเวลาที่กำหนด |
-| `CANCELLED` | การจองถูกยกเลิก |
-| `NO_SHOW` | ผู้ใช้ไม่มารับกุญแจภายในเวลาที่กำหนด |
+| `user` | จองห้อง และดูประวัติการจองของตนเอง |
+| `admin` | แก้ไขเวลาเปิด–ปิด (ช่วงสอบ), จัดการห้อง/ประเภทห้อง/รายละเอียดห้อง, ดูตารางการจอง, ยกเลิกการจอง, บล็อกห้อง, จัดการรับ–คืนกุญแจ, เปลี่ยน role ผู้ใช้, บล็อกผู้ใช้, และ **จองห้องได้เหมือน user** |
 
-### 4.2 รหัสการจอง (Booking Code)
+### 3.3 การจัดการบัญชีผู้ใช้
+- **ห้ามลบผู้ใช้** ออกจากฐานข้อมูลโดยเด็ดขาด เพื่อรักษาความเชื่อมโยงของประวัติการจอง
+- ผู้ใช้ที่ถูกบล็อกจะยังอยู่ในฐานข้อมูล แต่เข้าสู่ระบบ/ใช้งานไม่ได้ — บันทึก `is_blocked`, `blocked_at`, `blocked_by`
+- **แอดมินคนแรก** เกิดจากการเพิ่มข้อมูลโดยตรงผ่าน DB (seed) หลังจากนั้นแอดมินเป็นผู้เปลี่ยน role ให้เอง
+- การเปลี่ยน role และการบล็อกผู้ใช้ทุกครั้งต้องบันทึกใน `audit_log`
 
-- ระบบต้องสร้าง `booking_code` ซึ่งเป็นรหัสตัวเลขจำนวน **6 หลัก** ให้โดยอัตโนมัติเมื่อมีการจอง
-- รหัสการจองใช้สำหรับค้นหาและยืนยันรายการจอง ณ จุดรับ–คืนกุญแจ
-- ระบบต้องตรวจสอบให้แน่ใจว่ารหัสการจองสามารถอ้างอิงรายการจองที่ถูกต้องได้ และไม่ก่อให้เกิดความสับสนระหว่างรายการจอง
+---
 
-### 4.3 ขั้นตอนการรับกุญแจ
+## 4. ประเภทห้องและกติกาต่อประเภท
 
-1. ผู้ใช้ติดต่อเคาน์เตอร์และแจ้งหรือแสดง `booking_code`
-2. ผู้ดูแลระบบค้นหารายการจองด้วย `booking_code`
-3. ผู้ดูแลระบบตรวจสอบข้อมูลการจองและยืนยันการจ่ายกุญแจในระบบ
-4. เมื่อยืนยันการจ่ายกุญแจ ระบบต้องดำเนินการดังนี้
-   - บันทึกวันและเวลาที่จ่ายกุญแจใน `entered_at`
-   - บันทึก ID ของผู้ดูแลระบบที่จ่ายกุญแจใน `key_entered_by`
-   - เปลี่ยนสถานะการจองเป็น `ACTIVE`
+ระบบมี 3 ประเภทห้อง:
 
-### 4.4 ขั้นตอนการคืนกุญแจ
+| ประเภท | รหัส | ความหมาย | โหมดการจอง | ระยะเวลาขั้นต่ำ |
+|---|---|---|---|---|
+| ห้องทั่วไป | `S` | ห้องนั่งทำงาน/อ่านหนังสือ | `CAPACITY` (จองทับกันได้จนครบความจุ) | 1 ชั่วโมง (1 บล็อก) |
+| ห้องประชุมใหญ่ | `G` | ห้องประชุมขนาดใหญ่ | `EXCLUSIVE` (ห้ามจองทับ) | 2 ชั่วโมง (2 บล็อก) |
+| ห้องละหมาด | `P` | ห้องละหมาด | `EXCLUSIVE` (ห้ามจองทับ) | 1 ชั่วโมง (1 บล็อก) |
 
-1. เมื่อผู้ใช้คืนกุญแจ ผู้ดูแลระบบค้นหารายการจองและยืนยันการรับคืนในระบบ
-2. ระบบต้องบันทึกวันและเวลาที่คืนกุญแจใน `returned_at`
-3. ระบบต้องบันทึก ID ของผู้ดูแลระบบที่รับคืนใน `key_returned_by`
-4. ระบบต้องเปลี่ยนสถานะการจองตามเวลาที่คืนกุญแจ ดังนี้
-   - `COMPLETED` เมื่อคืนกุญแจภายในเวลาที่กำหนด
-   - `LATE_RETURN` เมื่อคืนกุญแจหลังเวลาที่กำหนด
+**กติกาเพิ่มเติม**
+- **ไม่จำกัดจำนวนครั้ง** ต่อผู้ใช้ และ **ไม่มีโควต้าต่อวัน**
+- **ไม่มีเพดานความยาวต่อหนึ่งการจอง** — ผู้ใช้เลือกได้กี่บล็อกก็ได้ (ตามข้อ 6.1)
+- กติกาประเภทห้องถูกจัดเก็บเป็นข้อมูล (คอลัมน์บน `room_type`) ไม่ hardcode ในโค้ด เพื่อให้แอดมินดูแลได้
 
-### 4.5 การจัดการกรณีไม่มารับกุญแจ (No-Show)
+---
 
-- หากผู้ใช้ไม่มารับกุญแจภายในเวลาที่กำหนด ผู้ดูแลระบบสามารถดำเนินการเปลี่ยนสถานะรายการจองเป็น `NO_SHOW` ได้
-- ระบบต้องบันทึกการเปลี่ยนสถานะดังกล่าวให้สัมพันธ์กับรายการจองที่ถูกต้อง
+## 5. เวลาให้บริการ
 
-### 4.6 การแก้ไขสถานะโดยผู้ดูแลระบบ (Manual Override)
+### 5.1 ช่วงเวลาเปิด–ปิด
+- **วันปกติ (NORMAL):** จันทร์–ศุกร์ 08:30–16:30
+- **ช่วงสอบ (EXAM):** จันทร์–ศุกร์ 08:30–20:30
+- **ปิด:** วันเสาร์–อาทิตย์ (คำนวณในโค้ด) และวันหยุดนักขัตฤกษ์ (ตาราง `holiday`)
 
-- ผู้ดูแลระบบต้องสามารถแก้ไขสถานะการจองด้วยตนเองได้เมื่อเกิดข้อผิดพลาดจากการดำเนินงานหรือการบันทึกข้อมูล
-- ทุกครั้งที่มีการแก้ไขสถานะ ผู้ดูแลระบบต้องบันทึกผู้ดำเนินการในฟิลด์ที่เกี่ยวข้อง ได้แก่
-  - `key_entered_by` สำหรับการแก้ไขที่เกี่ยวข้องกับการจ่ายกุญแจ
-  - `key_returned_by` สำหรับการแก้ไขที่เกี่ยวข้องกับการรับคืนกุญแจ
-- ข้อมูลผู้ดำเนินการต้องใช้เป็นหลักฐานตรวจสอบย้อนหลัง (Audit Trail)
+> **หมายเหตุการปรับจากที.โอ.อาร์.เดิม:** เวลาเปิด–ปิดเป็น **ระดับระบบ (global)** ผ่านตาราง `service_period` ไม่ใช่รายห้อง
+> เพื่อให้แอดมินแก้ช่วงสอบได้โดยไม่แตะโค้ด และลดความซับซ้อน หากต้องการ override รายห้องในอนาคตสามารถเพิ่มได้ภายหลัง
 
-## 5. การจัดการข้อมูลห้อง (Room Management)
+### 5.2 การเลือกช่วงเวลาที่มีผล
+- วันใดอยู่ในช่วง `EXAM` ใด ๆ (ที่ยังไม่ถูกลบ) ให้ใช้เวลาของ `EXAM` ที่สร้างล่าสุด มิฉะนั้นใช้ `NORMAL`
+- ช่วง `NORMAL` ห้ามทับกันเอง และช่วง `EXAM` ห้ามทับกันเอง (บังคับด้วย exclusion constraint) แต่ `EXAM` ทับช่วง `NORMAL` ได้
 
-### 5.1 ประเภทห้อง (`room_type`)
+### 5.3 Slot
+- ระบบแบ่งช่วงการจองเป็น **บล็อกละ 1 ชั่วโมง** โดยเริ่มจากเวลาเปิดของวันนั้น
+  - ตัวอย่าง (เปิด 08:30): `08:30–09:30`, `09:30–10:30`, … , `15:30–16:30` (หรือ `19:30–20:30` ในช่วงสอบ)
+- ผู้ใช้ **เลือกเป็นบล็อกเท่านั้น ห้ามพิมพ์เวลาเอง**
 
-- ชื่อประเภทห้องต้องไม่ซ้ำกัน
-- ระบบต้องรองรับการลบแบบ Soft Delete โดยใช้ฟิลด์ `deleted_at`
-- ก่อนลบประเภทห้อง ระบบต้องตรวจสอบว่ามีห้องที่ยังใช้งานอยู่ผูกกับประเภทห้องนั้นหรือไม่
-- หากยังมีห้องที่ใช้งานอยู่ผูกกับประเภทห้องดังกล่าว ระบบต้องไม่อนุญาตให้ลบประเภทห้องนั้น
+---
 
-### 5.2 ห้อง (`rooms`)
+## 6. กติกาการจอง
 
-- ชื่อห้องต้องไม่ซ้ำกันในกลุ่มห้องที่ยังใช้งานอยู่
-- ระบบต้องรองรับการลบแบบ Soft Delete โดยใช้ฟิลด์ `deleted_at`
-- ห้องที่ถูกลบแล้วต้องไม่สามารถนำไปจองได้อีก
-- เมื่อห้องถูก Soft Delete แล้ว ระบบต้องอนุญาตให้สร้างห้องใหม่โดยใช้ชื่อเดิมได้ โดยใช้ข้อกำหนด Unique แบบมีเงื่อนไข (Partial Unique) เฉพาะรายการที่ยังไม่ถูกลบ
+### 6.1 การเลือกบล็อกและการรวม record
+- ผู้ใช้เลือกได้กี่บล็อกก็ได้ (ตามขั้นต่ำของประเภทห้อง) โดยเลือกเป็นบล็อกทีละ 1 ชั่วโมง
+- **บล็อกติดกัน → รวมเป็น 1 record** (เช่นเลือก `08:30–09:30` และ `09:30–10:30` → เก็บเป็น `08:30–10:30`)
+- **บล็อกที่มีช่องว่าง → แยก record** (เช่น `08:30–09:30` และ `10:30–11:30` → 2 record → ต้องยืนยันกับเจ้าหน้าที่ 2 ครั้ง)
+- ระบบต้องตรวจว่าบล็อกที่เลือกติดกันจริงก่อนตัดสินใจรวม record
 
-### 5.3 การบล็อกห้อง (`room_block`)
+### 6.2 การป้องกันการจองซ้ำซ้อน (Conflict Prevention)
+สถานะที่ **ครองช่วงเวลา** (นับเป็นผู้ใช้ห้อง): `PENDING`, `ACTIVE`
+สถานะที่ **ไม่ครอง** (ปล่อยห้อง): `COMPLETED`, `LATE_RETURN`, `CANCELLED`, `NO_SHOW`
 
-- ผู้ดูแลระบบต้องสามารถกำหนดช่วงเวลาบล็อกห้องเพื่อปิดปรับปรุงหรือด้วยเหตุผลอื่นได้
-- ผู้ดูแลระบบต้องสามารถระบุห้อง ช่วงเวลา และเหตุผลในการบล็อกได้
-- ผู้ใช้ต้องไม่สามารถจองห้องที่มีช่วงเวลาทับซ้อนกับรายการบล็อกห้องได้
-- ระบบต้องตรวจสอบรายการบล็อกห้องทุกครั้งก่อนยืนยันการจอง
+- **ห้อง G และ P (`EXCLUSIVE`):** ห้ามมีรายการจองที่ช่วงเวลาทับซ้อนกันในห้องเดียวกัน (บังคับด้วย exclusion constraint ระดับ DB)
+- **ห้อง S (`CAPACITY`):** จองทับกันได้ แต่ **จำนวนรายการที่ครองช่วงเวลาซ้อนกัน ต้องไม่เกินความจุ (`max_capacity`) ของห้องนั้น** — ตรวจด้วยการล็อกต่อห้อง (advisory lock) แล้วนับจำนวนก่อนบันทึก
+- **ผู้ใช้คนเดียวห้ามมีการจองที่ทับซ้อนกันเอง** (ทุกประเภทห้อง) — เช่น ผู้ใช้คนเดียวไม่สามารถจองห้องมากกว่า 1 ห้องในช่วงเวลาเดียวกัน
+- ต้องตรวจ **เวลาเปิด–ปิด, วันหยุด, การบล็อกห้อง, ระยะเวลาขั้นต่ำ และขอบเขต slot** ก่อนยืนยันการจองทุกครั้ง
 
-## 6. ข้อกำหนดด้านความถูกต้องของข้อมูลและการตรวจสอบย้อนหลัง
+### 6.3 รหัสการจอง (Booking Code)
+- เมื่อจองสำเร็จ ระบบสุ่ม **รหัสตัวเลข 6 หลัก**
+- **ห้ามซ้ำเฉพาะการจองในวันเดียวกัน** (ไม่ใช่ห้ามซ้ำตลอดกาล) — ถ้าซ้ำให้สุ่มใหม่
+- ระบบส่งรหัสไปยังอีเมลผู้ใช้ เพื่อให้ผู้ใช้ยืนยันกับเจ้าหน้าที่ ณ จุดรับกุญแจ
+- การค้นหารายการที่เคาน์เตอร์ให้ **จำกัดขอบเขตที่วันปัจจุบัน** (รับกุญแจในวันที่มีการจอง)
 
-- ระบบต้องรักษาความเชื่อมโยงระหว่างผู้ใช้ รายการจอง ห้อง ประเภทห้อง และผู้ดูแลระบบที่ดำเนินการรับ–คืนกุญแจ
-- ระบบต้องไม่ลบข้อมูลผู้ใช้โดยถาวร และต้องใช้ Soft Delete กับประเภทห้องและห้องตามข้อกำหนดที่ระบุไว้
-- การดำเนินการที่เปลี่ยนสถานะการจองต้องบันทึกข้อมูลให้สัมพันธ์กับรายการจองและผู้ดำเนินการที่ถูกต้อง
-- การตรวจสอบโควต้าการจอง การจองซ้ำซ้อน และการบล็อกห้องต้องดำเนินการก่อนยืนยันรายการจอง
+### 6.4 การยกเลิกและการแก้ไข
+- **ผู้ใช้:** ยกเลิกการจองของตนเองได้เฉพาะสถานะ `PENDING` และต้องทำก่อนเวลาเริ่ม (`start_time`) — เมื่อเป็น `ACTIVE` แล้วยกเลิกไม่ได้ ต้องคืนกุญแจก่อน
+- **แอดมิน:** ยกเลิกการจองได้เสมอ พร้อมระบุเหตุผล (`canceled_at`, `canceled_by`, `canceled_reason`)
+- **การแก้ไขเวลา/ห้อง:** ไม่อนุญาตให้แก้ไขตรง ๆ — ต้อง **ยกเลิกการจองเดิมแล้วจองใหม่** เพื่อให้ record เป็น immutable และตรวจสอบย้อนหลังได้ตรงไปตรงมา
 
-## 7. ประเด็นที่ต้องกำหนดให้ชัดเจนก่อนเริ่มพัฒนา
+---
 
-เพื่อให้การทำงานของระบบเป็นไปตามข้อกำหนดเดียวกัน ต้องตกลงรายละเอียดต่อไปนี้ก่อนนำไปพัฒนา
+## 7. สถานะการจองและวงจรชีวิต
 
-- ระยะเวลาผ่อนผันก่อนผู้ดูแลระบบสามารถกำหนดสถานะ `NO_SHOW`
-- หลักเกณฑ์การคำนวณเวลาคืนกุญแจล่าช้าและเงื่อนไขการเปลี่ยนเป็น `LATE_RETURN`
-- ผู้ใช้สามารถยกเลิกการจองได้ถึงเวลาใด และมีข้อจำกัดการยกเลิกหรือไม่
-- รูปแบบการจัดการ `booking_code` กรณีรหัสซ้ำ และการป้องกันการนำรหัสไปใช้ผิดรายการ
-- ขอบเขตของการแก้ไขสถานะโดยผู้ดูแลระบบ รวมถึงข้อมูลที่ต้องบันทึกเพื่อให้ตรวจสอบย้อนหลังได้ครบถ้วน
+| สถานะ | ความหมาย | ครองช่วงเวลา |
+|---|---|---|
+| `PENDING` | จองแล้ว รอผู้ใช้มารับกุญแจ/ยืนยันกับเจ้าหน้าที่ | ✅ |
+| `ACTIVE` | ผู้ใช้รับกุญแจและกำลังใช้งาน | ✅ |
+| `COMPLETED` | คืนกุญแจภายในเวลาที่กำหนด | ❌ |
+| `LATE_RETURN` | คืนกุญแจช้ากว่ากำหนด | ❌ |
+| `CANCELLED` | การจองถูกยกเลิก | ❌ |
+| `NO_SHOW` | ผู้ใช้ไม่มารับกุญแจภายในเวลาที่กำหนด (30 นาที) | ❌ |
+
+**การเปลี่ยนสถานะ**
+- เริ่มต้นที่ `PENDING` อัตโนมัติเมื่อจองสำเร็จ
+- แอดมินยืนยันการรับกุญแจ → `ACTIVE`
+- แอดมินยืนยันการคืนกุญแจ → ถ้า `returned_at > end_time` เป็น `LATE_RETURN` มิฉะนั้นเป็น `COMPLETED` (ไม่ auto-complete)
+- **`NO_SHOW` อัตโนมัติ:** ถ้ายังเป็น `PENDING` และเวลาผ่านไปเกิน `start_time + 30 นาที` ให้ `pg_cron` ตั้งสถานะเป็น `NO_SHOW`
+- **แอดมินสามารถ override สถานะได้เสมอ** เมื่อเกิดข้อผิดพลาด และทุกการ override ต้องบันทึก `audit_log`
+
+---
+
+## 8. การรับ–คืนกุญแจ
+
+- ผู้ใช้ต้องแจ้ง **รหัส 6 หลัก** ให้เจ้าหน้าที่เพื่อเข้าใช้งาน
+- เมื่อแอดมินกดยืนยันการรับห้อง ระบบบันทึก:
+  - `key_entered_by` = ไอดีแอดมินผู้ยืนยัน
+  - `key_entered_at` = วันเวลาที่รับกุญแจ
+- เมื่อผู้ใช้ใช้งานเสร็จและมาแจ้งคืน ระบบบันทึก:
+  - `key_returned_by` = ไอดีแอดมินผู้ยืนยันการคืน
+  - `key_returned_at` = วันเวลาที่คืน
+
+---
+
+## 9. การบล็อกห้องและวันหยุด
+
+- **วันหยุดนักขัตฤกษ์ (`holiday`):** ปิดทั้งระบบ — แอดมินเพิ่ม/ลบได้
+- **การบล็อกเฉพาะห้อง (`room_block`):** แอดมินกำหนดห้อง + ช่วงเวลา + เหตุผล เพื่อปิดปรับปรุงหรือเหตุอื่น
+- ระบบห้ามจองห้องที่ช่วงเวลาทับซ้อนกับ `room_block` และต้องตรวจทุกครั้งก่อนยืนยันการจอง
+- ห้ามมีรายการบล็อกที่ทับซ้อนกันในห้องเดียวกัน
+
+---
+
+## 10. การจัดการข้อมูลห้อง
+
+- **Soft delete + Restore:** ใช้กับ `rooms`, `room_type`, `room_block`, `holiday`, `service_period`
+  - ลบ = ตั้ง `deleted_at` / `deleted_by` (ไม่ลบจริง)
+  - กู้คืน = ล้างค่า soft delete — การลบและการกู้คืนต้องบันทึกใน `audit_log`
+- ห้อง/ประเภทห้องที่ถูกลบต้องไม่ถูกนำไปจอง
+- **ชื่อห้อง / ชื่อประเภทห้อง / รหัสประเภทห้อง ห้ามซ้ำเฉพาะรายการที่ยังไม่ถูกลบ** (partial unique index) — ลบแล้วสร้างชื่อเดิมใหม่ได้
+- การจองไม่ถูกลบ (ใช้สถานะ `CANCELLED` แทน) และผู้ใช้ไม่ถูกลบ
+
+---
+
+## 11. การแจ้งเตือน
+
+- ใช้ตาราง `notification_outbox` เป็นคิว
+- เมื่อจองสำเร็จ → สร้างรายการในคิวเพื่อส่งรหัสการจองทางอีเมล (Resend)
+- รองรับ `status` (`PENDING`/`SENT`/`FAILED`), `attempts`, `next_attempt_at`, `last_error`, `sent_at`
+- `pg_cron` เป็นตัวหยิบรายการในคิวไปส่งและ retry
+
+---
+
+## 12. การตรวจสอบย้อนหลัง (Audit Trail)
+
+ทุกเหตุการณ์สำคัญต้องบันทึกใน `audit_log` (`actor_id`, `action`, `entity`, `entity_id`, `before`, `after`, `reason`, `created_at`)
+
+เหตุการณ์ที่ต้องบันทึกอย่างน้อย:
+- เปลี่ยน role ผู้ใช้, บล็อก/ปลดบล็อกผู้ใช้
+- override สถานะการจอง, ยกเลิกการจอง
+- สร้าง/แก้ไข/ลบ/กู้คืน: ห้อง, ประเภทห้อง, การบล็อกห้อง, วันหยุด, ช่วงเวลาให้บริการ
+
+---
+
+## 13. ข้อกำหนดเชิงคุณภาพ (Non-functional)
+
+- **ความถูกต้องภายใต้การทำงานพร้อมกัน:** การป้องกันจองซ้ำของห้อง `EXCLUSIVE` บังคับที่ระดับ DB (exclusion constraint) และการนับความจุของห้อง `CAPACITY` ใช้การล็อกต่อห้อง เพื่อกัน race condition
+- **ความปลอดภัย:** เข้าถึง DB จาก server เท่านั้น (ไม่เปิด RLS ให้ client), จำกัดโดเมนอีเมล 2 ชั้น
+- **ความถูกต้องของเวลา:** ขอบวัน/slot/วันหยุด คำนวณที่ Asia/Bangkok เท่านั้น ไม่พึ่ง timezone ของ server
+
+---
+
+## ภาคผนวก A — การออกแบบฐานข้อมูล (PostgreSQL)
+
+### A.0 Extensions
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;   -- รองรับ EXCLUDE ... USING gist บน uuid/varchar
+-- ใช้ gen_random_uuid() (built-in PostgreSQL 13+) แทน uuid_generate_v4()
+```
+
+### A.1 Enums
+```sql
+CREATE TYPE user_role           AS ENUM ('user','admin');
+CREATE TYPE reservation_status  AS ENUM ('PENDING','ACTIVE','COMPLETED','LATE_RETURN','CANCELLED','NO_SHOW');
+CREATE TYPE booking_mode        AS ENUM ('EXCLUSIVE','CAPACITY');
+CREATE TYPE service_period_kind AS ENUM ('NORMAL','EXAM');
+CREATE TYPE outbox_status       AS ENUM ('PENDING','SENT','FAILED');
+```
+
+### A.2 users
+```sql
+CREATE TABLE users (
+  id            varchar(255) PRIMARY KEY,            -- = Supabase auth uid
+  email         varchar(255) NOT NULL UNIQUE,
+  full_name     varchar(255),
+  image_url     varchar(255),
+  role          user_role    NOT NULL DEFAULT 'user',
+  is_blocked    boolean      NOT NULL DEFAULT false,
+  blocked_at    timestamptz,
+  blocked_by    varchar(255) REFERENCES users(id),
+  last_login_at timestamptz,
+  created_at    timestamptz  NOT NULL DEFAULT now(),
+  CONSTRAINT users_email_ku CHECK (lower(email) LIKE '%@ku.th')
+);
+```
+
+### A.3 room_type
+```sql
+CREATE TABLE room_type (
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code                 varchar(1) NOT NULL,          -- S / G / P
+  type_name            varchar(100) NOT NULL,
+  booking_mode         booking_mode NOT NULL,
+  min_duration_minutes integer NOT NULL DEFAULT 60 CHECK (min_duration_minutes > 0),
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  deleted_at           timestamptz,
+  deleted_by           varchar(255) REFERENCES users(id)
+);
+CREATE UNIQUE INDEX room_type_code_unique ON room_type (code)      WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX room_type_name_unique ON room_type (type_name) WHERE deleted_at IS NULL;
+```
+
+### A.4 rooms
+```sql
+CREATE TABLE rooms (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_type_id uuid NOT NULL REFERENCES room_type(id),
+  name         varchar(100) NOT NULL,
+  max_capacity integer CHECK (max_capacity IS NULL OR max_capacity > 0),  -- บังคับเมื่อ booking_mode = CAPACITY (ตรวจฝั่ง app)
+  facilities   text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  deleted_at   timestamptz,
+  deleted_by   varchar(255) REFERENCES users(id)
+);
+CREATE UNIQUE INDEX rooms_name_unique ON rooms (name) WHERE deleted_at IS NULL;
+```
+
+### A.5 reservation
+```sql
+CREATE TABLE reservation (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         varchar(255) NOT NULL REFERENCES users(id),
+  room_id         uuid NOT NULL REFERENCES rooms(id),
+  booking_mode    booking_mode NOT NULL,   -- denormalized จาก room_type (trigger เซ็ต)
+  booking_date    date NOT NULL,           -- (start_time AT TIME ZONE 'Asia/Bangkok')::date (trigger เซ็ต)
+  booking_code    varchar(6) NOT NULL,
+  start_time      timestamptz NOT NULL,
+  end_time        timestamptz NOT NULL,
+  status          reservation_status NOT NULL DEFAULT 'PENDING',
+  key_entered_at  timestamptz,
+  key_entered_by  varchar(255) REFERENCES users(id),
+  key_returned_at timestamptz,
+  key_returned_by varchar(255) REFERENCES users(id),
+  canceled_at     timestamptz,
+  canceled_by     varchar(255) REFERENCES users(id),
+  canceled_reason text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT reservation_time_validity CHECK (end_time > start_time),
+  CONSTRAINT reservation_code_digits   CHECK (booking_code ~ '^[0-9]{6}$'),
+
+  -- G/P: ห้ามจองทับในห้องเดียวกัน (เฉพาะสถานะที่ครองช่วง)
+  CONSTRAINT reservation_room_exclusive EXCLUDE USING gist (
+      room_id WITH =,
+      tstzrange(start_time, end_time, '[)') WITH &&
+  ) WHERE (booking_mode = 'EXCLUSIVE' AND status IN ('PENDING','ACTIVE')),
+
+  -- ผู้ใช้คนเดียวห้ามจองทับตัวเอง (ทุกประเภท)
+  CONSTRAINT reservation_user_no_overlap EXCLUDE USING gist (
+      user_id WITH =,
+      tstzrange(start_time, end_time, '[)') WITH &&
+  ) WHERE (status IN ('PENDING','ACTIVE'))
+);
+
+-- รหัส 6 หลัก: ซ้ำได้ข้ามวัน แต่ห้ามซ้ำในวันเดียวกัน
+CREATE UNIQUE INDEX reservation_code_per_day ON reservation (booking_code, booking_date);
+
+CREATE INDEX reservation_room_range_idx   ON reservation USING gist (room_id, tstzrange(start_time, end_time, '[)'));
+CREATE INDEX reservation_user_time_idx    ON reservation (user_id, start_time);
+CREATE INDEX reservation_status_start_idx ON reservation (status, start_time);   -- ให้ pg_cron หา NO_SHOW
+CREATE INDEX reservation_booking_date_idx ON reservation (booking_date);
+```
+
+**Trigger เซ็ตค่าที่ derive ได้ (กัน spoof + เลี่ยงข้อจำกัด IMMUTABLE ของ `AT TIME ZONE`)**
+```sql
+CREATE OR REPLACE FUNCTION reservation_set_derived() RETURNS trigger AS $$
+BEGIN
+  SELECT rt.booking_mode INTO NEW.booking_mode
+  FROM rooms r JOIN room_type rt ON rt.id = r.room_type_id
+  WHERE r.id = NEW.room_id;
+
+  NEW.booking_date := (NEW.start_time AT TIME ZONE 'Asia/Bangkok')::date;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER reservation_set_derived
+BEFORE INSERT OR UPDATE OF room_id, start_time ON reservation
+FOR EACH ROW EXECUTE FUNCTION reservation_set_derived();
+```
+
+**การจองห้อง S (CAPACITY) — ล็อกแล้วนับก่อน insert**
+```sql
+SELECT pg_advisory_xact_lock(hashtextextended($room_id::text, 0));
+
+SELECT count(*) FROM reservation
+ WHERE room_id = $room_id
+   AND status IN ('PENDING','ACTIVE')
+   AND tstzrange(start_time, end_time, '[)') && tstzrange($start, $end, '[)');
+-- ถ้า count < rooms.max_capacity จึง insert (ห้อง EXCLUSIVE ปล่อยให้ exclusion constraint กันเอง)
+```
+
+### A.6 service_period
+```sql
+CREATE TABLE service_period (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name           varchar(100) NOT NULL,
+  kind           service_period_kind NOT NULL,
+  open_time      time NOT NULL,
+  close_time     time NOT NULL,
+  effective_from date NOT NULL,
+  effective_to   date,                      -- NULL = เปิดต่อไปเรื่อย ๆ
+  created_by     varchar(255) NOT NULL REFERENCES users(id),
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  deleted_at     timestamptz,
+  deleted_by     varchar(255) REFERENCES users(id),
+  CONSTRAINT service_period_time_validity  CHECK (close_time > open_time),
+  CONSTRAINT service_period_range_validity CHECK (effective_to IS NULL OR effective_to >= effective_from),
+  -- NORMAL ห้ามทับ NORMAL, EXAM ห้ามทับ EXAM แต่ EXAM ทับ NORMAL ได้
+  CONSTRAINT service_period_no_overlap EXCLUDE USING gist (
+      (kind::text) WITH =,
+      daterange(effective_from, COALESCE(effective_to, 'infinity'::date), '[]') WITH &&
+  ) WHERE (deleted_at IS NULL)
+);
+```
+
+### A.7 holiday
+```sql
+CREATE TABLE holiday (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  holiday_date date NOT NULL,
+  name         varchar(200) NOT NULL,
+  note         text,
+  created_by   varchar(255) NOT NULL REFERENCES users(id),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  deleted_at   timestamptz,
+  deleted_by   varchar(255) REFERENCES users(id)
+);
+CREATE UNIQUE INDEX holiday_date_unique ON holiday (holiday_date) WHERE deleted_at IS NULL;
+```
+
+### A.8 room_block
+```sql
+CREATE TABLE room_block (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id    uuid NOT NULL REFERENCES rooms(id),
+  start_time timestamptz NOT NULL,
+  end_time   timestamptz NOT NULL,
+  reason     text NOT NULL,
+  created_by varchar(255) NOT NULL REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz,
+  deleted_by varchar(255) REFERENCES users(id),
+  CONSTRAINT room_block_time_validity CHECK (end_time > start_time),
+  CONSTRAINT room_block_no_overlap EXCLUDE USING gist (
+      room_id WITH =,
+      tstzrange(start_time, end_time, '[)') WITH &&
+  ) WHERE (deleted_at IS NULL)
+);
+```
+
+### A.9 notification_outbox
+```sql
+CREATE TABLE notification_outbox (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reservation_id  uuid REFERENCES reservation(id),
+  type            varchar(50) NOT NULL DEFAULT 'BOOKING_CODE',
+  to_email        varchar(255) NOT NULL,
+  subject         text,
+  payload         jsonb NOT NULL,
+  status          outbox_status NOT NULL DEFAULT 'PENDING',
+  attempts        integer NOT NULL DEFAULT 0,
+  last_error      text,
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  sent_at         timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX outbox_pending_idx ON notification_outbox (status, next_attempt_at);
+```
+
+### A.10 audit_log
+```sql
+CREATE TABLE audit_log (
+  id         bigserial PRIMARY KEY,
+  actor_id   varchar(255) REFERENCES users(id),
+  action     varchar(50) NOT NULL,   -- ROLE_CHANGE, USER_BLOCK, STATUS_OVERRIDE, RESERVATION_CANCEL, ROOM_CREATE/UPDATE/DELETE/RESTORE, ...
+  entity     varchar(50) NOT NULL,   -- user, room, room_type, room_block, service_period, holiday, reservation
+  entity_id  varchar(255) NOT NULL,
+  before     jsonb,
+  after      jsonb,
+  reason     text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX audit_log_entity_idx ON audit_log (entity, entity_id);
+CREATE INDEX audit_log_actor_idx  ON audit_log (actor_id);
+```
+
+### A.11 Seed ประเภทห้อง
+```sql
+INSERT INTO room_type (code, type_name, booking_mode, min_duration_minutes) VALUES
+  ('S','ห้องทั่วไป',    'CAPACITY', 60),
+  ('G','ห้องประชุมใหญ่','EXCLUSIVE',120),
+  ('P','ห้องละหมาด',    'EXCLUSIVE',60);
+```
+
+### A.12 หมายเหตุการทำงานร่วมกับ Drizzle ORM
+- `EXCLUDE ... WHERE`, `tstzrange(...)`, trigger และ `CREATE EXTENSION` **ประกาศใน `schema.ts` ไม่ได้** ต้อง generate migration แล้วแก้ไฟล์ SQL เอง หรือใช้ custom migration แยก
+- คอลัมน์ `booking_mode` และ `booking_date` เป็นค่าที่ trigger เซ็ต — app ไม่ต้องเชื่อค่าที่ส่งมา (trigger เขียนทับทุกครั้ง)
+- การตรวจ weekend / holiday / service window / ระยะเวลาขั้นต่ำ / ขอบเขต slot / จำนวนบล็อก เป็นหน้าที่ชั้น server (สามารถเสริมเป็น BEFORE trigger `reservation_guard()` ภายหลังได้)
+
+---
+
+## ภาคผนวก B — ประเด็นที่ยังต้องตัดสินก่อน/ระหว่างพัฒนา
+
+1. ค่าเริ่มต้น `service_period` (NORMAL 08:30–16:30) ต้อง seed หลังสร้างแอดมินคนแรก และแนวทางนำเข้าข้อมูล `holiday`
+2. รูปแบบ/ภาษา/หัวข้อของอีเมล, นโยบาย retry ของ outbox
+3. ตารางเวลา `pg_cron` ที่แน่นอน (NO_SHOW, การส่งอีเมล)
+4. UI การเลือกทีละบล็อก + การแสดงจำนวนครั้งที่ต้องยืนยัน ก่อนกดยืนยันการจอง
+5. จะเพิ่ม `reservation_guard()` เป็น BEFORE trigger ฝั่ง DB ด้วยหรือพึ่งชั้น server อย่างเดียว
+6. การบังคับ `max_capacity` ให้ไม่เป็น NULL เมื่อประเภทห้องเป็น `CAPACITY`
+7. กรณีเปลี่ยน `booking_mode` ของประเภทห้องที่มีข้อมูลการจองอยู่แล้ว (ต้องกัน overlaps ที่ค้าง)
+8. กลยุทธ์การทดสอบ: การแย่งกันของ exclusion/capacity, ขอบวัน Asia/Bangkok, การชนของรหัส, การ restore
