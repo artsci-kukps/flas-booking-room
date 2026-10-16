@@ -311,7 +311,7 @@ export default function AppHeader({ user }: { user: HeaderUser }) {
           <Link href={homeHref} className="flex items-center gap-2.5">
             <BrandMark />
             <span className="text-[0.9375rem] font-semibold tracking-tight text-ink">
-              จองห้องทำงาน
+              Creative Space{" "}
             </span>
           </Link>
           <button
@@ -370,7 +370,7 @@ export default function AppHeader({ user }: { user: HeaderUser }) {
           <BrandMark />
           <span className="min-w-0">
             <span className="block truncate text-[0.9375rem] font-semibold tracking-tight text-ink">
-              จองห้องทำงาน
+              Creative Space{" "}
             </span>
             <span className="block truncate text-[0.75rem] text-ink-muted">
               คณะศิลปศาสตร์และวิทยาศาสตร์

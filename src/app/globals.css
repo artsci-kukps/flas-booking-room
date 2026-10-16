@@ -86,6 +86,48 @@ body {
   .icon-btn {
     @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas hover:text-ink active:bg-canvas;
   }
+
+  /* ฟิลด์กรอกของระบบ — ยกพื้นที่ด้วยเส้นขอบ 1px เท่านั้น ไม่มีเงา (ตาม Flat-By-Default)
+     โฟกัสใช้ :focus-visible ของทั้งระบบ (เส้น KU 2px) ไม่เพิ่มออฟเฟกต์ซ้ำซ้อน */
+  .field-label {
+    @apply mb-1.5 block text-xs font-semibold text-ink;
+  }
+
+  .field {
+    @apply h-12 w-full rounded-[12px] border border-border bg-surface px-4 text-base text-ink transition-colors placeholder:text-ink-muted;
+  }
+
+  /* ทางแยกของขั้นตอน (แท็บ/เฟส OTP): เลื่อนเข้าจากด้านที่เดินหน้า/ถอยหลัง
+     ความเร็ว 300ms เท่ากับการเคลื่อนไหวเดียวที่ DESIGN.md อนุญาต */
+  .step-forward {
+    animation: step-forward 300ms ease-out both;
+  }
+
+  .step-back {
+    animation: step-back 300ms ease-out both;
+  }
+}
+
+@keyframes step-forward {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* ส่วนที่เบราว์เซอร์วาดให้ ดึงมาจากจานสีเดียวกับระบบ */
