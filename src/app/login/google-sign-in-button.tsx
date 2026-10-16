@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { createSupabaseClient } from '@/app/config/supabase-client';
-import { googleSignInOptions } from '@/lib/auth/google-oauth';
+import { createSupabaseClient } from "@/app/config/supabase-client";
+import { googleSignInOptions } from "@/lib/auth/google-oauth";
 
 export default function GoogleSignInButton() {
   const handleGoogleLogin = async () => {
     const supabase = createSupabaseClient();
     await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: googleSignInOptions(window.location.origin),
     });
   };

@@ -1,9 +1,6 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
-import { getCurrentUser } from '@/lib/auth/guards'
-
-// หน้าตรวจ session จึงต้องอ่าน request-time data — ปิด instant validation
-export const instant = false;
+import { getCurrentUser } from "@/lib/auth/guards";
 
 // หน้านี้ตั้งใจไว้ "นอก" กลุ่ม (protected) เพราะ requireUser() จะ redirect คนที่ถูกบล็อกมาที่นี่
 // ถ้าอยู่ในกลุ่มจะวนลูปไม่รู้จบ
@@ -11,11 +8,11 @@ export default async function BlockedPage() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect('/login');
+    redirect("/login");
   }
 
   if (!user.isBlocked) {
-    redirect('/');
+    redirect("/");
   }
 
   return (

@@ -1,18 +1,16 @@
-import GoogleSignInButton from './google-sign-in-button';
-
-// หน้านี้ต้องอ่าน searchParams เพื่อแสดง notice ทันทีในผลลัพธ์แรก
-// จึงคงไว้เป็น blocking route (opt-out จากการ prerender shell ของ Cache Components)
-export const instant = false;
+import { getCurrentUser } from "@/lib/auth/guards";
+import GoogleSignInButton from "./google-sign-in-button";
+import { redirect } from "next/navigation";
 
 // ข้อความแจ้งเมื่อเข้าสู่ระบบไม่สำเร็จ (คีย์มาจาก query string ?error=)
 const ERROR_NOTICES = {
-  'ku-domain': {
-    heading: 'บัญชีนี้ใช้ไม่ได้',
-    body: 'ระบบอนุญาตเฉพาะอีเมล @ku.th กรุณาเข้าสู่ระบบใหม่ด้วยบัญชีอีเมลมหาวิทยาลัยของคุณ',
+  "ku-domain": {
+    heading: "บัญชีนี้ใช้ไม่ได้",
+    body: "ระบบอนุญาตเฉพาะอีเมล @ku.th กรุณาเข้าสู่ระบบใหม่ด้วยบัญชีอีเมลมหาวิทยาลัยของคุณ",
   },
   session: {
-    heading: 'เข้าสู่ระบบไม่สำเร็จ',
-    body: 'เกิดข้อผิดพลาดระหว่างเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง',
+    heading: "เข้าสู่ระบบไม่สำเร็จ",
+    body: "เกิดข้อผิดพลาดระหว่างเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง",
   },
 } as const;
 
@@ -21,8 +19,14 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  const user = await getCurrentUser();
+  if (user) {
+    user.role === "admin" ? redirect("/admin") : redirect("/user");
+  }
+
   const { error } = await searchParams;
-  const notice = error === 'ku-domain' || error === 'session' ? ERROR_NOTICES[error] : null;
+  const notice =
+    error === "ku-domain" || error === "session" ? ERROR_NOTICES[error] : null;
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-canvas px-6 py-12">
@@ -47,7 +51,9 @@ export default async function LoginPage({
               <path d="M12 12.4v2.6" />
             </svg>
           </div>
-          <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink">เข้าสู่ระบบ</h1>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink">
+            เข้าสู่ระบบ
+          </h1>
           <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-muted">
             ใช้บัญชีอีเมลมหาวิทยาลัย (@ku.th) เท่านั้น
           </p>
@@ -74,8 +80,12 @@ export default async function LoginPage({
               <path d="M12 16h.01" />
             </svg>
             <div>
-              <p className="text-sm font-semibold text-danger">{notice.heading}</p>
-              <p className="mt-1 text-[0.8125rem] leading-relaxed text-danger">{notice.body}</p>
+              <p className="text-sm font-semibold text-danger">
+                {notice.heading}
+              </p>
+              <p className="mt-1 text-[0.8125rem] leading-relaxed text-danger">
+                {notice.body}
+              </p>
             </div>
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from "next/link";
 
 /**
  * UI ที่แสดงเมื่อมีคนเรียก forbidden() (403) — เช่น ผู้ใช้ทั่วไปเปิดเส้นทางแอดมิน
@@ -17,12 +17,12 @@ export default function Forbidden() {
           กรุณาติดต่อผู้ดูแลระบบ
         </p>
         <Link
-          href="/profile"
+          href="/user "
           className="mt-6 inline-flex h-11 items-center justify-center rounded-[10px] bg-ku px-6 font-semibold text-white transition-colors hover:bg-ku-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ku focus-visible:ring-offset-2"
         >
           กลับไปหน้าของฉัน
         </Link>
       </div>
     </main>
-  )
+  );
 }
