@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plate Wall — ตัวอย่างหน้าเข้าสู่ระบบ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#F4F4F1; --surface:#FFFFFF; --ink:#0B0B0C; --ink-2:#5A5F5B;
+    --line:#E3E5E0; --ku:#0E7A4B; --ku-soft:#E9F4EE; --amber:#B7791F;
+    --r-lg:28px; --r-md:18px; --r-pill:999px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Anuphan","Noto Sans Thai",system-ui,sans-serif;
+    background:var(--canvas); color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .stage{display:grid;grid-template-columns:1.08fr .92fr;min-height:100vh}
+
+  /* ---------- LEFT: plate wall ---------- */
+  .wall{
+    padding:56px 56px 44px; display:flex; flex-direction:column; gap:34px;
+    border-right:1px solid var(--line); background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 0/100% 96px;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .mark{
+    width:46px;height:46px;border-radius:14px;background:var(--ku);
+    display:grid;place-items:center;color:#fff;font-weight:700;font-size:20px;
+    letter-spacing:-.04em;
+  }
+  .brand-txt strong{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .brand-txt span{display:block;font-size:13.5px;color:var(--ink-2);margin-top:2px}
+
+  .lede h1{
+    font-size:74px; line-height:.94; font-weight:700; letter-spacing:-.05em;
+    max-width:11ch;
+  }
+  .lede h1 em{font-style:normal;color:var(--ku)}
+  .lede p{margin-top:20px;font-size:16.5px;line-height:1.5;color:var(--ink-2);max-width:44ch}
+
+  .plates{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:auto}
+  .plate{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md);
+    padding:16px 16px 14px; position:relative;
+  }
+  .plate .code{font-size:26px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .plate .name{font-size:13.5px;color:var(--ink-2);margin-top:2px}
+  .plate .foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);
+    background:var(--ku-soft);color:var(--ku);font-size:12.5px;font-weight:600;
+    padding:5px 11px 5px 8px;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .chip.busy{background:#FCF3E3;color:var(--amber)}
+  .type{
+    width:26px;height:26px;border-radius:8px;background:var(--ink);color:#fff;
+    font-size:13px;font-weight:700;display:grid;place-items:center;
+  }
+  .type.g{background:var(--ku)}
+  .type.p{background:#6941C6}
+
+  /* ---------- RIGHT: login ---------- */
+  .side{display:grid;place-items:center;padding:44px}
+  .card{
+    width:min(430px,100%);background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-lg);padding:40px 38px;
+  }
+  .kicker{
+    font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ku);
+  }
+  .card h2{font-size:36px;line-height:1.08;letter-spacing:-.04em;font-weight:700;margin-top:12px}
+  .card .sub{font-size:15px;line-height:1.5;color:var(--ink-2);margin-top:12px}
+  .notice{
+    display:flex;gap:10px;align-items:flex-start;margin-top:20px;padding:13px 15px;
+    border:1px solid #F3C9C4;background:#FEF3F2;border-radius:14px;
+    font-size:13.5px;line-height:1.45;color:#9B2C1F;
+  }
+  .btn{
+    margin-top:24px;width:100%;height:54px;border-radius:var(--r-pill);
+    background:var(--ink);color:#fff;border:0;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:12px;
+    font-family:inherit;font-size:15.5px;font-weight:600;letter-spacing:-.01em;
+    transition:transform .3s cubic-bezier(.22,1,.36,1),background-color .3s;
+  }
+  .btn:hover{background:#232326}
+  .btn:active{transform:scale(.97)}
+  .btn .g{width:22px;height:22px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;color:#4285F4}
+  .fine{
+    margin-top:18px;display:flex;gap:9px;align-items:center;justify-content:center;
+    font-size:13px;color:var(--ink-2);
+  }
+  .foot-meta{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);
+    font-size:13px;color:var(--ink-2);display:flex;justify-content:space-between}
+  .foot-meta b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <section class="wall">
+      <div class="brand">
+        <div class="mark">CS</div>
+        <div class="brand-txt">
+          <strong>Creative Space</strong>
+          <span>คณะศิลปศาสตร์และวิทยาศาสตร์ ม.เกษตรศาสตร์ วิทยาเขตกำแพงแสน</span>
+        </div>
+      </div>
+
+      <div class="lede">
+        <h1>ห้องว่าง<em>วันนี้</em> พร้อมให้คุณ</h1>
+        <p>ระบบจองห้องทำงานรายชั่วโมง สำหรับบุคลากรมหาวิทยาลัยเกษตรศาสตร์ เลือกห้อง เลือกบล็อกเวลา แล้วมารับกุญแจที่เคาน์เตอร์</p>
+      </div>
+
+      <div class="plates">
+        <div class="plate">
+          <div class="code">S-204</div><div class="name">ห้องนั่งทำงาน</div>
+          <div class="foot"><span class="chip"><i class="dot"></i>ว่าง 4 ที่นั่ง</span><span class="type">S</span></div>
+        </div>
+        <div class="plate">
+          <div class="code">G-101</div><div class="name">ห้องประชุมใหญ่</div>
+          <div class="foot"><span class="chip busy"><i class="dot"></i>ใช้งานถึง 15:30</span><span class="type g">G</span></div>
+        </div>
+        <div class="plate">
+          <div class="code">P-012</div><div class="name">ห้องละหมาด</div>
+          <div class="foot"><span class="chip"><i class="dot"></i>ว่าง</span><span class="type p">P</span></div>
+        </div>
+        <div class="plate">
+          <div class="code">S-205</div><div class="name">ห้องนั่งทำงาน</div>
+          <div class="foot"><span class="chip"><i class="dot"></i>ว่าง 6 ที่นั่ง</span><span class="type">S</span></div>
+        </div>
+        <div class="plate">
+          <div class="code">S-206</div><div class="name">ห้องนั่งทำงาน</div>
+          <div class="foot"><span class="chip busy"><i class="dot"></i>เต็ม</span><span class="type">S</span></div>
+        </div>
+        <div class="plate">
+          <div class="code">G-102</div><div class="name">ห้องประชุมใหญ่</div>
+          <div class="foot"><span class="chip"><i class="dot"></i>ว่าง</span><span class="type g">G</span></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <div class="kicker">เข้าสู่ระบบ</div>
+        <h2>ยินดีต้อนรับกลับมา</h2>
+        <p class="sub">เข้าสู่ระบบด้วยบัญชีอีเมลมหาวิทยาลัย (@ku.th) เพื่อจองห้องและติดตามการจองของคุณ</p>
+
+        <div class="notice" role="alert">
+          <span>บัญชีนี้ใช้ไม่ได้ — ระบบอนุญาตเฉพาะอีเมล @ku.th กรุณาเข้าสู่ระบบใหม่ด้วยบัญชีมหาวิทยาลัยของคุณ</span>
+        </div>
+
+        <button class="btn"><span class="g">G</span>เข้าสู่ระบบด้วย Google</button>
+
+        <div class="fine">
+          <span>🛡 อนุญาตเฉพาะอีเมลที่ลงท้ายด้วย @ku.th</span>
+        </div>
+
+        <div class="foot-meta"><span>เวลาให้บริการ</span><span>จันทร์–ศุกร์ <b>08:30–16:30</b></span></div>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

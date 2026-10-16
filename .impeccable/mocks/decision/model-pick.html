@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Hour Grid — ตัวอย่างหน้าเข้าสู่ระบบ</title>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#F6F7F6; --surface:#FFFFFF; --ink:#0B0B0C; --ink-2:#5C635D;
+    --line:#E4E7E4; --ku:#0E7A4B; --ku-soft:#E9F4EE; --ku-mid:#B7DECB;
+    --r-lg:28px; --r-md:16px; --r-pill:999px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:"Anuphan","Noto Sans Thai",system-ui,sans-serif;background:var(--canvas);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .stage{display:grid;grid-template-columns:1.15fr .85fr;min-height:100vh}
+
+  /* LEFT: live booking grid */
+  .board{padding:52px 52px 44px;display:flex;flex-direction:column;gap:26px;border-right:1px solid var(--line);background:var(--surface)}
+  .brand{display:flex;align-items:center;gap:14px}
+  .mark{width:46px;height:46px;border-radius:14px;background:var(--ku);display:grid;place-items:center;color:#fff;font-weight:700;font-size:20px;letter-spacing:-.04em}
+  .brand-txt strong{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .brand-txt span{display:block;font-size:13.5px;color:var(--ink-2);margin-top:2px}
+
+  .head h1{font-size:66px;line-height:.96;letter-spacing:-.05em;font-weight:700;max-width:13ch}
+  .head h1 em{font-style:normal;color:var(--ku)}
+  .head p{margin-top:16px;font-size:16px;line-height:1.5;color:var(--ink-2);max-width:46ch}
+
+  .grid{margin-top:auto;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--surface)}
+  .row{display:grid;grid-template-columns:150px repeat(8,1fr);align-items:stretch}
+  .row + .row{border-top:1px solid var(--line)}
+  .row .lab{padding:12px 14px;font-size:13.5px;font-weight:600;display:flex;flex-direction:column;gap:2px;background:var(--canvas)}
+  .row .lab i{font-style:normal;font-weight:400;font-size:12px;color:var(--ink-2)}
+  .row.head .lab,.row.head .h{background:var(--canvas);font-size:12.5px;color:var(--ink-2);font-weight:600;text-align:center;padding:9px 0;font-variant-numeric:tabular-nums}
+  .h{border-left:1px solid var(--line);padding:12px 0;display:grid;place-items:center;font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .cell{border-left:1px solid var(--line);height:52px;position:relative}
+  .cell.on{background:var(--ku);color:#fff}
+  .cell.on::after{content:attr(data-t);position:absolute;inset:0;display:grid;place-items:center;font-size:11.5px;font-weight:600;color:#fff}
+  .cell.mine{background:var(--ku-soft);box-shadow:inset 0 0 0 2px var(--ku)}
+  .legend{display:flex;gap:18px;font-size:12.5px;color:var(--ink-2);align-items:center}
+  .legend span{display:flex;gap:7px;align-items:center}
+  .sw{width:13px;height:13px;border-radius:4px;border:1px solid var(--line);background:#fff}
+  .sw.on{background:var(--ku);border-color:var(--ku)}
+  .sw.mine{background:var(--ku-soft);box-shadow:inset 0 0 0 2px var(--ku);border-color:var(--ku)}
+
+  /* RIGHT: login */
+  .side{display:grid;place-items:center;padding:44px}
+  .card{width:min(430px,100%);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:40px 38px}
+  .kicker{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ku)}
+  .card h2{font-size:36px;line-height:1.08;letter-spacing:-.04em;font-weight:700;margin-top:12px}
+  .card .sub{font-size:15px;line-height:1.5;color:var(--ink-2);margin-top:12px}
+  .notice{display:flex;gap:10px;margin-top:20px;padding:13px 15px;border:1px solid #F3C9C4;background:#FEF3F2;border-radius:14px;font-size:13.5px;line-height:1.45;color:#9B2C1F}
+  .btn{margin-top:24px;width:100%;height:54px;border-radius:var(--r-pill);background:var(--ink);color:#fff;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;font-family:inherit;font-size:15.5px;font-weight:600;letter-spacing:-.01em;transition:transform .3s cubic-bezier(.22,1,.36,1),background-color .3s}
+  .btn:hover{background:#232326}.btn:active{transform:scale(.97)}
+  .btn .g{width:22px;height:22px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;color:#4285F4}
+  .fine{margin-top:18px;display:flex;gap:9px;align-items:center;justify-content:center;font-size:13px;color:var(--ink-2)}
+  .foot-meta{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2);display:flex;justify-content:space-between}
+  .foot-meta b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <section class="board">
+      <div class="brand">
+        <div class="mark">CS</div>
+        <div class="brand-txt">
+          <strong>Creative Space</strong>
+          <span>คณะศิลปศาสตร์และวิทยาศาสตร์ ม.เกษตรศาสตร์ วิทยาเขตกำแพงแสน</span>
+        </div>
+      </div>
+
+      <div class="head">
+        <h1>หนึ่งบล็อก<em>หนึ่งชั่วโมง</em> จองได้ทันที</h1>
+        <p>ตารางจริงของวันนี้ — ห้องเป็นแถว เวลาเป็นคอลัมน์ เลือกบล็อกที่ว่าง ระบบจะรวมช่วงติดกันเป็นรายการเดียวให้อัตโนมัติ</p>
+      </div>
+
+      <div class="grid">
+        <div class="row head">
+          <div class="lab">ห้อง / เวลา</div>
+          <div class="h">08:30</div><div class="h">09:30</div><div class="h">10:30</div><div class="h">11:30</div>
+          <div class="h">12:30</div><div class="h">13:30</div><div class="h">14:30</div><div class="h">15:30</div>
+        </div>
+        <div class="row">
+          <div class="lab">S-204 <i>นั่งทำงาน · 4 ที่</i></div>
+          <div class="cell"></div><div class="cell on" data-t="จองแล้ว"></div><div class="cell on" data-t="จองแล้ว"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell mine" data-t=""></div><div class="cell mine"></div><div class="cell"></div>
+        </div>
+        <div class="row">
+          <div class="lab">G-101 <i>ประชุมใหญ่ · 20 ที่</i></div>
+          <div class="cell on" data-t="จองแล้ว"></div><div class="cell on" data-t="จองแล้ว"></div><div class="cell on" data-t="จองแล้ว"></div>
+          <div class="cell on" data-t="จองแล้ว"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+        <div class="row">
+          <div class="lab">P-012 <i>ละหมาด · 8 ที่</i></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell on" data-t="จองแล้ว"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><i class="sw"></i>ว่าง</span>
+        <span><i class="sw on"></i>จองแล้ว</span>
+        <span><i class="sw mine"></i>บล็อกที่คุณเลือก</span>
+        <span style="margin-left:auto">วันปกติ 08:30–16:30 · ช่วงสอบ 08:30–20:30</span>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <div class="kicker">เข้าสู่ระบบ</div>
+        <h2>จองบล็อกแรกของคุณ</h2>
+        <p class="sub">เข้าสู่ระบบด้วยบัญชีอีเมลมหาวิทยาลัย (@ku.th) เพื่อดูตารางทั้งหมดและจองห้องได้ทันที</p>
+
+        <div class="notice" role="alert">
+          <span>เข้าสู่ระบบไม่สำเร็จ — เกิดข้อผิดพลาดระหว่างเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง</span>
+        </div>
+
+        <button class="btn"><span class="g">G</span>เข้าสู่ระบบด้วย Google</button>
+
+        <div class="fine"><span>🛡 อนุญาตเฉพาะอีเมลที่ลงท้ายด้วย @ku.th</span></div>
+
+        <div class="foot-meta"><span>รับกุญแจด้วยรหัส 6 หลัก</span><span>ที่เคาน์เตอร์<b> ตึกคณะ</b></span></div>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

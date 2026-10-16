@@ -73,6 +73,20 @@ export async function requireUser(): Promise<AuthUser> {
 }
 
 /**
+ * ด่านของพื้นที่ผู้ใช้ (/user/*) — สองพื้นที่ไม่ใช้เส้นทางร่วมกัน
+ * แอดมินที่เปิด /user/* ถูกพาไปหน้าจองห้องของแอดมินแทน
+ */
+export async function requireUserArea(): Promise<AuthUser> {
+  const user = await requireUser();
+
+  if (user.role === "admin") {
+    redirect("/admin/booking");
+  }
+
+  return user;
+}
+
+/**
  * บังคับว่าต้องเป็นแอดมิน — ผู้ใช้ทั่วไปได้ 403 (forbidden) ตามสัญญาของ Next.js
  */
 export async function requireAdmin(): Promise<AuthUser> {

@@ -39,7 +39,7 @@ vi.mock('next/navigation', () => ({
   forbidden: forbiddenMock,
 }))
 
-import { getCurrentUser, requireAdmin, requireUser } from './guards'
+import { getCurrentUser, requireAdmin, requireUser, requireUserArea } from './guards'
 
 const ACTIVE_USER = {
   id: 'u1',
@@ -148,5 +148,35 @@ describe('requireAdmin', () => {
 
     expect(forbiddenMock).not.toHaveBeenCalled()
     expect(user.role).toBe('admin')
+  })
+})
+
+describe('requireUserArea', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1', email: 'user@ku.th' } } })
+    limitMock.mockResolvedValue([ACTIVE_USER])
+  })
+
+  it('lets a regular user into the /user routes', async () => {
+    const user = await requireUserArea()
+
+    expect(redirectMock).not.toHaveBeenCalled()
+    expect(user.role).toBe('user')
+  })
+
+  it('keeps admins out of the /user routes by sending them to /admin/booking', async () => {
+    limitMock.mockResolvedValue([ADMIN_USER])
+
+    await expect(requireUserArea()).rejects.toThrow('NEXT_REDIRECT:/admin/booking')
+
+    expect(redirectMock).toHaveBeenCalledWith('/admin/booking')
+    expect(forbiddenMock).not.toHaveBeenCalled()
+  })
+
+  it('still inherits the session and blocked checks from requireUser()', async () => {
+    limitMock.mockResolvedValue([BLOCKED_USER])
+
+    await expect(requireUserArea()).rejects.toThrow('NEXT_REDIRECT:/blocked')
   })
 })

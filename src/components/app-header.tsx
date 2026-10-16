@@ -21,16 +21,23 @@ type NavItem = {
   activePrefix?: string;
 };
 
-// เมนูของผู้ใช้ทุกคน — แอดมินก็ใช้พื้นที่นี้ได้เหมือนกัน (TOR ข้อ 3.2)
+// เมนูพื้นที่ทำงานของผู้ใช้ทั่วไป — เส้นทาง /user ทั้งหมด
 const USER_NAV: NavItem[] = [
   { href: "/user/booking", label: "จองห้อง" },
   { href: "/user/table", label: "ตารางจอง" },
   { href: "/user/history", label: "ประวัติการจอง" },
 ];
 
-// เมนูย่อยของพื้นที่แอดมิน — แสดงเฉพาะเมื่ออยู่ในเส้นทาง /admin
-const ADMIN_NAV: NavItem[] = [
-  { href: "/admin/dashboard", label: "ภาพรวม" },
+// เมนูพื้นที่ทำงานของแอดมิน — มีเส้นทางเป็นของตัวเอง ไม่ใช้ /user ร่วมกับผู้ใช้
+const ADMIN_WORK_NAV: NavItem[] = [
+  { href: "/admin/booking", label: "จองห้อง" },
+  { href: "/admin/table", label: "ตารางจอง" },
+  { href: "/admin/history", label: "ประวัติการจอง" },
+  { href: "/admin/dashboard", label: "ศูนย์ควบคุม" },
+];
+
+// เมนูศูนย์ควบคุม — แถวที่สองของแอดมิน ชี้ไปยังหน้าจัดการของระบบ
+const ADMIN_CONTROL_NAV: NavItem[] = [
   { href: "/admin/booking-management", label: "การจองและกุญแจ" },
   { href: "/admin/rooms", label: "ห้อง" },
   { href: "/admin/room/type", label: "ประเภทห้อง" },
@@ -49,33 +56,26 @@ function displayName(user: HeaderUser): string {
 
 /**
  * แถบเมนูหลักของพื้นที่ล็อกอิน — sticky ด้านบนทุกหน้าใน (protected)
- * แถวบนคือแบรนด์กับบัญชี แถวถัดลงมาเป็นเมนู และแอดมินมีเมนูย่อยของ /admin เพิ่ม
+ * ผู้ใช้เห็นเฉพาะเส้นทาง /user ส่วนแอดมินเห็นเฉพาะเส้นทาง /admin
+ * โดยแอดมินมีสองแถว: พื้นที่ทำงานของตัวเอง และเมนูศูนย์ควบคุม
  */
 export default function AppHeader({ user }: { user: HeaderUser }) {
   const pathname = usePathname();
   const name = displayName(user);
   const isAdmin = user.role === "admin";
   const homeHref = isAdmin ? "/admin/dashboard" : "/user/booking";
-  const inAdminArea = isAdmin && pathname.startsWith("/admin");
 
-  const primaryItems: NavItem[] = [
-    ...USER_NAV,
-    ...(isAdmin
-      ? [
-          {
-            href: "/admin/dashboard",
-            label: "ศูนย์ควบคุม",
-            activePrefix: "/admin",
-          },
-        ]
-      : []),
-  ];
+  const workItems: NavItem[] = isAdmin ? ADMIN_WORK_NAV : USER_NAV;
 
   const isActive = (item: NavItem) =>
     pathname === item.href ||
     (item.activePrefix !== undefined && pathname.startsWith(item.activePrefix));
 
-  const renderLink = (item: NavItem) => {
+  /**
+   * แถวที่สองวางบนพื้น canvas — จึงชี้ hover กลับเป็นพื้นสีขาวแทน
+   * เพื่อให้รายการยกตัวขึ้นเห็นชัดบนแถบที่โทนเข้มกว่า
+   */
+  const renderLink = (item: NavItem, onCanvas = false) => {
     const active = isActive(item);
 
     return (
@@ -83,10 +83,12 @@ export default function AppHeader({ user }: { user: HeaderUser }) {
         key={item.href}
         href={item.href}
         aria-current={active ? "page" : undefined}
-        className={`shrink-0 ${
+        className={`shrink-0 rounded-[10px] px-3 py-1.5 ${
           active
-            ? "rounded-[10px] bg-ku-soft px-3 py-1.5 text-sm font-medium text-ku"
-            : "rounded-[10px] px-3 py-1.5 text-sm text-ink-muted transition-colors hover:bg-canvas hover:text-ink"
+            ? "bg-ku-soft text-sm font-medium text-ku"
+            : `text-sm text-ink-muted transition-colors ${
+                onCanvas ? "hover:bg-surface hover:text-ink" : "hover:bg-canvas hover:text-ink"
+              }`
         }`}
       >
         {item.label}
@@ -129,20 +131,14 @@ export default function AppHeader({ user }: { user: HeaderUser }) {
         </div>
       </div>
 
-      <nav
-        aria-label="เมนูหลัก"
-        className="page flex gap-1 overflow-x-auto pb-2"
-      >
-        {primaryItems.map(renderLink)}
+      <nav aria-label="เมนูหลัก" className="page flex gap-1 overflow-x-auto pb-2">
+        {workItems.map((item) => renderLink(item))}
       </nav>
 
-      {inAdminArea ? (
-        <nav
-          aria-label="เมนูแอดมิน"
-          className="border-t border-border bg-surface"
-        >
+      {isAdmin ? (
+        <nav aria-label="เมนูศูนย์ควบคุม" className="border-t border-border bg-canvas">
           <div className="page flex gap-1 overflow-x-auto py-2">
-            {ADMIN_NAV.map(renderLink)}
+            {ADMIN_CONTROL_NAV.map((item) => renderLink(item, true))}
           </div>
         </nav>
       ) : null}

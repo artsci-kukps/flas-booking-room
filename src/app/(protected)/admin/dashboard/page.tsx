@@ -146,7 +146,7 @@ export default async function AdminPage() {
             ยินดีต้อนรับ {admin.fullName ?? admin.email} — คุณเข้าสู่ระบบในฐานะผู้ดูแลระบบ
           </p>
         </div>
-        <Link href="/user/booking" className="btn btn-primary">
+        <Link href="/admin/booking" className="btn btn-primary">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -162,7 +162,7 @@ export default async function AdminPage() {
             <path d="M16 3v4" />
             <path d="M3 10h18" />
           </svg>
-          ไปยังหน้าผู้ใช้
+          จองห้อง
         </Link>
       </div>
 
@@ -222,7 +222,7 @@ export default async function AdminPage() {
           <path d="M12 8h.01" />
         </svg>
         <p className="text-sm leading-relaxed text-ink">
-          แอดมินสามารถจองห้องได้เช่นเดียวกับผู้ใช้ทั่วไป
+          แอดมินจองห้องได้เช่นเดียวกับผู้ใช้ทั่วไปจากหน้าจองห้องของแอดมิน
           โดยใช้สิทธิ์และกติกาการจองเดียวกันทุกประการ
         </p>
       </div>
