@@ -1,36 +1,107 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ระบบจองห้องทำงาน (FLAS Booking Room)
 
-## Getting Started
+ระบบจองห้องทำงานสำหรับบุคลากรมหาวิทยาลัยเกษตรศาสตร์ — เข้าสู่ระบบด้วย Google
+(จำกัดเฉพาะอีเมล `@ku.th`) พร้อมระบบบทบาท `user` / `admin` และการระงับบัญชี
 
-First, run the development server:
+## เทคโนโลยี
+
+- **Next.js 16** (App Router, `cacheComponents`, `partialPrefetching`) + React 19
+- **Supabase** (Auth ผ่าน OAuth) + `@supabase/ssr`
+- **PostgreSQL** + Drizzle ORM
+- **Vitest** สำหรับเทสต์
+
+## เริ่มต้นใช้งาน
+
+### 1. ติดตั้ง dependencies
+
+```bash
+npm install
+```
+
+### 2. ตั้งค่า environment
+
+คัดลอก `.env.example` (ถ้ามี) หรือสร้างไฟล์ `.env` ที่รากโปรเจกต์ โดยมีค่าอย่างน้อย:
+
+```dotenv
+# การเชื่อมต่อฐานข้อมูล (ใช้กับ Drizzle)
+DATABASE_URL_DIRECT=postgresql://...
+DATABASE_URL=postgresql://...
+
+# Supabase (Auth)
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+```
+
+### 3. เตรียมฐานข้อมูล
+
+รัน migration ในโฟลเดอร์ `drizzle/` กับฐานข้อมูลเป้าหมาย (เช่น `drizzle-kit migrate`
+หรือรันไฟล์ `drizzle/0000_initial.sql`, `drizzle/0001_reservation_rules.sql` ตามลำดับ)
+
+### 4. รัน development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิด [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## คำสั่งที่ใช้บ่อย
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| คำสั่ง | คำอธิบาย |
+| --- | --- |
+| `npm run dev` | เริ่ม dev server |
+| `npm run build` | build สำหรับ production |
+| `npm run start` | รัน production build |
+| `npm test` | รันเทสต์ทั้งหมดด้วย Vitest |
+| `npm run lint` | ตรวจ code style ด้วย ESLint |
 
-## Learn More
+## การควบคุมการเข้าถึง (Auth guards)
 
-To learn more about Next.js, take a look at the following resources:
+- `src/lib/auth/guards.ts` — helper กลางสำหรับทุกเส้นทาง
+  - `getCurrentUser()` อ่าน session จาก Supabase แล้วโหลดแถว `users` ที่ตรงกัน
+  - `requireUser()` ไม่มี session → `/login`, ถูกบล็อก → `/blocked`
+  - `requireAdmin()` ผู้ที่ไม่ใช่แอดมิน → `forbidden()` (HTTP 403)
+- หน้าในแอปทั้งหมดอยู่ใน route group `src/app/(protected)/` ซึ่ง layout เรียก
+  `requireUser()` ให้อัตโนมัติ (secure by default) — เพิ่มหน้าใหม่ในกลุ่มนี้เพื่อให้ถูกป้องกันทันที
+- เส้นทางแอดมินอยู่ใต้ `src/app/(protected)/admin/` และเรียก `requireAdmin()`
+- `src/proxy.ts` เป็นเพียงการ redirect แบบ optimistic (ยังไม่มี session → `/login`)
+  การตรวจสิทธิ์จริงเกิดขึ้นที่ guard ใน route เสมอ
+- UI ของ 403 อยู่ที่ `src/app/forbidden.tsx` (เปิดใช้ผ่าน `experimental.authInterrupts`)
+  และหน้าแจ้งผู้ใช้ที่ถูกระงับอยู่ที่ `src/app/blocked/page.tsx`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## สร้างแอดมินคนแรก (Seed)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+แอดมินคนแรก **สร้างผ่าน UI ไม่ได้** (ผู้ใช้ทุกคนเริ่มที่ `role = 'user'`)
+ต้องเลื่อนขั้นผ่านฐานข้อมูลโดยตรงตามขั้นตอนนี้:
 
-## Deploy on Vercel
+1. **ให้ผู้ที่จะเป็นแอดมินเข้าสู่ระบบก่อน 1 ครั้ง** ด้วยบัญชี `@ku.th`
+   เพื่อให้ระบบสร้างแถวในตาราง `users` (คีย์ตรงกับ Supabase auth uid)
+2. **รันสคริปต์เลื่อนขั้น** โดยระบุอีเมล (ต้องมี `DATABASE_URL_DIRECT` ใน `.env`):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   npm run seed:admin -- --email someone@ku.th
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   หรือใช้ environment variable:
+
+   ```bash
+   SEED_ADMIN_EMAIL=someone@ku.th npm run seed:admin
+   ```
+
+   สคริปต์เป็นแบบ idempotent — รันซ้ำได้ผลเท่าเดิม ถ้าไม่พบผู้ใช้อีเมลนั้น
+   จะแจ้งเตือนและจบด้วย exit code 1 (แปลว่ายังไม่เคยเข้าสู่ระบบ)
+3. **ทดลองก่อนโดยไม่เขียนฐานข้อมูล** ได้ด้วย `--dry-run`:
+
+   ```bash
+   npm run seed:admin -- --email someone@ku.th --dry-run
+   ```
+
+4. ตรวจสอบผลโดยให้ผู้ใช้นั้นเข้าสู่ระบบใหม่ แล้วเปิด `/admin` (ควรเข้าถึงได้)
+
+> หมายเหตุ: สคริปต์อ่านการเชื่อมต่อจาก `DATABASE_URL_DIRECT` ผ่าน `src/db/index.ts`
+> และไม่ต้องรัน migration เพิ่มสำหรับการ seed
+
+## เอกสารอ้างอิง
+
+- ข้อกำหนดระบบ: [`TOR.md`](./TOR.md)
+- โครงสร้างฐานข้อมูล: [`SCHEMA_DOCS.md`](./SCHEMA_DOCS.md)
