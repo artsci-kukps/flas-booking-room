@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #f6f7f6;
+  /* ---- พื้นผิว: กระดาษอุ่น + การ์ดขาว, เส้นขอบ 1px (ไม่มีเงาทั้งระบบ) ---- */
+  --color-canvas: #f4f4f1;
   --color-surface: #ffffff;
-  --color-border: #e4e7e4;
-  --color-ink: #161a17;
-  --color-ink-muted: #5c635d;
+  --color-border: #e3e5e0;
+  --color-ink: #0b0b0c;
+  --color-ink-muted: #5a5f5b;
+
+  /* ---- KU green: สีเน้นเดียวของระบบ (ประเภทห้อง S + สถานะว่าง) ---- */
   --color-ku: #0e7a4b;
   --color-ku-hover: #0a6340;
   --color-ku-soft: #e9f4ee;
+
+  /* ---- amber: สงวนไว้สำหรับ "ไม่ว่าง" (amber = จุด/เส้น, amber-ink = ตัวอักษร) ---- */
+  --color-amber: #b7791f;
+  --color-amber-soft: #fcf3e3;
+  --color-amber-ink: #8a5a12;
+
+  /* ---- danger: แจ้งเตือนและสถานะผิดพลาด ---- */
   --color-danger: #b42318;
   --color-danger-soft: #fef3f2;
-  --color-danger-line: #fda29b;
-  /* สีจำแนกประเภทห้อง: S = เขียวแบรนด์, G = น้ำเงิน, P = ม่วง */
+  --color-danger-line: #f3c9c4;
+
+  /* ---- สีจำแนกประเภทห้อง: S = เขียวแบรนด์, G = น้ำเงิน, P = ม่วง ---- */
   --color-blue: #1d4ed8;
   --color-blue-soft: #eef2fd;
   --color-violet: #6941c6;
   --color-violet-soft: #f4f0fe;
 
-  --font-sans: var(--font-geist-sans), var(--font-noto-sans-thai), "Leelawadee UI",
-    "Thonburi", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  /* ---- ฟอนต์เดียวทั้งระบบ: Anuphan (ไทย + ละติน) ---- */
+  --font-sans: var(--font-anuphan), "Leelawadee UI", "Thonburi", ui-sans-serif,
+    system-ui, sans-serif;
+
+  /* ---- มุมโค้ง: จาน/การ์ด/แผ่นป้าย (hookbook = ผิวโค้งใจกว้าง) ---- */
+  --radius-plate: 16px;
+  --radius-panel: 16px;
+  --radius-card: 24px;
 }
 
 body {
@@ -28,6 +44,7 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   caret-color: var(--color-ku);
+  text-underline-offset: 0.2em;
 }
 
 /* คาแร็กเตอร์ flat ของระบบ: ยกพื้นที่ด้วยเส้นขอบ 1px เท่านั้น ไม่มีเงา */
@@ -37,15 +54,29 @@ body {
   }
 
   .panel {
-    @apply rounded-xl border border-border bg-surface;
+    @apply rounded-panel border border-border bg-surface;
   }
 
   .btn {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-[10px] px-5 text-[0.9375rem] font-semibold transition-colors;
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[0.9375rem] font-semibold transition-colors;
+  }
+
+  /* สถานะกำลังทำงาน/ปิดใช้งาน — ใช้ร่วมกับ aria-busy */
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
+  .btn-lg {
+    @apply h-[54px] px-6 text-base;
   }
 
   .btn-primary {
     @apply bg-ku text-white hover:bg-ku-hover active:bg-ku-hover;
+  }
+
+  /* ปุ่มกลางโทนหมึก — ใช้กับการกระทำที่เป็นกลาง เช่น การเข้าสู่ระบบด้วย Google */
+  .btn-ink {
+    @apply bg-ink text-white hover:bg-[#232326] active:bg-[#232326];
   }
 
   .btn-outline {
@@ -53,7 +84,7 @@ body {
   }
 
   .icon-btn {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-ink-muted transition-colors hover:bg-canvas hover:text-ink active:bg-canvas;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas hover:text-ink active:bg-canvas;
   }
 }
 

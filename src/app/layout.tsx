@@ -1,35 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans_Thai } from "next/font/google";
+import { Anuphan } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// ตัวอักษรละติน/ตัวเลขใช้ Geist ส่วนเนื้อไทยตกลงที่ Noto Sans Thai (ฟอนต์เดียวทั้งระบบ)
-const notoSansThai = Noto_Sans_Thai({
-  variable: "--font-noto-sans-thai",
+// ฟอนต์เดียวทั้งระบบ — Anuphan (ไทย + ละติน) แบบ variable รองรับน้ำหนัก 100–700
+const anuphan = Anuphan({
+  variable: "--font-anuphan",
   subsets: ["thai", "latin"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "ระบบจองห้องทำงาน",
-  description: "ระบบจองห้องทำงานสำหรับบุคลากรมหาวิทยาลัยเกษตรศาสตร์",
+  description:
+    "ระบบจองห้องทำงานรายชั่วโมง คณะศิลปศาสตร์และวิทยาศาสตร์ มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตกำแพงแสน สำหรับบุคลากรมหาวิทยาลัยเกษตรศาสตร์ (@ku.th)",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="th"
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansThai.variable} h-full antialiased`}
-    >
+    <html lang="th" className={`${anuphan.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

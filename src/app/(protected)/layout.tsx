@@ -16,10 +16,10 @@ export default async function ProtectedLayout({
   const user = await requireUser();
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="min-h-dvh lg:pl-[17.5rem]">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-20 focus:rounded-[10px] focus:bg-ku focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-ku focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
       >
         ข้ามไปยังเนื้อหา
       </a>
@@ -31,7 +31,7 @@ export default async function ProtectedLayout({
           role: user.role,
         }}
       />
-      <div id="main" className="flex-1">
+      <div id="main">
         {children}
       </div>
     </div>

@@ -7,9 +7,14 @@ import { createSupabaseClient } from "@/app/config/supabase-client";
 type SignOutButtonProps = {
   /** "icon" ใช้บนหัวกระดาษ, "labeled" ใช้เป็นปุ่มเต็มในหน้าโปรไฟล์ */
   variant?: "icon" | "labeled";
+  /** ชั้นคลาสเพิ่มเติมจากผู้เรียก เช่น w-full ในแถบข้าง */
+  className?: string;
 };
 
-export default function SignOutButton({ variant = "icon" }: SignOutButtonProps) {
+export default function SignOutButton({
+  variant = "icon",
+  className,
+}: SignOutButtonProps) {
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -37,7 +42,11 @@ export default function SignOutButton({ variant = "icon" }: SignOutButtonProps) 
 
   if (variant === "labeled") {
     return (
-      <button type="button" onClick={handleSignOut} className="btn btn-outline">
+      <button
+        type="button"
+        onClick={handleSignOut}
+        className={`btn btn-outline${className ? ` ${className}` : ""}`}
+      >
         {icon}
         ออกจากระบบ
       </button>
@@ -50,7 +59,7 @@ export default function SignOutButton({ variant = "icon" }: SignOutButtonProps) 
       onClick={handleSignOut}
       aria-label="ออกจากระบบ"
       title="ออกจากระบบ"
-      className="icon-btn"
+      className={`icon-btn${className ? ` ${className}` : ""}`}
     >
       {icon}
     </button>

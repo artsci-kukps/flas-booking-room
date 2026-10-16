@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T18:10:00.000Z",
+  "title": "Design System: Creative Space — ระบบจองห้องทำงาน",
+  "extensions": {
+    "colorMeta": {
+      "ku-green": { "role": "primary", "displayName": "KU Green", "canonical": "#0e7a4b", "tonalRamp": ["#063722", "#0d6e44", "#13a565", "#19dc87", "#48eaa4", "#7ff0bf", "#b6f7da", "#e8fcf4"] },
+      "ku-green-deep": { "role": "primary", "displayName": "KU Green Deep", "canonical": "#0a6340", "tonalRamp": ["#063824", "#0b6f48", "#11a76c", "#16de90", "#46ecab", "#7df2c4", "#b5f8dd", "#e8fdf4"] },
+      "ku-green-soft": { "role": "primary", "displayName": "KU Green Soft", "canonical": "#e9f4ee", "tonalRamp": ["#14291e", "#29523b", "#3d7a59", "#52a377", "#77bb96", "#a0cfb5", "#c9e4d5", "#eef6f2"] },
+      "amber": { "role": "secondary", "displayName": "Busy Amber", "canonical": "#b7791f", "tonalRamp": ["#342309", "#694512", "#9d681b", "#d18a23", "#e1a651", "#eac185", "#f3dcb9", "#fbf4e9"] },
+      "amber-soft": { "role": "secondary", "displayName": "Busy Amber Soft", "canonical": "#fcf3e3", "tonalRamp": ["#372606", "#6f4b0c", "#a67112", "#dd9618", "#ebb047", "#f1c87e", "#f7dfb5", "#fdf5e8"] },
+      "amber-ink": { "role": "secondary", "displayName": "Busy Amber Ink", "canonical": "#8a5a12", "tonalRamp": ["#362307", "#6c470e", "#a26a15", "#d98d1c", "#e7a94b", "#efc381", "#f6dcb7", "#fcf4e8"] },
+      "danger": { "role": "semantic", "displayName": "Notice Red", "canonical": "#b42318", "tonalRamp": ["#360a07", "#6c150e", "#a22016", "#d82a1d", "#e7564b", "#ee8981", "#f5bbb7", "#fceae8"] },
+      "danger-soft": { "role": "semantic", "displayName": "Notice Red Soft", "canonical": "#fef3f2", "tonalRamp": ["#390904", "#721109", "#aa1a0d", "#e32311", "#f05042", "#f5857a", "#f9b9b3", "#fde9e7"] },
+      "danger-line": { "role": "semantic", "displayName": "Notice Red Line", "canonical": "#f3c9c4", "tonalRamp": ["#330f0a", "#661d15", "#992c1f", "#cb3b29", "#dd6455", "#e79288", "#f1c1bb", "#fbecea"] },
+      "room-blue": { "role": "tertiary", "displayName": "Room Type G Blue", "canonical": "#1d4ed8", "tonalRamp": ["#071336", "#0e276c", "#163aa2", "#1d4ed8", "#4b74e7", "#819eee", "#b7c7f5", "#e9eefc"] },
+      "room-blue-soft": { "role": "tertiary", "displayName": "Room Type G Blue Soft", "canonical": "#eef2fd", "tonalRamp": ["#061337", "#0d276e", "#133aa4", "#1a4ddb", "#4873ea", "#7f9df0", "#b6c7f6", "#e8eefc"] },
+      "room-violet": { "role": "tertiary", "displayName": "Room Type P Violet", "canonical": "#6941c6", "tonalRamp": ["#180e2f", "#301c5e", "#482a8d", "#6038bc", "#8362d0", "#a891de", "#cdc0ec", "#f0ebf9"] },
+      "room-violet-soft": { "role": "tertiary", "displayName": "Room Type P Violet Soft", "canonical": "#f4f0fe", "tonalRamp": ["#130439", "#260873", "#390bac", "#4d0fe6", "#7340f2", "#9d79f6", "#c7b3fa", "#ede7fd"] },
+      "canvas": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#f4f4f1", "tonalRamp": ["#22221b", "#454536", "#676751", "#89896c", "#a5a58d", "#c0c0af", "#dbdbd1", "#f4f4f1"] },
+      "surface": { "role": "neutral", "displayName": "Plate White", "canonical": "#ffffff", "tonalRamp": ["#1f1f1f", "#3d3d3d", "#5c5c5c", "#7a7a7a", "#999999", "#b8b8b8", "#d6d6d6", "#f2f2f2"] },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "#e3e5e0", "tonalRamp": ["#1f211c", "#3e4338", "#5d6454", "#7d8570", "#9ba290", "#b9beb1", "#d7dad3", "#f2f3f1"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#0b0b0c", "tonalRamp": ["#1d1d20", "#3b3b40", "#585860", "#757580", "#95959d", "#b4b4bb", "#d4d4d8", "#f2f2f3"] },
+      "ink-muted": { "role": "neutral", "displayName": "Ink Muted", "canonical": "#5a5f5b", "tonalRamp": ["#1e1f1e", "#3c3f3c", "#595e5a", "#777e78", "#969c97", "#b6bab6", "#d5d7d6", "#f2f3f2"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The login headline only — the single largest text in the system." },
+      "headline": { "displayName": "Headline", "purpose": "Card headings and page titles." },
+      "title": { "displayName": "Title", "purpose": "Room codes on plates; tabular numerals." },
+      "body": { "displayName": "Body", "purpose": "Descriptive copy; capped near 46ch in narrow columns." },
+      "label": { "displayName": "Label", "purpose": "Sidebar group headings, chips, meta rows, honesty notes." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "drawer-ease", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "The sidebar drawer slide (transform) and the scrim fade (opacity), 300ms." },
+      { "name": "state-transition", "value": "150ms ease", "purpose": "Colour-only transitions on buttons, links and nav items." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The system's own positive action (e.g. confirm a booking). Pill, KU green.",
+      "html": "<button class=\"ds-btn-primary\">ยืนยันการจอง</button>",
+      "css": ".ds-btn-primary { font-family: var(--font-sans, Anuphan, sans-serif); display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border: none; border-radius: 999px; background: var(--color-ku, #0e7a4b); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: var(--color-ku-hover, #0a6340); } .ds-btn-primary:active { background: var(--color-ku-hover, #0a6340); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-ku, #0e7a4b); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Google (Neutral) Button",
+      "kind": "button",
+      "refersTo": "button-ink",
+      "description": "The only ink-filled action: signing in through Google is neutral and external, so it does not claim the green accent. Large size (54px) with the Google 'G' on a white disc.",
+      "html": "<button class=\"ds-btn-ink\"><span class=\"ds-btn-ink-disc\"><svg viewBox=\"0 0 48 48\" width=\"15\" height=\"15\"><path fill=\"#EA4335\" d=\"M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z\"/><path fill=\"#4285F4\" d=\"M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z\"/><path fill=\"#FBBC05\" d=\"M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z\"/><path fill=\"#34A853\" d=\"M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z\"/></svg></span>เข้าสู่ระบบด้วย Google</button>",
+      "css": ".ds-btn-ink { font-family: var(--font-sans, Anuphan, sans-serif); display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 54px; padding: 0 24px; border: none; border-radius: 999px; background: var(--color-ink, #0b0b0c); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 150ms ease; } .ds-btn-ink-disc { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; background: #fff; } .ds-btn-ink:hover { background: #232326; } .ds-btn-ink:focus-visible { outline: 2px solid var(--color-ku, #0e7a4b); outline-offset: 2px; } .ds-btn-ink:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action. White fill, 1px hairline, ink text; hover washes to canvas.",
+      "html": "<button class=\"ds-btn-outline\">ยกเลิก</button>",
+      "css": ".ds-btn-outline { font-family: var(--font-sans, Anuphan, sans-serif); display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border: 1px solid var(--color-border, #e3e5e0); border-radius: 999px; background: var(--color-surface, #fff); color: var(--color-ink, #0b0b0c); font-size: 15px; font-weight: 600; cursor: pointer; transition: background 150ms ease; } .ds-btn-outline:hover { background: var(--color-canvas, #f4f4f1); } .ds-btn-outline:focus-visible { outline: 2px solid var(--color-ku, #0e7a4b); outline-offset: 2px; }"
+    },
+    {
+      "name": "Room Plate",
+      "kind": "card",
+      "refersTo": "plate",
+      "description": "The signature component: room code, room name, a status chip, and a 28px room-type tile. White on warm paper, 1px hairline, 16px radius, no shadow.",
+      "html": "<div class=\"ds-plate\"><p class=\"ds-plate-code\">S-204</p><p class=\"ds-plate-name\">ห้องนั่งทำงาน</p><div class=\"ds-plate-foot\"><span class=\"ds-chip ds-chip--free\"><span class=\"ds-chip-dot\"></span>ว่าง 4 ที่นั่ง</span><span class=\"ds-tile ds-tile--s\">S</span></div></div>",
+      "css": ".ds-plate { font-family: var(--font-sans, Anuphan, sans-serif); width: 240px; padding: 16px; border: 1px solid var(--color-border, #e3e5e0); border-radius: 16px; background: var(--color-surface, #fff); } .ds-plate-code { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--color-ink, #0b0b0c); font-variant-numeric: tabular-nums; } .ds-plate-name { margin: 2px 0 0; font-size: 13px; line-height: 1.35; color: var(--color-ink-muted, #5a5f5b); } .ds-plate-foot { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; } .ds-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; } .ds-chip-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; } .ds-chip--free { background: var(--color-ku-soft, #e9f4ee); color: var(--color-ku, #0e7a4b); } .ds-chip--free .ds-chip-dot { background: var(--color-ku, #0e7a4b); } .ds-tile { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; font-size: 14px; font-weight: 700; color: #fff; } .ds-tile--s { background: var(--color-ku, #0e7a4b); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-busy",
+      "description": "Room status. Amber-ink text on amber-soft (the raw amber measures 3.31:1 and fails 4.5:1, so text uses the darker ink). Three states: available (green), busy (amber), full (canvas + hairline so the pill survives on white).",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip ds-chip--free\"><span class=\"ds-dot\"></span>ว่าง</span><span class=\"ds-chip ds-chip--busy\"><span class=\"ds-dot\"></span>ใช้งานถึง 15:30</span><span class=\"ds-chip ds-chip--full\"><span class=\"ds-dot\"></span>เต็ม</span></div>",
+      "css": ".ds-chips { font-family: var(--font-sans, Anuphan, sans-serif); display: flex; flex-wrap: wrap; gap: 8px; } .ds-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid transparent; } .ds-dot { width: 6px; height: 6px; border-radius: 999px; } .ds-chip--free { background: var(--color-ku-soft, #e9f4ee); color: var(--color-ku, #0e7a4b); } .ds-chip--free .ds-dot { background: var(--color-ku, #0e7a4b); } .ds-chip--busy { background: var(--color-amber-soft, #fcf3e3); color: var(--color-amber-ink, #8a5a12); } .ds-chip--busy .ds-dot { background: var(--color-amber, #b7791f); } .ds-chip--full { background: var(--color-canvas, #f4f4f1); color: var(--color-ink-muted, #5a5f5b); border-color: var(--color-border, #e3e5e0); } .ds-chip--full .ds-dot { background: var(--color-ink-muted, #5a5f5b); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The login card and other content panels: 24px radius, white, 1px hairline, 40px padding, no shadow.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">เข้าสู่ระบบ</h2><p class=\"ds-card-body\">เข้าสู่ระบบด้วยบัญชีอีเมลมหาวิทยาลัย (@ku.th) เพื่อจองห้องและติดตามการจองของคุณ</p></div>",
+      "css": ".ds-card { font-family: var(--font-sans, Anuphan, sans-serif); max-width: 416px; padding: 40px; border: 1px solid var(--color-border, #e3e5e0); border-radius: 24px; background: var(--color-surface, #fff); } .ds-card-title { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.03em; color: var(--color-ink, #0b0b0c); } .ds-card-body { margin: 12px 0 0; font-size: 15px; line-height: 1.625; color: var(--color-ink-muted, #5a5f5b); }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Flat 12px-radius row, 38px tall, muted ink; the active row takes the KU-green-soft fill with KU-green semibold text.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M8 3v4\"/><path d=\"M16 3v4\"/><path d=\"M3 10h18\"/><path d=\"M12 13v6\"/><path d=\"M9 16h6\"/></svg><span>จองห้อง</span></a><a class=\"ds-nav-item ds-nav-item--active\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M9 10v11\"/><path d=\"M15 10v11\"/></svg><span>ตารางจอง</span></a></nav>",
+      "css": ".ds-nav { font-family: var(--font-sans, Anuphan, sans-serif); display: flex; flex-direction: column; gap: 2px; width: 240px; } .ds-nav-item { display: flex; align-items: center; gap: 12px; height: 38px; padding: 8px 12px; border-radius: 12px; font-size: 14px; font-weight: 500; color: var(--color-ink-muted, #5a5f5b); text-decoration: none; transition: background 150ms ease, color 150ms ease; } .ds-nav-item:hover { background: var(--color-canvas, #f4f4f1); color: var(--color-ink, #0b0b0c); } .ds-nav-item:focus-visible { outline: 2px solid var(--color-ku, #0e7a4b); outline-offset: 2px; } .ds-nav-item--active { background: var(--color-ku-soft, #e9f4ee); color: var(--color-ku, #0e7a4b); font-weight: 600; }"
+    },
+    {
+      "name": "Error Notice",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Inline error for the @ku.th restriction and session failures: danger-soft fill, 1px danger-line border, 14px radius, 20px authored icon, 14px bold heading and 13px body.",
+      "html": "<div class=\"ds-notice\" role=\"alert\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7.5v5\"/><path d=\"M12 16h.01\"/></svg><div><p class=\"ds-notice-head\">บัญชีนี้ใช้ไม่ได้</p><p class=\"ds-notice-body\">ระบบอนุญาตเฉพาะอีเมล @ku.th กรุณาเข้าสู่ระบบใหม่ด้วยบัญชีอีเมลมหาวิทยาลัยของคุณ</p></div></div>",
+      "css": ".ds-notice { font-family: var(--font-sans, Anuphan, sans-serif); display: flex; gap: 12px; max-width: 416px; padding: 16px; border: 1px solid var(--color-danger-line, #f3c9c4); border-radius: 14px; background: var(--color-danger-soft, #fef3f2); color: var(--color-danger, #b42318); } .ds-notice svg { flex-shrink: 0; margin-top: 2px; } .ds-notice-head { margin: 0; font-size: 14px; font-weight: 600; } .ds-notice-body { margin: 4px 0 0; font-size: 13px; line-height: 1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Plate Wall",
+    "overview": "This is the room-booking desk of a faculty building, rendered as the wall of nameplates beside the door. Every room is a physical plate: a short code, a name, and an honest status chip. The login screen is that wall; the admin shell is the same wall's back office. The system's job is to make \"which room, which hour, is it free?\" answerable at a glance, in Thai, without decoration competing with the data.\n\nThe mood is flat and legible. Surfaces are warm paper (#f4f4f1) with white plates pinned on top, separated by 1px hairlines rather than shadows. KU green is the single accent and it means one thing — available, and the system's own action. Everything else is ink on paper. Generous radii keep the wall from feeling like paperwork; the absence of shadow keeps it from feeling like a product tour.\n\nDensity is calm but not sparse: plates sit on a 12px grid, navigation items on a 38px pitch, and the type scale does the ranking work. Thai is the primary language, so sizes run a step larger than a Latin-only equivalent and tracking stays conservative — negative tracking is reserved for display sizes where it tightens without clipping stacked tone marks.",
+    "keyCharacteristics": [
+      "Flat: 1px borders and tonal fills only; there is no shadow anywhere in the system.",
+      "One accent: KU green marks availability and the primary action; amber is reserved for \"busy\"; blue and violet exist only to classify room types.",
+      "Plates, not cards: room status is a nameplate with a code, a name, and a chip.",
+      "Thai-first sizing: labels stay at 12px minimum, body at 16px, display at 68px desktop.",
+      "Calm motion: a single authored transition (the sidebar drawer), 300ms, and disabled under prefers-reduced-motion."
+    ],
+    "rules": [
+      { "name": "The No-Second-Accent Rule", "body": "KU green is the only accent. If a new element needs emphasis, it uses weight, size, or ink — not a new hue. Blue and violet are category colors, not accents, and never appear outside a room-type tile.", "section": "colors" },
+      { "name": "The Named-Not-Shaded Rule", "body": "Never introduce a colour whose meaning is only \"looks nice here\". Every hue in this system already means something: green = available, amber = busy, blue = G, violet = P, red = error.", "section": "colors" },
+      { "name": "The ±0.02 Rule", "body": "Tracking is normal to −0.02em for everything at body size or below. Negative tracking is only used at title size (−0.02em) and larger (−0.03em). Thai stacks tone marks above ascenders; over-tightening at small sizes clips them.", "section": "typography" },
+      { "name": "The No-Kicker Rule", "body": "No element sits above a heading as an eyebrow, overline, or kicker. Headings open their own section.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest and in every state. Hover changes colour, not elevation. If something needs to feel \"raised\", it gets a 1px border and a white fill.", "section": "elevation" },
+      { "name": "The Scrim-Is-Not-Shadow Rule", "body": "The only overlay in the system is the drawer scrim. It darkens; it never blurs or shadows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep depth flat: separate with a 1px #e3e5e0 border and tonal fill, never a shadow.",
+      "Do keep KU green (#0e7a4b) for availability and the system's own primary action, and amber (#b7791f / text #8a5a12) only for \"busy\".",
+      "Do switch on tabular-nums for anything a person compares down a column (room codes, service hours).",
+      "Do keep labels at 12px or larger and body at 16px — Thai needs the extra room.",
+      "Do give a plate a code, a name, and a status chip; that trio is what makes it a plate.",
+      "Do label representative data as representative (e.g. ตัวอย่างข้อมูล · สถานะจริงแสดงหลังเข้าสู่ระบบ)."
+    ],
+    "donts": [
+      "Don't add a shadow, blur, or elevation on hover — including on the drawer. The only overlay is the flat drawer scrim.",
+      "Don't introduce a second accent colour. Blue and violet are room-type categories, not accents.",
+      "Don't put a kicker, eyebrow, or overline above a heading.",
+      "Don't tighten tracking below −0.02em at body size or smaller; Thai tone marks clip.",
+      "Don't use an emoji or an icon font as an icon; icons are authored SVG at 1.8 stroke.",
+      "Don't put the large ink (neutral) treatment on a primary action — it is reserved for the Google sign-in button.",
+      "Don't use canvas (#f4f4f1) as a chip fill without a border on a white surface; the pill disappears."
+    ]
+  }
+}

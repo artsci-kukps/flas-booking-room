@@ -9,7 +9,7 @@ type BrandMarkProps = {
  */
 export default function BrandMark({ size = "sm", className }: BrandMarkProps) {
   const box =
-    size === "lg" ? "h-11 w-11 rounded-[10px]" : "h-8 w-8 rounded-[9px]";
+    size === "lg" ? "h-11 w-11 rounded-[14px]" : "h-8 w-8 rounded-[10px]";
   const icon = size === "lg" ? "h-6 w-6" : "h-[18px] w-[18px]";
 
   return (
