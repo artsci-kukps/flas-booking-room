@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   getUserMock,
   selectMock,
-  fromMock,
-  whereMock,
   limitMock,
   redirectMock,
   forbiddenMock,
@@ -24,8 +22,6 @@ const {
   return {
     getUserMock,
     selectMock,
-    fromMock,
-    whereMock,
     limitMock,
     redirectMock,
     forbiddenMock,
