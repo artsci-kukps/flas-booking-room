@@ -1,0 +1,15 @@
+
+> flas-booking-room@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
+▲ Next.js 16.4.0 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.43.249:3001
+- Environments: .env
+✓ Ready in 522ms
+✓ Running next.config.ts took 39ms
+- Cache Components enabled
+- Partial Prefetching enabled
+
+[?25h
