@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/guards";
 import GoogleSignInButton from "./google-sign-in-button";
 import { redirect } from "next/navigation";
+import BrandMark from "@/components/brand-mark";
 
 // ข้อความแจ้งเมื่อเข้าสู่ระบบไม่สำเร็จ (คีย์มาจาก query string ?error=)
 const ERROR_NOTICES = {
@@ -21,7 +22,7 @@ export default async function LoginPage({
 }) {
   const user = await getCurrentUser();
   if (user) {
-    user.role === "admin" ? redirect("/admin") : redirect("/user");
+    redirect(user.role === "admin" ? "/admin/dashboard" : "/user/booking");
   }
 
   const { error } = await searchParams;
@@ -30,32 +31,14 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-canvas px-6 py-12">
-      <div className="w-full max-w-[26rem] rounded-xl border border-border bg-surface p-8 sm:p-10">
+      <div className="panel w-full max-w-[26rem] p-8 sm:p-10">
         <div className="flex flex-col items-center text-center">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-ku text-white"
-            aria-hidden="true"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6"
-            >
-              <path d="M6 20V7a6 6 0 0 1 12 0v13" />
-              <path d="M4 20h16" />
-              <circle cx="12" cy="11" r="1.4" />
-              <path d="M12 12.4v2.6" />
-            </svg>
-          </div>
+          <BrandMark size="lg" />
           <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink">
-            เข้าสู่ระบบ
+            ระบบจองห้องทำงาน
           </h1>
           <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-muted">
-            ใช้บัญชีอีเมลมหาวิทยาลัย (@ku.th) เท่านั้น
+            เข้าสู่ระบบด้วยบัญชีอีเมลมหาวิทยาลัย (@ku.th) เท่านั้น
           </p>
         </div>
 

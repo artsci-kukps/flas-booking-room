@@ -4,6 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const { requireUserMock } = vi.hoisted(() => ({ requireUserMock: vi.fn() }))
 
 vi.mock('@/lib/auth/guards', () => ({ requireUser: requireUserMock }))
+// AppHeader เป็น client component ที่อ่านเส้นทางปัจจุบัน — จำลอง router context ให้ render ได้ในโหมด static
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/user',
+  useRouter: () => ({ push: vi.fn() }),
+}))
 
 import ProtectedLayout from './layout'
 
@@ -13,7 +18,14 @@ describe('protected layout', () => {
   })
 
   it('requires a usable user before rendering children', async () => {
-    requireUserMock.mockResolvedValue({ id: 'u1' })
+    requireUserMock.mockResolvedValue({
+      id: 'u1',
+      email: 'user@ku.th',
+      fullName: null,
+      imageUrl: null,
+      role: 'user' as const,
+      isBlocked: false,
+    })
 
     const html = renderToStaticMarkup(
       await ProtectedLayout({ children: <span>เนื้อหา</span> }),

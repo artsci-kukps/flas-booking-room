@@ -16,7 +16,7 @@ export default function GoogleSignInButton() {
     <button
       type="button"
       onClick={handleGoogleLogin}
-      className="flex h-11 w-full items-center justify-center gap-3 rounded-[10px] bg-ku font-semibold text-white transition-colors hover:bg-ku-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ku focus-visible:ring-offset-2"
+      className="btn btn-primary w-full"
     >
       <svg
         viewBox="0 0 48 48"

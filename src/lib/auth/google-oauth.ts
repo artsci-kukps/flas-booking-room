@@ -4,6 +4,6 @@ export const KU_GOOGLE_DOMAIN = "ku.th";
 export function googleSignInOptions(origin: string) {
   return {
     redirectTo: `${origin}/auth/callback`,
-    queryParams: { prompt: "select_account" },
+    queryParams: { hd: KU_GOOGLE_DOMAIN, prompt: "select_account" },
   };
 }

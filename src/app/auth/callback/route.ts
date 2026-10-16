@@ -7,7 +7,7 @@ import { users } from "@/db/schema";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/profile"; // หน้าที่จะส่งไปหลังจากล็อกอินสำเร็จ (เช่น หน้าแรก /)
+  const next = searchParams.get("next") ?? "/"; // หน้าที่จะส่งไปหลังจากล็อกอินสำเร็จ (เช่น หน้าแรก /)
 
   if (code) {
     const supabase = await createSupabaseServerClient();

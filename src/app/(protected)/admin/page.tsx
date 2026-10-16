@@ -1,17 +1,9 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { redirect } from "next/navigation";
 
-export default async function AdminPage() {
-  const admin = await requireAdmin();
-
-  return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">
-        ผู้ดูแลระบบ
-      </h1>
-      <p className="mt-2 text-ink-muted">
-        ยินดีต้อนรับ {admin.fullName ?? admin.email} —
-        คุณเข้าถึงหน้าผู้ดูแลระบบได้
-      </p>
-    </main>
-  );
+/**
+ * หน้าหลักของแอดมินเป็นเพียงทางผ่าน — ทุกเส้นทางขึ้นต้นด้วย /admin/...
+ * และ /admin จะพาไปหน้าแดชบอร์ดซึ่งเป็นค่าเริ่มต้นของพื้นที่แอดมิน
+ */
+export default function AdminHome() {
+  redirect("/admin/dashboard");
 }

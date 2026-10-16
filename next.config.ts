@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
     // เปิดให้ใช้ forbidden()/unauthorized() เพื่อคืน 403 จาก requireAdmin()
     authInterrupts: true,
   },
+  images: {
+    // รูปโปรไฟล์มาจาก Google OAuth (avatar_url บน user_metadata)
+    remotePatterns: [
+      { protocol: "https", hostname: "*.googleusercontent.com" },
+    ],
+  },
   turbopack: {
     rules: {
       "*.css": {

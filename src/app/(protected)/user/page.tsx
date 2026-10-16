@@ -1,10 +1,9 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-// หน้าแรกสุดเป็นเพียงทางผ่านไปยังหน้า Dashboard
+/**
+ * หน้าหลักของผู้ใช้เป็นเพียงทางผ่าน — ทุกเส้นทางขึ้นต้นด้วย /user/...
+ * และ /user จะพาไปหน้าจองห้องซึ่งเป็นค่าเริ่มต้นของพื้นที่ผู้ใช้
+ */
 export default function UserHome() {
-  return (
-    <div>
-      User Dashboard <Link href={"/user/profile"}></Link>
-    </div>
-  );
+  redirect("/user/booking");
 }
