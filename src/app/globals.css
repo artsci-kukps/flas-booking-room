@@ -70,6 +70,11 @@ body {
     @apply h-[54px] px-6 text-base;
   }
 
+  /* ปุ่มย่อสำหรับจัดการในแถวตาราง — สูง 36px ยังคงรูปแคปซูล */
+  .btn-sm {
+    @apply h-9 px-3.5 text-[0.8125rem];
+  }
+
   .btn-primary {
     @apply bg-ku text-white hover:bg-ku-hover active:bg-ku-hover;
   }
@@ -81,6 +86,11 @@ body {
 
   .btn-outline {
     @apply border border-border bg-surface text-ink hover:bg-canvas active:bg-canvas;
+  }
+
+  /* ระงับ/ปลดระงับผู้ใช้ — สี danger สงวนไว้กับการระงับตาม DESIGN.md */
+  .btn-danger {
+    @apply border border-danger-line bg-surface text-danger hover:bg-danger-soft active:bg-danger-soft;
   }
 
   .icon-btn {
