@@ -1,5 +1,5 @@
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
-import { formatThaiDateTime } from "@/lib/admin/room-display";
+import { formatThaiDateTime } from "@/lib/format";
 import type { DeletedRoomTypeRow } from "@/lib/admin/room-types";
 
 import RoomTypeRestoreButton from "./room-type-restore-button";

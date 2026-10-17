@@ -372,8 +372,11 @@ describe('softDeleteRoom', () => {
 describe('restoreRoom', () => {
   it('ล้าง deleted_at และ deleted_by', async () => {
     selectWhereMock.mockReturnValueOnce(
-      rowsQuery([{ id: 'r-old', name: 'S-101', deletedAt: new Date('2026-02-01T00:00:00Z') }]),
+      rowsQuery([
+        { id: 'r-old', name: 'S-101', roomTypeId: 'rt-s', deletedAt: new Date('2026-02-01T00:00:00Z') },
+      ]),
     )
+    selectWhereMock.mockReturnValueOnce(rowsQuery([RT_S]))
     selectWhereMock.mockReturnValueOnce(rowsQuery([]))
 
     const result = await restoreRoom('r-old')
@@ -384,9 +387,28 @@ describe('restoreRoom', () => {
 
   it('ปฏิเสธเมื่อชื่อถูกใช้โดยห้องที่ใช้งานอยู่', async () => {
     selectWhereMock.mockReturnValueOnce(
-      rowsQuery([{ id: 'r-old', name: 'S-101', deletedAt: new Date('2026-02-01T00:00:00Z') }]),
+      rowsQuery([
+        { id: 'r-old', name: 'S-101', roomTypeId: 'rt-s', deletedAt: new Date('2026-02-01T00:00:00Z') },
+      ]),
     )
+    selectWhereMock.mockReturnValueOnce(rowsQuery([RT_S]))
     selectWhereMock.mockReturnValueOnce(rowsQuery([{ id: 'r-101', name: 'S-101' }]))
+
+    const result = await restoreRoom('r-old')
+
+    expect(result).toMatchObject({ ok: false })
+    expect(updateSetMock).not.toHaveBeenCalled()
+  })
+
+  it('ปฏิเสธเมื่อประเภทห้องของห้องถูกลบไปแล้ว', async () => {
+    selectWhereMock.mockReturnValueOnce(
+      rowsQuery([
+        { id: 'r-old', name: 'S-101', roomTypeId: 'rt-gone', deletedAt: new Date('2026-02-01T00:00:00Z') },
+      ]),
+    )
+    selectWhereMock.mockReturnValueOnce(
+      rowsQuery([{ bookingMode: 'CAPACITY', deletedAt: new Date('2026-02-02T00:00:00Z') }]),
+    )
 
     const result = await restoreRoom('r-old')
 

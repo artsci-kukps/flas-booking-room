@@ -1,9 +1,10 @@
+import { roomTypeBadgeClass } from "@/lib/room-type-style";
+
 // ข้อมูลประเภทห้องจาก TOR (seed ประเภทห้อง) — tone จำแนกสีต่อประเภท
 const ROOM_TYPES = [
   {
     code: "S",
     name: "ห้องทั่วไป",
-    badge: "bg-ku text-white",
     chip: "bg-ku-soft text-ku",
     mode: "จองทับกันได้ตามความจุ",
     min: "อย่างน้อย 1 ชั่วโมง",
@@ -12,7 +13,6 @@ const ROOM_TYPES = [
   {
     code: "G",
     name: "ห้องประชุมใหญ่",
-    badge: "bg-blue text-white",
     chip: "bg-blue-soft text-blue",
     mode: "จองทับไม่ได้",
     min: "อย่างน้อย 2 ชั่วโมง",
@@ -21,7 +21,6 @@ const ROOM_TYPES = [
   {
     code: "P",
     name: "ห้องละหมาด",
-    badge: "bg-violet text-white",
     chip: "bg-violet-soft text-violet",
     mode: "จองทับไม่ได้",
     min: "อย่างน้อย 1 ชั่วโมง",
@@ -50,7 +49,7 @@ export default function RoomTypesSection() {
           >
             <span
               aria-hidden="true"
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-base font-semibold ${type.badge}`}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-base font-semibold ${roomTypeBadgeClass(type.code)}`}
             >
               {type.code}
             </span>

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { AdminUserRow, UserRole } from "@/lib/admin/users";
+import { formatThaiDateTime } from "@/lib/format";
 
 import UserRowActions from "./user-row-actions";
 
@@ -8,15 +9,6 @@ const ROLE_LABEL: Record<UserRole, string> = {
   user: "ผู้ใช้งาน",
   admin: "ผู้ดูแลระบบ",
 };
-
-/** วันที่/เวลาแบบไทย เขตเวลาไทย (ระบบคิดเวลา Asia/Bangkok) */
-function formatThaiDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Bangkok",
-  }).format(date);
-}
 
 /**
  * ชิปสถานะ — เขียว = ใช้งานได้, danger = ถูกระงับ

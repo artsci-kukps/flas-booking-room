@@ -52,6 +52,8 @@ const CAPACITY_INVALID_MESSAGE = "ความจุต้องเป็นจ�
 const CAPACITY_REQUIRED_MESSAGE = "ห้องประเภทจองตามความจุ (CAPACITY) ต้องระบุความจุมากกว่า 0";
 const ROOM_TYPE_NOT_FOUND_MESSAGE =
   "ไม่พบประเภทห้องที่เลือก อาจถูกลบไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่";
+const ROOM_TYPE_DELETED_RESTORE_MESSAGE =
+  "กู้คืนไม่ได้เพราะประเภทห้องของห้องนี้ถูกลบไปแล้ว กรุณากู้คืนประเภทห้องก่อน";
 const NAME_DUPLICATE_MESSAGE = "ชื่อห้องนี้ถูกใช้งานอยู่แล้ว";
 const NOT_FOUND_MESSAGE = "ไม่พบห้องที่ต้องการแก้ไข กรุณารีเฟรชหน้าแล้วลองใหม่";
 const UNIQUE_MESSAGE = "ชื่อห้องซ้ำกับรายการที่ใช้งานอยู่ กรุณารีเฟรชหน้าแล้วลองใหม่";
@@ -174,9 +176,14 @@ async function findNameCandidates(
 async function findRoomById(
   executor: RoomExecutor,
   id: string,
-): Promise<{ id: string; name: string; deletedAt: Date | null } | undefined> {
+): Promise<{ id: string; name: string; roomTypeId: string; deletedAt: Date | null } | undefined> {
   const rows = await executor
-    .select({ id: rooms.id, name: rooms.name, deletedAt: rooms.deletedAt })
+    .select({
+      id: rooms.id,
+      name: rooms.name,
+      roomTypeId: rooms.roomTypeId,
+      deletedAt: rooms.deletedAt,
+    })
     .from(rooms)
     .where(eq(rooms.id, id));
 
@@ -376,6 +383,12 @@ export async function restoreRoom(id: string): Promise<RoomResult> {
 
       if (!existing.deletedAt) {
         return { ok: true };
+      }
+
+      const bookingMode = await findActiveBookingMode(tx, existing.roomTypeId);
+
+      if (!bookingMode) {
+        return { ok: false, message: ROOM_TYPE_DELETED_RESTORE_MESSAGE };
       }
 
       const conflicts = await findActiveNameConflicts(tx, id, existing.name);
