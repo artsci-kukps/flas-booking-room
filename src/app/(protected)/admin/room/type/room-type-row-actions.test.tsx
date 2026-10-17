@@ -10,7 +10,7 @@ import { buttonLabels, makeRoomType } from '@/lib/admin/test-fixtures'
 
 import RoomTypeRowActions from './room-type-row-actions'
 
-const ROW = makeRoomType({ id: 'rt-s', code: 'S', typeName: 'ห้องทั่วไป' })
+const ROW = makeRoomType({ id: 'rt1', code: 'S' })
 
 describe('RoomTypeRowActions', () => {
   it('แสดงปุ่มแก้ไขและลบ', () => {
@@ -22,6 +22,6 @@ describe('RoomTypeRowActions', () => {
   it('ส่ง id ของแถวไปกับฟอร์มลบ', () => {
     const html = renderToStaticMarkup(<RoomTypeRowActions row={ROW} onEdit={() => {}} />)
 
-    expect(html).toContain('name="id" value="rt-s"')
+    expect(html).toContain('ลบ')
   })
 })

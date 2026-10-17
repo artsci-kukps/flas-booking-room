@@ -4,7 +4,7 @@ import Alert from "@/components/alert";
 import BrandMark from "@/components/brand-mark";
 import CreativeSpaceRules from "@/components/login/creative-space-rules";
 import { getCurrentUser } from "@/lib/auth/guards";
-import EmailPasswordSignInUp from "./email-password-sign-in-up";
+import EmailPasswordSignInUp from "./email-password-sign-in";
 
 // ข้อความแจ้งเมื่อเข้าสู่ระบบไม่สำเร็จ (คีย์มาจาก query string ?error=)
 // ใช้กับเส้นทาง Google OAuth ที่ต้อง redirect กลับมา; การกรอกฟอร์มแสดง inline ใน Alert

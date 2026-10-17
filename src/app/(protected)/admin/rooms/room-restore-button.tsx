@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import Alert from "@/components/alert";
 
@@ -19,22 +19,53 @@ type RoomRestoreButtonProps = {
  */
 export default function RoomRestoreButton({ id, className }: RoomRestoreButtonProps) {
   const [state, action, pending] = useActionState(restoreRoom, INITIAL_STATE);
+  const [isConfirmingRestore, setIsConfirmingRestore] = useState(false);
+
+  if (isConfirmingRestore) {
+    return (
+      <div
+        className={`flex flex-wrap items-start justify-end gap-2${className ? ` ${className}` : ""}`}
+      >
+        <span className="text-sm text-ink">ยืนยันกู้คืนรายการนี้หรือไม่?</span>
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <button
+            type="submit"
+            disabled={pending}
+            aria-busy={pending}
+            className="btn btn-sm btn-outline whitespace-nowrap"
+          >
+            {pending ? "กำลังกู้คืน…" : "ยืนยัน"}
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => setIsConfirmingRestore(false)}
+          disabled={pending}
+          className="btn btn-sm btn-outline whitespace-nowrap"
+        >
+          ยกเลิก
+        </button>
+        {state && !state.ok ? (
+          <Alert tone="danger" heading={state.message} className="w-full" />
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div
       className={`flex flex-wrap items-start justify-end gap-2${className ? ` ${className}` : ""}`}
     >
-      <form action={action}>
-        <input type="hidden" name="id" value={id} />
-        <button
-          type="submit"
-          disabled={pending}
-          aria-busy={pending}
-          className="btn btn-sm btn-outline whitespace-nowrap"
-        >
-          {pending ? "กำลังกู้คืน…" : "กู้คืน"}
-        </button>
-      </form>
+      <button
+        type="button"
+        onClick={() => setIsConfirmingRestore(true)}
+        disabled={pending}
+        aria-busy={pending}
+        className="btn btn-sm btn-outline whitespace-nowrap"
+      >
+        {pending ? "กำลังกู้คืน…" : "กู้คืน"}
+      </button>
 
       {state && !state.ok ? (
         <Alert tone="danger" heading={state.message} className="w-full" />

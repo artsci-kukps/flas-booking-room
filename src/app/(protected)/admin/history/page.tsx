@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import PlaceholderPanel from "@/components/placeholder-panel";
-import StatusLegendSection from "@/components/booking/status-legend-section";
+// import StatusLegendSection from "@/components/booking/status-legend-section";
 
 const POINTS = [
   "กรองตามช่วงวันและสถานะการจอง",
@@ -32,7 +32,7 @@ export default function AdminHistoryPage() {
         </Link>
       </div>
 
-      <StatusLegendSection className="mt-8" />
+      {/*<StatusLegendSection className="mt-8" />*/}
 
       <PlaceholderPanel points={POINTS} />
     </main>

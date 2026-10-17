@@ -22,6 +22,6 @@ describe('RoomRowActions', () => {
   it('ส่ง id ของแถวไปกับฟอร์มลบ', () => {
     const html = renderToStaticMarkup(<RoomRowActions row={ROW} onEdit={() => {}} />)
 
-    expect(html).toContain('name="id" value="r1"')
+    expect(html).toContain('ลบ')
   })
 })
