@@ -1,47 +1,49 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { orderByMock, setMock, whereMock, selectMock, updateMock } = vi.hoisted(() => {
-  const orderByMock = vi.fn()
-  const fromMock = vi.fn(() => ({ orderBy: orderByMock }))
-  const selectMock = vi.fn(() => ({ from: fromMock }))
+import { makeUser } from '@/app/(protected)/admin/users/test-fixtures'
 
-  const whereMock = vi.fn()
-  const setMock = vi.fn(() => ({ where: whereMock }))
-  const updateMock = vi.fn(() => ({ set: setMock }))
+const { orderByMock, setMock, whereMock, selectMock, updateMock, executeMock, transactionMock } =
+  vi.hoisted(() => {
+    const orderByMock = vi.fn()
+    const fromMock = vi.fn(() => ({ orderBy: orderByMock }))
+    const selectMock = vi.fn(() => ({ from: fromMock }))
 
-  return { orderByMock, setMock, whereMock, selectMock, updateMock, fromMock }
-})
+    const whereMock = vi.fn()
+    const setMock = vi.fn(() => ({ where: whereMock }))
+    const updateMock = vi.fn(() => ({ set: setMock }))
+
+    // ทรานแซกชันจำลอง: เรียก callback ด้วย tx ที่มี select/update/execute ตัวเดียวกับ db
+    const executeMock = vi.fn()
+    const transactionMock = vi.fn(
+      async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({ select: selectMock, update: updateMock, execute: executeMock }),
+    )
+
+    return {
+      orderByMock,
+      setMock,
+      whereMock,
+      selectMock,
+      updateMock,
+      executeMock,
+      transactionMock,
+    }
+  })
 
 vi.mock('@/db', () => ({
-  default: { select: selectMock, update: updateMock },
+  default: {
+    select: selectMock,
+    update: updateMock,
+    transaction: transactionMock,
+  },
 }))
 
-import {
-  changeUserRole,
-  lastActiveAdminGuard,
-  listUsers,
-  setUserBlocked,
-  type AdminUserRow,
-} from './users'
+import { changeUserRole, lastActiveAdminGuard, listUsers, setUserBlocked } from './users'
 
-function user(overrides: Partial<AdminUserRow> & Pick<AdminUserRow, 'id'>): AdminUserRow {
-  return {
-    email: `${overrides.id}@ku.th`,
-    fullName: null,
-    role: 'user',
-    isBlocked: false,
-    blockedAt: null,
-    blockedBy: null,
-    lastLoginAt: null,
-    createdAt: new Date('2026-01-01T00:00:00Z'),
-    ...overrides,
-  }
-}
-
-const A1 = user({ id: 'a1', role: 'admin' })
-const A2 = user({ id: 'a2', role: 'admin' })
-const A_BLOCKED = user({ id: 'b1', role: 'admin', isBlocked: true })
-const U1 = user({ id: 'u1' })
+const A1 = makeUser({ id: 'a1', role: 'admin' })
+const A2 = makeUser({ id: 'a2', role: 'admin' })
+const A_BLOCKED = makeUser({ id: 'b1', role: 'admin', isBlocked: true })
+const U1 = makeUser({ id: 'u1' })
 
 describe('lastActiveAdminGuard', () => {
   it('ปล่อยผ่านเมื่อเป้าหมายไม่ใช่แอดมินที่ใช้งานได้', () => {
@@ -121,6 +123,7 @@ describe('changeUserRole', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     whereMock.mockResolvedValue(undefined)
+    executeMock.mockResolvedValue(undefined)
   })
 
   it('ถอดสิทธิ์แอดมินคนสุดท้ายไม่ได้ และไม่เขียนฐานข้อมูล', async () => {
@@ -132,6 +135,15 @@ describe('changeUserRole', () => {
     expect(setMock).not.toHaveBeenCalled()
   })
 
+  it('อ่านสถานะและกัน lock-out ภายในทรานแซกชันเดียวกัน', async () => {
+    orderByMock.mockResolvedValue([A1, U1])
+
+    await changeUserRole('a1', 'user')
+
+    // ตัวกันต้องอ่านข้อมูลภายใน transaction ไม่ใช่การอ่านแบบหลวม ๆ ก่อนหน้า
+    expect(transactionMock).toHaveBeenCalledTimes(1)
+  })
+
   it('เปลี่ยนบทบาท user → admin ได้เมื่อยังเหลือแอดมินใช้งานได้', async () => {
     orderByMock.mockResolvedValue([A1, U1])
 
@@ -140,6 +152,17 @@ describe('changeUserRole', () => {
     expect(result).toEqual({ ok: true })
     expect(setMock).toHaveBeenCalledWith({ role: 'admin' })
     expect(whereMock).toHaveBeenCalled()
+  })
+
+  it('ถือ advisory lock ก่อนเขียนเสมอ (serialize การแก้ไขผู้ใช้)', async () => {
+    orderByMock.mockResolvedValue([A1, U1])
+
+    await changeUserRole('u1', 'admin')
+
+    expect(executeMock).toHaveBeenCalledTimes(1)
+    expect(executeMock.mock.invocationCallOrder[0]).toBeLessThan(
+      setMock.mock.invocationCallOrder[0]!,
+    )
   })
 
   it('เปลี่ยน admin → user ได้เมื่อยังเหลือแอดมินใช้งานได้คนอื่น', async () => {
@@ -165,6 +188,15 @@ describe('setUserBlocked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     whereMock.mockResolvedValue(undefined)
+    executeMock.mockResolvedValue(undefined)
+  })
+
+  it('อ่านสถานะและกัน lock-out ภายในทรานแซกชันเดียวกัน', async () => {
+    orderByMock.mockResolvedValue([A1, U1])
+
+    await setUserBlocked('a1', 'a1', true)
+
+    expect(transactionMock).toHaveBeenCalledTimes(1)
   })
 
   it('บันทึก is_blocked, blocked_at, blocked_by = ผู้ดำเนินการ', async () => {

@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 
 import db from "@/db";
 import { users } from "@/db/schema";
@@ -89,12 +89,69 @@ const USER_COLUMNS = {
   createdAt: users.createdAt,
 };
 
-/** รายชื่อผู้ใช้ทั้งหมด — แอดมินขึ้นก่อน แล้วเรียงตามลำดับการเข้าระบบ */
-export async function listUsers(): Promise<AdminUserRow[]> {
-  return db
+/**
+ * คีย์ล็อกแบบ advisory ระดับ transaction สำหรับ serialize การแก้ไขผู้ใช้
+ * ใช้ค่าคงที่ร่วมกันทั้งระบบ เพื่อให้ mutation ผู้ใช้ทุกครั้งเข้าคิวทีละราย
+ * ป้องกันสองคำขอถอดสิทธิ์/ระงับแอดมินพร้อมกันแล้วผ่านตัวกัน lock-out ทั้งคู่
+ */
+const USER_MUTATION_LOCK_KEY = 48_202_003;
+
+type UserAdminTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** อ่านแถวผู้ใช้ทั้งหมดผ่าน executor ที่ให้มา (db ปกติ หรือ tx ในทรานแซกชัน) */
+async function selectUserRows(
+  executor: Pick<UserAdminTransaction, "select">,
+): Promise<AdminUserRow[]> {
+  return executor
     .select(USER_COLUMNS)
     .from(users)
     .orderBy(desc(users.role), asc(users.createdAt));
+}
+
+/** รายชื่อผู้ใช้ทั้งหมด — แอดมินขึ้นก่อน แล้วเรียงตามลำดับการเข้าระบบ */
+export async function listUsers(): Promise<AdminUserRow[]> {
+  return selectUserRows(db);
+}
+
+/**
+ * โครงร่วมของการแก้ไขผู้ใช้ทุกแบบ — ทำงานในทรานแซกชันเดียวเพื่อความ atomic:
+ * 1) ถือ advisory lock ให้ mutation ผู้ใช้เข้าคิวทีละราย
+ * 2) อ่านสถานะผู้ใช้ล่าสุด "ภายใน" ทรานแซกชัน (ไม่ใช่ค่าที่อ่านมาก่อนหน้า)
+ * 3) รันตัวกัน lock-out บนข้อมูลล่าสุดนั้น
+ * 4) ถ้าเป็นการเปลี่ยนแปลงที่เป็น no-op หรือเป้าหมายหายไป ก็จบโดยไม่เขียน
+ * 5) เขียนเฉพาะเมื่อผ่านตัวกันแล้วเท่านั้น
+ */
+async function mutateUser(
+  targetId: string,
+  change: AdminChange,
+  isNoOp: (target: AdminUserRow) => boolean,
+  apply: (tx: UserAdminTransaction) => Promise<unknown>,
+): Promise<UserAdminResult> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${USER_MUTATION_LOCK_KEY})`);
+
+    const rows = await selectUserRows(tx);
+
+    const guard = lastActiveAdminGuard(rows, targetId, change);
+
+    if (guard) {
+      return { ok: false, message: guard };
+    }
+
+    const target = rows.find((row) => row.id === targetId);
+
+    if (!target) {
+      return { ok: false, message: NOT_FOUND_MESSAGE };
+    }
+
+    if (isNoOp(target)) {
+      return { ok: true };
+    }
+
+    await apply(tx);
+
+    return { ok: true };
+  });
 }
 
 /** เปลี่ยนบทบาทผู้ใช้ โดยกันไม่ให้เหลือแอดมินที่ใช้งานได้ศูนย์คน */
@@ -102,30 +159,12 @@ export async function changeUserRole(
   targetId: string,
   nextRole: UserRole,
 ): Promise<UserAdminResult> {
-  const rows = await listUsers();
-
-  const guard = lastActiveAdminGuard(rows, targetId, {
-    type: "role",
-    role: nextRole,
-  });
-
-  if (guard) {
-    return { ok: false, message: guard };
-  }
-
-  const target = rows.find((row) => row.id === targetId);
-
-  if (!target) {
-    return { ok: false, message: NOT_FOUND_MESSAGE };
-  }
-
-  if (target.role === nextRole) {
-    return { ok: true };
-  }
-
-  await db.update(users).set({ role: nextRole }).where(eq(users.id, targetId));
-
-  return { ok: true };
+  return mutateUser(
+    targetId,
+    { type: "role", role: nextRole },
+    (target) => target.role === nextRole,
+    (tx) => tx.update(users).set({ role: nextRole }).where(eq(users.id, targetId)),
+  );
 }
 
 /**
@@ -138,35 +177,18 @@ export async function setUserBlocked(
   targetId: string,
   blocked: boolean,
 ): Promise<UserAdminResult> {
-  const rows = await listUsers();
-
-  const guard = lastActiveAdminGuard(rows, targetId, {
-    type: "block",
-    blocked,
-  });
-
-  if (guard) {
-    return { ok: false, message: guard };
-  }
-
-  const target = rows.find((row) => row.id === targetId);
-
-  if (!target) {
-    return { ok: false, message: NOT_FOUND_MESSAGE };
-  }
-
-  if (target.isBlocked === blocked) {
-    return { ok: true };
-  }
-
-  await db
-    .update(users)
-    .set(
-      blocked
-        ? { isBlocked: true, blockedAt: new Date(), blockedBy: actorId }
-        : { isBlocked: false, blockedAt: null, blockedBy: null },
-    )
-    .where(eq(users.id, targetId));
-
-  return { ok: true };
+  return mutateUser(
+    targetId,
+    { type: "block", blocked },
+    (target) => target.isBlocked === blocked,
+    (tx) =>
+      tx
+        .update(users)
+        .set(
+          blocked
+            ? { isBlocked: true, blockedAt: new Date(), blockedBy: actorId }
+            : { isBlocked: false, blockedAt: null, blockedBy: null },
+        )
+        .where(eq(users.id, targetId)),
+  );
 }
