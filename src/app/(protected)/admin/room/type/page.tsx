@@ -1,25 +1,27 @@
-import PlaceholderPanel from "@/components/placeholder-panel";
+import { listDeletedRoomTypes, listRoomTypes } from "@/lib/admin/room-types";
+import { requireAdmin } from "@/lib/auth/guards";
 
-const POINTS = [
-  "3 ประเภท: S ห้องทั่วไป, G ห้องประชุมใหญ่, P ห้องละหมาด",
-  "กำหนดโหมดการจอง (CAPACITY / EXCLUSIVE) และเวลาขั้นต่ำเป็นข้อมูล ไม่ hardcode",
-  "ลบแบบ soft delete และกู้คืนแบบใช้แถวเดิม (reuse) เพื่อรักษา FK ของประวัติ",
-  "ห้ามลบประเภทที่ยังมีห้องใช้งานอยู่ — บังคับที่ระดับฐานข้อมูล",
-  "ชื่อและรหัสประเภทห้องห้ามซ้ำเฉพาะที่ยังไม่ถูกลบ",
-] as const;
+import RoomTypesManager from "./room-types-manager";
 
-/** จัดการประเภทห้องและกติกาต่อประเภท ตาม TOR ข้อ 4 */
-export default function RoomTypePage() {
+/**
+ * จัดการประเภทห้องและกติกาต่อประเภท ตาม TOR ข้อ 4
+ * - เพิ่ม/แก้ไขรหัส ชื่อ โหมดการจอง และระยะเวลาขั้นต่ำ
+ * - ลบแบบ soft delete (ห้ามลบประเภทที่ยังมีห้องใช้งาน — บังคับที่ DB trigger)
+ * - กู้คืนรายการที่ถูกลบ หรือเพิ่มรหัส/ชื่อเดิมซ้ำจะกู้คืนแถวเดิมให้อัตโนมัติ
+ */
+export default async function RoomTypePage() {
+  await requireAdmin();
+
+  const [rows, deletedRows] = await Promise.all([listRoomTypes(), listDeletedRoomTypes()]);
+
   return (
     <main className="page py-8 sm:py-10">
-      <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">
-        ประเภทห้อง
-      </h1>
+      <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">ประเภทห้อง</h1>
       <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
         นิยามประเภทห้องและกติกาการจองของแต่ละประเภท ที่ระบบใช้ตรวจทุกครั้งก่อนยืนยัน
       </p>
 
-      <PlaceholderPanel points={POINTS} />
+      <RoomTypesManager rows={rows} deletedRows={deletedRows} />
     </main>
   );
 }

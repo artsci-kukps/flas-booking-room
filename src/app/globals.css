@@ -108,6 +108,18 @@ body {
     @apply h-12 w-full rounded-[12px] border border-border bg-surface px-4 text-base text-ink transition-colors placeholder:text-ink-muted;
   }
 
+  /* กล่องข้อความหลายบรรทัด (เช่น สิ่งอำนวยความสะดวก) — ใช้โทนเดียวกับ .field
+     แต่สูงตามเนื้อหา (ไม่มีเงา; โฟกัสใช้ :focus-visible ของทั้งระบบ) */
+  .field-area {
+    @apply min-h-28 w-full rounded-[12px] border border-border bg-surface px-4 py-3 text-base text-ink transition-colors placeholder:text-ink-muted;
+  }
+
+  /* ดропดาวน์ของระบบ — ใช้คู่กับ .field ปิดลูกศรเนทีฟ เพื่อวาด chevron เขียนเอง 1.8 เส้น
+     (ไม่มีเงา; โฟกัสใช้ :focus-visible ของทั้งระบบ) */
+  .field-select {
+    @apply appearance-none pr-11;
+  }
+
   /* ทางแยกของขั้นตอน (แท็บ/เฟส OTP): เลื่อนเข้าจากด้านที่เดินหน้า/ถอยหลัง
      ความเร็ว 300ms เท่ากับการเคลื่อนไหวเดียวที่ DESIGN.md อนุญาต */
   .step-forward {
