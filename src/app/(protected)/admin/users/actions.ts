@@ -7,7 +7,6 @@ import {
   changeUserRole,
   setUserBlocked,
   type UserAdminResult,
-  type UserRole,
 } from "@/lib/admin/users";
 
 /**
@@ -39,7 +38,7 @@ export async function updateUserRole(
     return { ok: false, message: INVALID_ROLE_MESSAGE };
   }
 
-  const result = await changeUserRole(targetId, role satisfies UserRole);
+  const result = await changeUserRole(targetId, role);
 
   if (result.ok) {
     revalidatePath("/admin/users");

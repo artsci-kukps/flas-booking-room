@@ -3,13 +3,14 @@
 import { useActionState } from "react";
 
 import Alert from "@/components/alert";
+import type { UserRole } from "@/lib/admin/users";
 
 import { updateUserBlocked, updateUserRole, type AdminActionState } from "./actions";
 
 type UserRowActionsProps = {
   /** id ของผู้ใช้ที่ปุ่มนี้จัดการ */
   id: string;
-  role: "user" | "admin";
+  role: UserRole;
   isBlocked: boolean;
   /** แอดมินกำลังจัดการบัญชีของตัวเองหรือไม่ — ใช้เลือกข้อความบนปุ่ม */
   isSelf: boolean;

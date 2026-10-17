@@ -1,3 +1,4 @@
+import Alert from "@/components/alert";
 import { listUsers } from "@/lib/admin/users";
 import { requireAdmin } from "@/lib/auth/guards";
 
@@ -29,27 +30,12 @@ export default async function UsersPage() {
 
       <UsersTable rows={rows} currentAdminId={admin.id} />
 
-      <div className="mt-4 flex gap-3 rounded-xl bg-canvas p-4">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="mt-0.5 h-5 w-5 shrink-0 text-ink-muted"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v5" />
-          <path d="M12 8h.01" />
-        </svg>
-        <p className="text-sm leading-relaxed text-ink">
-          ระบบไม่มีการลบผู้ใช้ เพื่อรักษาความเชื่อมโยงของประวัติการจอง
-          บัญชีที่ถูกระงับจะถูกตัดสิทธิ์ทันทีในทุกเส้นทาง และระบบจะไม่ยอมให้เหลือผู้ดูแล
-          ที่ใช้งานได้เป็นศูนย์คน
-        </p>
-      </div>
+      <Alert
+        tone="info"
+        heading="ระบบไม่มีการลบผู้ใช้"
+        body="เพื่อรักษาความเชื่อมโยงของประวัติการจอง บัญชีที่ถูกระงับจะถูกตัดสิทธิ์ทันทีในทุกเส้นทาง และระบบจะไม่ยอมให้เหลือผู้ดูแลที่ใช้งานได้เป็นศูนย์คน"
+        className="mt-4"
+      />
     </main>
   );
 }

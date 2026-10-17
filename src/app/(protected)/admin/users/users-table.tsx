@@ -18,7 +18,10 @@ function formatThaiDateTime(date: Date): string {
   }).format(date);
 }
 
-/** ชิปสถานะ — เขียว = ใช้งานได้, danger = ถูกระงับ (ไม่มีสีอื่นตาม DESIGN.md) */
+/**
+ * ชิปสถานะ — เขียว = ใช้งานได้, danger = ถูกระงับ
+ * โทน danger สื่อ "ถูกปฏิเสธ/ผิดพลาด" (แดง = denied/error) ตามความหมายเดียวกับ Alert ใน alert.tsx
+ */
 function StatusChip({ tone, children }: { tone: "active" | "blocked"; children: ReactNode }) {
   const styles =
     tone === "active"
@@ -44,11 +47,25 @@ function RoleLabel({ role }: { role: UserRole }) {
   );
 }
 
+/**
+ * ชื่อที่แสดงได้เสมอ — ใช้ชื่อ-นามสกุลถ้ามี มิฉะนั้นถอยไปใช้ส่วนหน้าอีเมล (ก่อน @)
+ * เพื่อให้รายการยังอ่านออกว่าเป็นใคร แทนที่จะขึ้นขีดกลางลอย ๆ
+ */
+function displayName(user: AdminUserRow): string {
+  const fullName = user.fullName?.trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  return user.email.split("@")[0]?.trim() || user.email;
+}
+
 function NameLabel({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
   return (
     <div className="min-w-0">
       <p className="font-semibold text-ink">
-        {user.fullName?.trim() || "—"}
+        {displayName(user)}
         {isSelf ? (
           <span className="ml-1.5 text-xs font-semibold text-ink-muted">(คุณ)</span>
         ) : null}

@@ -88,7 +88,8 @@ body {
     @apply border border-border bg-surface text-ink hover:bg-canvas active:bg-canvas;
   }
 
-  /* ระงับ/ปลดระงับผู้ใช้ — สี danger สงวนไว้กับการระงับตาม DESIGN.md */
+  /* ระงับบัญชีผู้ใช้ — ใช้โทน danger เพื่อสื่อการกระทำเชิงลบ/การปฏิเสธ (แดง = denied/error)
+     ไม่ใช่ตัวแปรที่ DESIGN.md ระบุไว้โดยตรง แต่เป็นโทนเดียวกับ Alert danger ใน alert.tsx */
   .btn-danger {
     @apply border border-danger-line bg-surface text-danger hover:bg-danger-soft active:bg-danger-soft;
   }
