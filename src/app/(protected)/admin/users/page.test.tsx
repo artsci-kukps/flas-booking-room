@@ -18,35 +18,12 @@ vi.mock('@/lib/admin/users', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
-import type { AdminUserRow } from '@/lib/admin/users'
 import UsersPage from './page'
+import { ADMIN, buttonLabels, makeUser } from './test-fixtures'
 
-function user(overrides: Partial<AdminUserRow> & Pick<AdminUserRow, 'id'>): AdminUserRow {
-  return {
-    email: `${overrides.id}@ku.th`,
-    fullName: null,
-    role: 'user',
-    isBlocked: false,
-    blockedAt: null,
-    blockedBy: null,
-    lastLoginAt: null,
-    createdAt: new Date('2026-01-01T00:00:00Z'),
-    ...overrides,
-  }
-}
-
-const ADMIN = {
-  id: 'a1',
-  email: 'admin@ku.th',
-  fullName: 'ผู้ดูแล ระบบ',
-  imageUrl: null,
-  role: 'admin' as const,
-  isBlocked: false,
-}
-
-const A1 = user({ id: 'a1', fullName: 'ผู้ดูแล ระบบ', role: 'admin' })
-const U1 = user({ id: 'u1', fullName: 'สมชาย ใจดี', email: 'somchai@ku.th' })
-const U2 = user({
+const A1 = makeUser({ id: 'a1', fullName: 'ผู้ดูแล ระบบ', role: 'admin' })
+const U1 = makeUser({ id: 'u1', fullName: 'สมชาย ใจดี', email: 'somchai@ku.th' })
+const U2 = makeUser({
   id: 'u2',
   fullName: 'สมหญิง รักเรียน',
   email: 'somying@ku.th',
@@ -54,13 +31,6 @@ const U2 = user({
   blockedAt: new Date('2026-02-01T03:00:00Z'),
   blockedBy: 'a1',
 })
-
-/** ดึงข้อความบนปุ่มทั้งหมดออกจาก HTML ที่เรนเดอร์ */
-function buttonLabels(html: string): string[] {
-  return [...html.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)].map((match) =>
-    match[1]!.replace(/<[^>]*>/g, '').trim(),
-  )
-}
 
 describe('users page', () => {
   beforeEach(() => {
@@ -105,5 +75,21 @@ describe('users page', () => {
     const html = renderToStaticMarkup(await UsersPage())
 
     expect(html).toContain('ยังไม่มีผู้ใช้ในระบบ')
+  })
+
+  it('ใช้ชื่อจากส่วนหน้าอีเมลเมื่อไม่มีชื่อ-นามสกุล', async () => {
+    listUsersMock.mockResolvedValue([makeUser({ id: 'u9', email: 'somchai@ku.th' })])
+
+    const html = renderToStaticMarkup(await UsersPage())
+
+    expect(html).toContain('>somchai<')
+    expect(html).not.toContain('>—<')
+  })
+
+  it('อธิบายนโยบายไม่ลบผู้ใช้ผ่าน Alert แบบ info', async () => {
+    const html = renderToStaticMarkup(await UsersPage())
+
+    expect(html).toContain('ระบบไม่มีการลบผู้ใช้')
+    expect(html).toContain('role="status"')
   })
 })

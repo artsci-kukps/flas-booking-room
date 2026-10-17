@@ -16,15 +16,7 @@ vi.mock('@/lib/admin/users', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }))
 
 import { updateUserBlocked, updateUserRole } from './actions'
-
-const ADMIN = {
-  id: 'a1',
-  email: 'admin@ku.th',
-  fullName: 'ผู้ดูแล ระบบ',
-  imageUrl: null,
-  role: 'admin' as const,
-  isBlocked: false,
-}
+import { ADMIN } from './test-fixtures'
 
 function form(entries: Record<string, string>): FormData {
   const data = new FormData()

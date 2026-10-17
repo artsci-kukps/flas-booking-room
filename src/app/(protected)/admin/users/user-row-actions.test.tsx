@@ -6,14 +6,8 @@ vi.mock('./actions', () => ({
   updateUserBlocked: vi.fn(),
 }))
 
+import { buttonLabels } from './test-fixtures'
 import UserRowActions from './user-row-actions'
-
-/** ดึงข้อความบนปุ่มทั้งหมดออกจาก HTML ที่เรนเดอร์ */
-function buttonLabels(html: string): string[] {
-  return [...html.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)].map((match) =>
-    match[1]!.replace(/<[^>]*>/g, '').trim(),
-  )
-}
 
 describe('UserRowActions', () => {
   it('แสดงปุ่มเลื่อนเป็นแอดมินและระงับสำหรับผู้ใช้ทั่วไป', () => {
