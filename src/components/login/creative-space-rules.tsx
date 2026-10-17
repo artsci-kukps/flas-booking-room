@@ -1,6 +1,7 @@
 import BookingRulesSection from "@/components/booking/booking-rules-section";
 import RoomTypesSection from "@/components/booking/room-types-section";
 import ServiceHoursSection from "@/components/booking/service-hours-section";
+import StatusLegendSection from "@/components/booking/status-legend-section";
 
 /**
  * ผนังกติกาฝั่งซ้ายของหน้าเข้าสู่ระบบ — สรุปจาก TOR.md ข้อ 4–8
@@ -91,6 +92,9 @@ export default function CreativeSpaceRules({
           กติกาการเข้าใช้งานห้อง
         </p>
       </div>
+      <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
+        สรุปจาก TOR.md เพื่อให้ผู้ใช้เข้าใจกติกาและความหมายของสถานะตรงกันทั้งระบบ
+      </p>
 
       <div className="mt-4 grid gap-8 lg:gap-10">
         <RoomTypesSection />
@@ -106,6 +110,7 @@ export default function CreativeSpaceRules({
           title="การรับ–คืนกุญแจ"
           rules={KEY_RULES}
         />
+        <StatusLegendSection />
       </div>
     </div>
   );

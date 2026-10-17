@@ -314,8 +314,10 @@ export async function signUpWithEmailAndPassword(authData: {
     password: authData.password,
   });
 
+  // สมัครสำเร็จแต่ได้ session ไม่ครบ ถือว่าเข้าสู่ระบบไม่สำเร็จ
+  // พากลับหน้าเข้าสู่ระบบพร้อมประกาศ ?error=session (มีข้อความรออยู่แล้วที่หน้า login)
   if (signInError) {
-    throw new Error("เกิดข้อผิดพลาดในการเข้าสู่ระบบหลังสมัครสมาชิกสำเร็จ");
+    redirect("/login?error=session");
   }
 
   redirect(destinationFor("user"));
