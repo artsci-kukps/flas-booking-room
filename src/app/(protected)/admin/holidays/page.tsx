@@ -1,15 +1,18 @@
-import PlaceholderPanel from "@/components/placeholder-panel";
+import { listHolidays } from "@/lib/admin/holidays";
+import { requireAdmin } from "@/lib/auth/guards";
 
-const POINTS = [
-  "วันหยุดนักขัตฤกษ์ — เพิ่มหรือลบเพื่อปิดระบบจองทั้งวัน",
-  "วันเสาร์–อาทิตย์ปิดอยู่แล้ว ไม่ต้องลงข้อมูล",
-  "วันหยุดห้ามซ้ำกัน (หนึ่งวันมีได้หนึ่งรายการ)",
-  "ผู้ที่เพิ่มและเวลาที่เพิ่มถูกบันทึกไว้กับแต่ละรายการ",
-  "ลบได้จริง (hard delete) เพราะเป็นข้อมูลเชิงเวลา",
-] as const;
+import HolidaysManager from "./holidays-manager";
 
-/** จัดการวันหยุด ตาม TOR ข้อ 9 */
-export default function HolidaysPage() {
+/**
+ * จัดการวันหยุดนักขัตฤกษ์ ตาม TOR ข้อ 9
+ * - เพิ่ม/ลบวันหยุดที่ปิดรับจองทั้งระบบ (วันเสาร์–อาทิตย์ปิดอยู่แล้ว ไม่ต้องลงข้อมูล)
+ * - ห้ามซ้ำวันเดียวกัน (unique index ที่ DB) และลบแบบ hard delete
+ */
+export default async function HolidaysPage() {
+  await requireAdmin();
+
+  const rows = await listHolidays();
+
   return (
     <main className="page py-8 sm:py-10">
       <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">
@@ -19,7 +22,7 @@ export default function HolidaysPage() {
         วันที่ระบบปิดรับจองทั้งหมด นอกเหนือจากวันหยุดเสาร์–อาทิตย์
       </p>
 
-      <PlaceholderPanel points={POINTS} />
+      <HolidaysManager rows={rows} />
     </main>
   );
 }

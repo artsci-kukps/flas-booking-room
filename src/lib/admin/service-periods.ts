@@ -10,6 +10,8 @@ import {
 
 import { pgErrorCode } from "./pg-error";
 
+export type { ServicePeriodKind } from "@/db/schema";
+
 /**
  * ชั้นข้อมูล/โดเมนของการจัดการช่วงเวลาให้บริการ (ไม่ใช่ "use server")
  * ตาม TOR ข้อ 5 และ A.6: NORMAL ห้ามทับ NORMAL, EXAM ห้ามทับ EXAM (ที่ DB)

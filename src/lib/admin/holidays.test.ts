@@ -1,16 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-/**
- * จำลอง query ของ drizzle ที่ "await ได้" และ "ต่อ .orderBy() ได้"
- */
-function rowsQuery(rows: unknown[]) {
-  return {
-    orderBy: vi.fn(async () => rows),
-    then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
-      Promise.resolve(rows).then(resolve, reject),
-  }
-}
-
 const {
   selectMock,
   selectWhereMock,
@@ -21,7 +10,7 @@ const {
   deleteWhereMock,
 } = vi.hoisted(() => {
   const selectWhereMock = vi.fn()
-  const selectOrderByMock = vi.fn(async () => [])
+  const selectOrderByMock = vi.fn(async (): Promise<unknown[]> => [])
   const fromMock = vi.fn(() => ({ where: selectWhereMock, orderBy: selectOrderByMock }))
   const selectMock = vi.fn(() => ({ from: fromMock }))
 

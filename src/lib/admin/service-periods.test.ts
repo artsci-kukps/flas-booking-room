@@ -27,7 +27,7 @@ const {
   transactionMock,
 } = vi.hoisted(() => {
   const selectWhereMock = vi.fn()
-  const selectOrderByMock = vi.fn(async () => [])
+  const selectOrderByMock = vi.fn(async (): Promise<unknown[]> => [])
   const fromMock = vi.fn(() => ({ where: selectWhereMock, orderBy: selectOrderByMock }))
   const selectMock = vi.fn(() => ({ from: fromMock }))
 
@@ -157,7 +157,7 @@ describe('validateServicePeriodInput', () => {
     expect(validateServicePeriodInput(input())).toBeNull()
   })
 
-  it(' effective_to ว่าง (null) = มีผลต่อเนื่อง ปล่อยผ่าน', () => {
+  it('effective_to ว่าง (null) = มีผลต่อเนื่อง ปล่อยผ่าน', () => {
     expect(validateServicePeriodInput(input({ effectiveTo: null }))).toBeNull()
   })
 
