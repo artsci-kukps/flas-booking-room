@@ -166,7 +166,7 @@ export function computeRoomSlots(input: {
 // ============================================
 
 /** สถานะที่ "ครองช่วงเวลา" นับเป็นผู้ใช้ห้อง (TOR ข้อ 6.2) */
-const OCCUPYING_STATUSES = ["PENDING", "ACTIVE"] as const;
+export const OCCUPYING_STATUSES = ["PENDING", "ACTIVE"] as const;
 
 /** แถวช่วงเวลาที่ทับวันนั้น พร้อมห้องที่เกี่ยวข้อง */
 type RangedRoomRow = {

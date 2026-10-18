@@ -18,3 +18,11 @@ export function formatThaiDate(isoDate: string): string {
     timeZone: "Asia/Bangkok",
   }).format(new Date(`${isoDate}T00:00:00Z`));
 }
+
+/** เวลาบนหน้าปัดในเขตเวลาไทย ('HH:MM' หรือ 'HH:MM น.') จาก instant (Date จริง) */
+export function formatBangkokTime(date: Date): string {
+  return new Intl.DateTimeFormat("th-TH", {
+    timeStyle: "short",
+    timeZone: "Asia/Bangkok",
+  }).format(date);
+}
