@@ -571,6 +571,19 @@ describe('createReservations (จองหลาย record)', () => {
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
+  it('record เดียว: เดินเส้นทาง createReservation ของ #8 (รหัสเดียว ไม่ครอบ transaction) ', async () => {
+    setRoomG()
+
+    const result = await createReservations(
+      [{ roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' }],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['111111'] })
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
   it('ข้ามห้องในหนึ่งการจองไม่ได้: ปฏิเสธก่อนแตะ DB', async () => {
     const result = await createReservations(
       [
@@ -592,12 +605,15 @@ describe('createReservations (จองหลาย record)', () => {
     setTableRows(reservationTable, [{ bookingCode: '111111' }])
 
     const result = await createReservations(
-      [{ roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' }],
+      [
+        { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '13:30', endTime: '15:30' },
+      ],
       'u1',
-      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222', '333333']) },
     )
 
-    expect(result).toEqual({ ok: true, bookingCodes: ['222222'] })
+    expect(result).toEqual({ ok: true, bookingCodes: ['222222', '333333'] })
   })
 
   it('record ใดล้มเหลวกลางทาง (ห้องถูกจองแล้ว): ยกเลิกทั้งชุดด้วยข้อความเดียว', async () => {

@@ -352,6 +352,13 @@ export async function createReservations(
 
   const first = requests[0]!;
 
+  // record เดียวใช้เส้นทางเดิมของ #8 (มี retry เรื่องรหัสซ้ำในตัว) ไม่ต้องเปิด transaction ครอบ
+  if (requests.length === 1) {
+    const result = await createReservation(first, userId, deps);
+
+    return result.ok ? { ok: true, bookingCodes: [result.bookingCode] } : result;
+  }
+
   if (requests.some((request) => request.roomId !== first.roomId)) {
     return { ok: false, message: MIXED_ROOM_MESSAGE };
   }
