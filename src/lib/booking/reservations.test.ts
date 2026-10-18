@@ -9,7 +9,13 @@ import {
 } from '@/db/schema'
 import { makeHoliday, makeServicePeriod } from '@/lib/admin/test-fixtures'
 
-import { createReservation, getBookingConfirmation, randomBookingCode } from './reservations'
+import {
+  createReservation,
+  createReservations,
+  getBookingConfirmation,
+  randomBookingCode,
+  submitBookingSelection,
+} from './reservations'
 
 /**
  * จำลอง query ของ drizzle แบบ "await ได้" ตามแบบฉบับของ day-availability.test.ts
@@ -500,5 +506,204 @@ describe('getBookingConfirmation', () => {
     setTableRows(reservationTable, [])
 
     expect(await getBookingConfirmation('999999', 'u1')).toBeNull()
+  })
+})
+
+const NO_BLOCK_MESSAGE = 'กรุณาเลือกช่วงเวลาที่จะจองอย่างน้อย 1 บล็อก'
+const MIXED_ROOM_MESSAGE = 'จองได้ทีละห้องต่อหนึ่งครั้ง กรุณาเลือกช่วงเวลาในห้องเดียวกัน'
+const ROOM_TAKEN_MESSAGE = 'ช่วงเวลานี้มีผู้ใช้จองห้องนี้แล้ว กรุณาเลือกช่วงเวลาอื่น'
+const MIN_DURATION_G_MESSAGE = 'ห้องนี้ต้องจองอย่างน้อย 120 นาที กรุณาเลือกช่วงเวลาต่อเนื่องให้ครบ'
+
+/** เลียนแบบ pg error ที่ Drizzle ห่อไว้ (ใช้ซ้ำได้ทั้งไฟล์) */
+function wrappedPgError(code: string, pgMessage: string): Error {
+  const cause = Object.assign(new Error(pgMessage), { code })
+  return new Error('Failed query: INSERT INTO "reservation"\nparams: [...]', { cause })
+}
+
+const G_EXCLUSIVE_VIOLATION =
+  'conflicting key value violates exclusion constraint "reservation_room_exclusive", key'
+
+/** ลำดับรหัสที่ตัวสร้างจะคืน — ใช้แทน randomBookingCode ในเทสต์ */
+function codeSequence(values: string[]): () => string {
+  let index = 0
+  return () => values[index++] ?? '000000'
+}
+
+function setRoomG() {
+  setTableRows(roomsTable, [
+    { roomId: 'room-g', roomName: 'G-101', maxCapacity: null, bookingMode: 'EXCLUSIVE', minDurationMinutes: 120 },
+  ])
+}
+
+describe('createReservations (จองหลาย record)', () => {
+  it('สอง record ห้องเดียวกัน (มีช่องว่างคั่น): insert คนละแถว ได้รหัสคนละรหัส', async () => {
+    const result = await createReservations(
+      [
+        { roomId: 'room-s', date: MONDAY, startTime: '08:30', endTime: '09:30' },
+        { roomId: 'room-s', date: MONDAY, startTime: '10:30', endTime: '11:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['111111', '222222'] })
+    expect(insertedValues).toHaveLength(2)
+    expect(
+      insertedValues.map((values) => (values as { bookingCode: string }).bookingCode),
+    ).toEqual(['111111', '222222'])
+    expect(insertedValues[0]).toMatchObject({
+      roomId: 'room-s',
+      startTime: new Date('2026-10-19T01:30:00Z'), // 08:30 Bangkok
+      endTime: new Date('2026-10-19T02:30:00Z'), // 09:30 Bangkok
+    })
+    expect(insertedValues[1]).toMatchObject({
+      startTime: new Date('2026-10-19T03:30:00Z'), // 10:30 Bangkok
+      endTime: new Date('2026-10-19T04:30:00Z'), // 11:30 Bangkok
+    })
+    // ทั้งชุดอยู่ใน transaction เดียว (atomic)
+    expect(transactionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('ไม่มี record เลย: ปฏิเสธก่อนแตะ DB', async () => {
+    const result = await createReservations([], 'u1', { now: BEFORE_OPEN })
+
+    expect(result).toEqual({ ok: false, message: NO_BLOCK_MESSAGE })
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('record เดียว: เดินเส้นทาง createReservation ของ #8 (รหัสเดียว ไม่ครอบ transaction) ', async () => {
+    setRoomG()
+
+    const result = await createReservations(
+      [{ roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' }],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['111111'] })
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('ข้ามห้องในหนึ่งการจองไม่ได้: ปฏิเสธก่อนแตะ DB', async () => {
+    const result = await createReservations(
+      [
+        { roomId: 'room-s', date: MONDAY, startTime: '08:30', endTime: '09:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '10:30', endTime: '11:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+    )
+
+    expect(result).toEqual({ ok: false, message: MIXED_ROOM_MESSAGE })
+    expect(insertMock).not.toHaveBeenCalled()
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('รหัสซ้ำกับการจองวันเดียวกันใน DB: ข้ามรหัสที่ใช้แล้วไปหารหัสใหม่', async () => {
+    setRoomG()
+    // มีการจองวันเดียวกันใช้รหัส 111111 อยู่แล้ว
+    setTableRows(reservationTable, [{ bookingCode: '111111' }])
+
+    const result = await createReservations(
+      [
+        { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '13:30', endTime: '15:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222', '333333']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['222222', '333333'] })
+  })
+
+  it('record ใดล้มเหลวกลางทาง (ห้องถูกจองแล้ว): ยกเลิกทั้งชุดด้วยข้อความเดียว', async () => {
+    setRoomG()
+    insertErrors = [undefined, wrappedPgError('23P01', G_EXCLUSIVE_VIOLATION)]
+
+    const result = await createReservations(
+      [
+        { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '13:30', endTime: '15:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+    )
+
+    expect(result).toEqual({ ok: false, message: ROOM_TAKEN_MESSAGE })
+    // ทั้งชุดทำงานใน transaction เดียว → throw ออกจาก callback เพื่อ rollback
+    expect(transactionMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('submitBookingSelection (รวมบล็อกเป็น record แล้วจอง)', () => {
+  it('บล็อกติดกัน: รวมเป็น record เดียว → รหัสเดียว', async () => {
+    const result = await submitBookingSelection(
+      {
+        roomId: 'room-s',
+        date: MONDAY,
+        blocks: [
+          { start: '08:30', end: '09:30' },
+          { start: '09:30', end: '10:30' },
+        ],
+      },
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['123456']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['123456'] })
+    expect(insertedValues).toHaveLength(1)
+    expect(insertedValues[0]).toMatchObject({
+      startTime: new Date('2026-10-19T01:30:00Z'), // 08:30 Bangkok
+      endTime: new Date('2026-10-19T03:30:00Z'), // 10:30 Bangkok
+    })
+  })
+
+  it('บล็อกที่มีช่องว่าง: แยก record → ได้หลายรหัสตามจำนวน record', async () => {
+    const result = await submitBookingSelection(
+      {
+        roomId: 'room-s',
+        date: MONDAY,
+        blocks: [
+          { start: '08:30', end: '09:30' },
+          { start: '10:30', end: '11:30' },
+        ],
+      },
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['111111', '222222'] })
+    expect(insertedValues).toHaveLength(2)
+  })
+
+  it('ยังไม่เลือกบล็อก: ปฏิเสธด้วยข้อความให้เลือกก่อน', async () => {
+    const result = await submitBookingSelection(
+      { roomId: 'room-s', date: MONDAY, blocks: [] },
+      'u1',
+      { now: BEFORE_OPEN },
+    )
+
+    expect(result).toEqual({ ok: false, message: NO_BLOCK_MESSAGE })
+    expect(insertMock).not.toHaveBeenCalled()
+  })
+
+  it('ห้อง G ต้องอย่างน้อย 2 บล็อก: record ที่สั้นกว่า 120 นาทีถูกปฏิเสธทั้งชุด', async () => {
+    setRoomG()
+
+    const result = await submitBookingSelection(
+      {
+        roomId: 'room-g',
+        date: MONDAY,
+        blocks: [
+          { start: '08:30', end: '09:30' },
+          { start: '10:30', end: '11:30' },
+        ],
+      },
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+    )
+
+    expect(result).toEqual({ ok: false, message: MIN_DURATION_G_MESSAGE })
+    expect(insertedValues).toHaveLength(0)
   })
 })

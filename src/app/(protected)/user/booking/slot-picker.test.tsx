@@ -51,7 +51,7 @@ function makeSlot(overrides: Partial<RoomSlot> = {}): RoomSlot {
   }
 }
 
-/** ห้อง CAPACITY 1 ห้อง + ห้อง EXCLUSIVE 1 ห้อง ครบ 4 สถานะ */
+/** ห้อง CAPACITY 1 ห้อง + ห้อง EXCLUSIVE (G, ขั้นต่ำ 120 นาที) 1 ห้อง ครบ 4 สถานะ */
 const ROOMS: RoomDayAvailability[] = [
   {
     id: 'room-s',
@@ -60,6 +60,7 @@ const ROOMS: RoomDayAvailability[] = [
     roomTypeName: 'ห้องทั่วไป',
     bookingMode: 'CAPACITY',
     maxCapacity: 4,
+    minDurationMinutes: 60,
     slots: [
       makeSlot(),
       makeSlot({ start: '09:30', end: '10:30', status: 'occupied', usedCount: 2 }),
@@ -74,6 +75,7 @@ const ROOMS: RoomDayAvailability[] = [
     roomTypeName: 'ห้องประชุมใหญ่',
     bookingMode: 'EXCLUSIVE',
     maxCapacity: null,
+    minDurationMinutes: 120,
     slots: [
       makeSlot({ status: 'occupied', usedCount: 1, selectable: false }),
       makeSlot({ start: '09:30', end: '10:30' }),
@@ -128,10 +130,10 @@ describe('SlotPicker', () => {
   it('ยังไม่ได้เลือก: ปุ่มยืนยันถูกปิด พร้อมคำใบ้ให้แตะช่องว่าง และไม่มี field ของฟอร์ม', () => {
     const html = renderPicker()
 
-    expect(html).toContain('แตะช่องว่างเพื่อเลือก 1 บล็อก')
+    expect(html).toContain('แตะช่องว่างเพื่อเลือกเวลา')
     expect(hasDisabledAttr(html.match(/<button[^>]*type="submit"[^>]*>/)?.[0])).toBe(true)
     expect(html).not.toContain('name="roomId"')
-    expect(html).not.toContain('name="startTime"')
+    expect(html).not.toContain('name="blocks"')
   })
 
   it('ปุ่มยืนยันเป็นฟอร์มที่ส่งไปยัง bookRoom action (มี field วันที่กำกับ)', () => {

@@ -4,20 +4,22 @@ import { useActionState, useState } from "react";
 
 import Alert from "@/components/alert";
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
+import { meetsMinDuration, planBooking } from "@/lib/booking/booking-plan";
 import type { RoomDayAvailability } from "@/lib/booking/day-availability";
 import { slotAriaLabel, slotChipClass, slotStatusLabel } from "@/lib/booking/slot-display";
-import {
-  toggleSlotSelection,
-  type SlotSelection,
-} from "@/lib/booking/slot-selection";
+import { toggleSlotSelection, type SlotSelection } from "@/lib/booking/slot-selection";
 
+import BookingSummary from "./booking-summary";
 import { bookRoom } from "./actions";
 
 /**
- * แผงเลือกช่องว่างเพื่อยืนยันการจอง 1 บล็อก (TOR ข้อ 5.3: เลือกเป็นบล็อกเท่านั้น)
- * ช่องที่เลือกไม่ได้ (ผ่านไปแล้ว/ถูกบล็อก/เต็ม/มีคนจอง EXCLUSIVE) ถูก disabled อยู่แล้ว —
- * ปุ่มของช่องที่เลือกได้สลับการเลือก (กดซ้ำ = ยกเลิก) แล้วยืนยันผ่านฟอร์ม bookRoom
- * หน้าที่ตรวจกติกาทั้งหมดอยู่ที่ server action — ที่นี่แค่เลือกและส่ง
+ * แผงเลือกช่องว่างเพื่อยืนยันการจอง (TOR ข้อ 5.3, 6.1: เลือกเป็นบล็อกเท่านั้น)
+ * เลือกได้หลายบล็อกของ "ห้องเดียวกัน" (คลิกช่องอีกครั้งเพื่อยกเลิก) แล้วยืนยันผ่านฟอร์ม bookRoom
+ * ระหว่างเลือกแสดงสรุปจำนวนครั้งที่ต้องยืนยันกับเจ้าหน้าที่ (จำนวน record) ให้เห็นก่อนกดจอง
+ * หน้าที่ตรวจกติกาทั้งหมดอยู่ที่ server action — ที่นี่แค่เลือก สรุป และส่ง
+ *
+ * หมายเหตุ: ช่องของห้องอื่นกดได้เสมอ แต่จะเริ่มเลือกใหม่เฉพาะห้องนั้น
+ * (ต้องยืนยันทีละห้อง — ข้ามห้องในหนึ่งการจองไม่ได้)
  */
 
 type SlotPickerProps = {
@@ -31,7 +33,16 @@ export default function SlotPicker({ date, rooms }: SlotPickerProps) {
   const [state, formAction, pending] = useActionState(bookRoom, null);
 
   const isSelected = (room: RoomDayAvailability, start: string): boolean =>
-    selected?.roomId === room.id && selected.start === start;
+    selected?.roomId === room.id && selected.blocks.some((block) => block.start === start);
+
+  const selectedRoom = selected
+    ? rooms.find((room) => room.id === selected.roomId)
+    : undefined;
+  const plan = planBooking(selected?.blocks ?? []);
+  const durationOk = selectedRoom
+    ? meetsMinDuration(plan, selectedRoom.minDurationMinutes)
+    : false;
+  const canSubmit = Boolean(selected) && plan.records.length > 0 && durationOk && !pending;
 
   return (
     <div className="space-y-6">
@@ -85,30 +96,28 @@ export default function SlotPicker({ date, rooms }: SlotPickerProps) {
       </div>
 
       <div className="panel p-5">
-        <form action={formAction} className="flex flex-wrap items-center gap-3">
+        <form action={formAction} className="flex flex-wrap items-start gap-3">
           <input type="hidden" name="date" value={date} />
           {selected ? (
             <>
               <input type="hidden" name="roomId" value={selected.roomId} />
-              <input type="hidden" name="startTime" value={selected.start} />
-              <input type="hidden" name="endTime" value={selected.end} />
+              <input
+                type="hidden"
+                name="blocks"
+                value={JSON.stringify(selected.blocks)}
+              />
             </>
           ) : null}
 
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-ink-muted">การจองของคุณ</p>
-            <p className="mt-0.5 text-base font-semibold text-ink">
-              {selected
-                ? `ห้อง ${selected.roomName} · ${selected.start}–${selected.end} น.`
-                : "แตะช่องว่างเพื่อเลือก 1 บล็อก (1 ชั่วโมง)"}
-            </p>
+            <BookingSummary
+              plan={plan}
+              roomName={selectedRoom?.name ?? ""}
+              minDurationMinutes={selectedRoom?.minDurationMinutes ?? 60}
+            />
           </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={!selected || pending}
-          >
+          <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
             {pending ? "กำลังจอง…" : "ยืนยันการจอง"}
           </button>
         </form>

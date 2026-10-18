@@ -58,6 +58,7 @@ const OPEN_DAY: DayAvailability = {
       roomTypeName: 'ห้องทั่วไป',
       bookingMode: 'CAPACITY',
       maxCapacity: 4,
+      minDurationMinutes: 60,
       slots: [
         makeSlot(),
         makeSlot({ start: '09:30', end: '10:30', status: 'occupied', usedCount: 2 }),
@@ -72,6 +73,7 @@ const OPEN_DAY: DayAvailability = {
       roomTypeName: 'ห้องประชุมใหญ่',
       bookingMode: 'EXCLUSIVE',
       maxCapacity: null,
+      minDurationMinutes: 120,
       slots: [
         makeSlot({ status: 'occupied', usedCount: 1, selectable: false }),
         makeSlot({ start: '09:30', end: '10:30' }),

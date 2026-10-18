@@ -183,6 +183,8 @@ export type RoomDayAvailability = {
   roomTypeName: string;
   bookingMode: BookingMode;
   maxCapacity: number | null;
+  /** ระยะเวลาขั้นต่ำของประเภทห้อง (นาที) — UI เตือนก่อนยืนยัน (TOR ข้อ 4) */
+  minDurationMinutes: number;
   slots: RoomSlotView[];
 };
 
@@ -315,6 +317,7 @@ export async function getDayAvailability(
       roomTypeName: room.roomTypeName,
       bookingMode: room.bookingMode,
       maxCapacity: room.maxCapacity,
+      minDurationMinutes: room.minDurationMinutes,
       slots: computeRoomSlots({
         date,
         slots,
