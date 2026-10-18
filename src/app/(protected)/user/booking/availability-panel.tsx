@@ -1,12 +1,11 @@
 import { getDayAvailability } from "@/lib/booking/day-availability";
 import { formatThaiDate } from "@/lib/format";
-import { slotAriaLabel, slotChipClass, slotStatusLabel } from "@/lib/booking/slot-display";
-import RoomTypeCodeBadge from "@/components/room-type-code-badge";
+
+import SlotPicker from "./slot-picker";
 
 /**
  * แผงแสดงช่องว่างของห้องในวันที่เลือก — อ่านข้อมูลจาก getDayAvailability แล้วแสดงผล
- * ปุ่มช่องว่างเป็น disabled สำหรับช่องที่ไม่สามารถเลือกได้ (ยังไม่อนุญาตให้กดยืนยันการจอง;
- * เนื้อหาการเลือกหลายบล็อกและการส่งฟอร์มเป็นของ ticket #8)
+ * การเลือกช่องว่างและการยืนยันจองเป็นของ SlotPicker (client component, ticket #8)
  */
 export default async function AvailabilityPanel({ date }: { date: string }) {
   const data = await getDayAvailability(date);
@@ -53,43 +52,7 @@ export default async function AvailabilityPanel({ date }: { date: string }) {
         </div>
       </div>
 
-      <div className="space-y-6">
-        {data.rooms.map((room) => (
-          <div key={room.id} className="panel">
-            <div className="flex flex-wrap items-start gap-3 p-5">
-              <RoomTypeCodeBadge code={room.roomTypeCode} />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-[1.0625rem] font-semibold tracking-tight text-ink">
-                  {room.name}
-                </h3>
-                <p className="mt-0.5 text-sm text-ink-muted">{room.roomTypeName}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 border-t border-border p-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {room.slots.map((slot) => {
-                const aria = slotAriaLabel(slot, room.bookingMode, room.maxCapacity);
-                const status = slotStatusLabel(slot, room.bookingMode, room.maxCapacity);
-
-                return (
-                  <button
-                    key={`${room.id}-${slot.start}`}
-                    type="button"
-                    className={`flex flex-col items-center justify-center rounded-[12px] border border-border px-3 py-3 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${slotChipClass(slot)}`}
-                    aria-label={aria}
-                    disabled={!slot.selectable}
-                  >
-                    <span className="text-sm font-semibold tabular-nums text-ink">
-                      {slot.start}–{slot.end}
-                    </span>
-                    <span className="mt-1 text-xs">{status}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <SlotPicker date={data.date} rooms={data.rooms} />
     </section>
   );
 }
