@@ -1,5 +1,7 @@
 /**
  * เลื่อนขั้นผู้ใช้เป็นแอดมินคนแรกโดยตรงผ่านฐานข้อมูล (ตาม TOR §3.3)
+ * หลังตั้งแอดมินคนแรกแล้ว จะ seed ช่วงเวลาให้บริการ NORMAL เริ่มต้น 08:30–16:30
+ * ให้อัตโนมัติ (TOR ภาคผนวก B ข้อ 1 — เรียกซ้ำได้ ไม่สร้างซ้ำ)
  *
  * รัน:
  *   npm run seed:admin -- --email someone@ku.th
@@ -42,6 +44,18 @@ async function main() {
   }
 
   console.log(`เลื่อนขั้น ${email} เป็น role=admin สำเร็จ (${updated} แถว)`)
+
+  // หลังตั้งแอดมินคนแรก: seed ช่วง NORMAL เริ่มต้น 08:30–16:30 (idempotent — เรียกซ้ำได้)
+  const { ensureDefaultServicePeriod } = await import('@/lib/admin/service-periods')
+  const seeded = await ensureDefaultServicePeriod(email)
+
+  if (seeded === 'created') {
+    console.log('Seed ช่วงเวลาให้บริการ NORMAL เริ่มต้น 08:30–16:30 สำเร็จ')
+  } else if (seeded === 'skipped') {
+    console.log('มีช่วงเวลา NORMAL อยู่แล้ว — ข้ามการ seed')
+  } else {
+    console.warn(`ไม่พบผู้ใช้ ${email} ในตาราง users จึงไม่ได้ seed ช่วงเวลาให้บริการ`)
+  }
 }
 
 main().catch((error) => {

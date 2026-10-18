@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { servicePeriod } from '@/db/schema'
-
 /**
  * จำลอง query ของ drizzle ที่ "await ได้" และ "ต่อ .orderBy() ได้"
  * เพื่อให้ทั้ง select แบบเดี่ยวและแบบมี orderBy ใช้ selectWhereMock ตัวเดียวกัน
@@ -88,6 +86,7 @@ import {
   isServicePeriodKind,
   listServicePeriods,
   resolveServicePeriodForDate,
+  todayInBangkok,
   updateServicePeriod,
   validateServicePeriodInput,
   type ServicePeriodInput,
@@ -225,7 +224,7 @@ describe('resolveServicePeriodForDate', () => {
     expect(resolveServicePeriodForDate([normal, exam], '2026-06-01')).toBe(exam)
   })
 
-  it('เมื่อมีหลายช่วง EXAM ที่มีผล (_created ล่าสุดชนะ_) ใช้ช่วงที่สร้างล่าสุด', () => {
+  it('เมื่อมีหลายช่วง EXAM ที่มีผล ใช้ช่วงที่สร้างล่าสุด', () => {
     const older = row({
       id: 'sp-2',
       kind: 'EXAM',
@@ -352,6 +351,17 @@ describe('deleteServicePeriod', () => {
   })
 })
 
+describe('todayInBangkok', () => {
+  it('ใช้วันที่ในเขตเวลา Asia/Bangkok ไม่พึ่ง timezone ของ server', () => {
+    // 17:30 UTC = 00:30 ของวันถัดไปในกรุงเทพฯ
+    expect(todayInBangkok(new Date('2026-10-18T17:30:00Z'))).toBe('2026-10-19')
+    expect(todayInBangkok(new Date('2026-10-18T10:00:00Z'))).toBe('2026-10-18')
+    // ขอบวัน: 16:59 UTC ยังเป็นวันเดิม 17:00 UTC ข้ามวัน
+    expect(todayInBangkok(new Date('2026-10-18T16:59:59Z'))).toBe('2026-10-18')
+    expect(todayInBangkok(new Date('2026-10-18T17:00:00Z'))).toBe('2026-10-19')
+  })
+})
+
 describe('ensureDefaultServicePeriod', () => {
   function mockAdminAndExisting(adminId: string | null, existingRows: unknown[]) {
     // เรียก select 2 ครั้ง: หาแอดมินตามอีเมล แล้วตรวจว่ามี NORMAL อยู่หรือยัง
@@ -393,12 +403,5 @@ describe('ensureDefaultServicePeriod', () => {
 
     expect(outcome).toBe('no-admin')
     expect(insertValuesMock).not.toHaveBeenCalled()
-  })
-})
-
-// กันหลงทาง: ตาราง service_period ที่ mock ไว้ต้องเป็นตารางจริงจาก schema
-describe('schema sanity', () => {
-  it('ใช้ตาราง service_period จริง', () => {
-    expect(servicePeriod).toBeDefined()
   })
 })
