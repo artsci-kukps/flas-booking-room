@@ -20,6 +20,8 @@ export type AdminRoomRow = {
   roomTypeName: string;
   bookingMode: BookingMode;
   maxCapacity: number | null;
+  /** ระยะเวลาขั้นต่ำของประเภทห้อง (นาที) — ใช้เตือน/ตรวจตอนจอง (TOR ข้อ 4) */
+  minDurationMinutes: number;
   facilities: string | null;
   createdAt: Date;
 };
@@ -115,6 +117,7 @@ const ROOM_COLUMNS = {
   roomTypeName: roomType.typeName,
   bookingMode: roomType.bookingMode,
   maxCapacity: rooms.maxCapacity,
+  minDurationMinutes: roomType.minDurationMinutes,
   facilities: rooms.facilities,
   createdAt: rooms.createdAt,
 };
