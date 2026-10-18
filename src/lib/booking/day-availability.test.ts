@@ -327,7 +327,7 @@ describe('getDayAvailability', () => {
     setTableRows(holidayTable, [])
     setTableRows(roomsTable, [
       makeRoom({ id: 'room-s', name: 'S-101', bookingMode: 'CAPACITY', maxCapacity: 4 }),
-      makeRoom({ id: 'room-g', name: 'G-101', roomTypeCode: 'G', roomTypeName: 'ห้องประชุมใหญ่', bookingMode: 'EXCLUSIVE', maxCapacity: null }),
+      makeRoom({ id: 'room-g', name: 'G-101', roomTypeCode: 'G', roomTypeName: 'ห้องประชุมใหญ่', bookingMode: 'EXCLUSIVE', maxCapacity: null, minDurationMinutes: 120 }),
     ])
     setTableRows(reservationTable, [
       { roomId: 'room-s', startTime: new Date('2026-10-19T03:15:00Z'), endTime: new Date('2026-10-19T04:00:00Z') }, // 10:15–11:00
@@ -349,6 +349,10 @@ describe('getDayAvailability', () => {
     expect(result.slots[0]).toEqual({ start: '08:30', end: '09:30' })
 
     expect(result.rooms.map((room) => room.name)).toEqual(['S-101', 'G-101'])
+
+    // ระยะเวลาขั้นต่ำตามประเภทห้องต้องมาถึง UI เพื่อเตือนก่อนกดยืนยัน (TOR ข้อ 4)
+    expect(result.rooms[0]!.minDurationMinutes).toBe(60)
+    expect(result.rooms[1]!.minDurationMinutes).toBe(120)
 
     const roomS = result.rooms[0]!
     // 09:30–10:30 และ 10:30–11:30 ทับการจอง 10:15–11:00 (มี 1 จาก 4 ที่นั่ง ยังเลือกได้)

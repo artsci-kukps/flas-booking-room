@@ -37,6 +37,7 @@ export function makeRoom(
     roomTypeName: 'ห้องทั่วไป',
     bookingMode: 'CAPACITY',
     maxCapacity: 4,
+    minDurationMinutes: 60,
     facilities: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     deletedAt: null,

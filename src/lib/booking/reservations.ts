@@ -9,6 +9,7 @@ import { pgErrorCode, pgErrorMessage } from "@/lib/admin/pg-error";
 import { listServicePeriods } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
 
+import { planBooking, type BookingBlock } from "./booking-plan";
 import {
   bangkokInstant,
   buildDaySlots,
@@ -50,7 +51,16 @@ export type BookingResult =
 export type BookingDeps = {
   now?: Date;
   generateCode?: () => string;
+  /**
+   * ทรานแซกชันของผู้เรียก — ใช้เมื่อจองหลาย record พร้อมกันแบบ atomic
+   * (ผู้เรียกเปิด transaction ไว้แล้ว createReservation จะ insert ผ่าน executor นี้)
+   */
+  tx?: BookingExecutor;
 };
+
+/** ทรานแซกชันของ Drizzle ที่บันทึกการจองได้ (คอลัมน์ที่ใช้: select/insert/execute) */
+type BookingTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type BookingExecutor = BookingTransaction;
 
 const DATE_MESSAGE = "วันที่เลือกไม่ถูกต้อง กรุณาเลือกวันที่ใหม่";
 const WEEKEND_MESSAGE = "วันเสาร์–อาทิตย์ปิดทำการ ไม่สามารถจองได้";
@@ -117,6 +127,7 @@ export async function createReservation(
 ): Promise<BookingResult> {
   const now = deps.now ?? new Date();
   const generateCode = deps.generateCode ?? randomBookingCode;
+  const executor = (deps.tx ?? db) as BookingExecutor;
 
   if (!parseBookingDate(request.date)) {
     return { ok: false, message: DATE_MESSAGE };
@@ -158,7 +169,7 @@ export async function createReservation(
     return { ok: false, message: PAST_MESSAGE };
   }
 
-  const roomRows: RoomRuleRow[] = await db
+  const roomRows: RoomRuleRow[] = await executor
     .select(ROOM_RULE_COLUMNS)
     .from(rooms)
     .innerJoin(roomType, eq(rooms.roomTypeId, roomType.id))
@@ -177,7 +188,7 @@ export async function createReservation(
     return { ok: false, message: minDurationMessage(room.minDurationMinutes) };
   }
 
-  const blocks = await db
+  const blocks = await executor
     .select({ id: roomBlock.id })
     .from(roomBlock)
     .where(
@@ -209,7 +220,7 @@ export async function createReservation(
     try {
       if (room.bookingMode === "CAPACITY") {
         // ล็อกต่อห้องก่อนนับ แล้วจึง insert (สูตร A.5) — advisory xact lock ปล่อยเมื่อจบ transaction
-        return await db.transaction(async (tx) => {
+        const runCapacity = async (tx: BookingExecutor): Promise<BookingResult> => {
           await tx.execute(
             sql`SELECT pg_advisory_xact_lock(hashtextextended(${room.roomId}::text, 0))`,
           );
@@ -236,11 +247,14 @@ export async function createReservation(
             .returning({ bookingCode: reservation.bookingCode });
 
           return { ok: true, bookingCode: row!.bookingCode };
-        });
+        };
+
+        // ถ้าผู้เรียกเปิด transaction ไว้แล้ว (จองหลาย record) ให้ใช้ต่อ ไม่เปิดซ้อน
+        return deps.tx ? await runCapacity(deps.tx) : await db.transaction(runCapacity);
       }
 
       // ห้อง EXCLUSIVE: ปล่อยให้ exclusion constraint `reservation_room_exclusive` กันการจองทับ
-      const [row] = await db
+      const [row] = await executor
         .insert(reservation)
         .values({ ...baseValues, bookingCode })
         .returning({ bookingCode: reservation.bookingCode });
@@ -263,6 +277,170 @@ export async function createReservation(
   }
 
   return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
+}
+
+/** ผลของการจองหลาย record — คืนรหัสเรียงตาม record ที่สร้าง */
+export type MultiBookingResult =
+  | { ok: true; bookingCodes: string[] }
+  | { ok: false; message: string };
+
+const NO_BLOCK_MESSAGE = "กรุณาเลือกช่วงเวลาที่จะจองอย่างน้อย 1 บล็อก";
+const MIXED_ROOM_MESSAGE = "จองได้ทีละห้องต่อหนึ่งครั้ง กรุณาเลือกช่วงเวลาในห้องเดียวกัน";
+
+/** สัญญาณภายในเพื่อยกเลิกทั้ง transaction เมื่อ record ใดล้มเหลว (ผู้ใช้เห็นข้อความเดียว) */
+class BookingAbort extends Error {}
+
+/** รหัสการจองที่ถูกใช้ไปแล้วของวันนั้น (unique index reservation_code_per_day) */
+async function listUsedBookingCodes(date: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ bookingCode: reservation.bookingCode })
+    .from(reservation)
+    .where(eq(reservation.bookingDate, date));
+
+  return new Set(rows.map((row) => row.bookingCode));
+}
+
+/**
+ * จับรหัสที่ไม่ซ้ำกับการจองวันเดียวกันให้ครบตามจำนวน record ก่อนเริ่ม insert
+ * เพื่อไม่ให้ชน unique กลาง transaction (ซึ่งจะ abort ทั้งชุด)
+ * คืน null เมื่อสุ่มครบจำนวนครั้งแล้วยังไม่พบรหัสว่าง
+ */
+async function assignUniqueCodes(
+  count: number,
+  date: string,
+  generateCode: () => string,
+): Promise<string[] | null> {
+  const used = await listUsedBookingCodes(date);
+  const assigned: string[] = [];
+
+  for (let i = 0; i < count; i++) {
+    let chosen: string | null = null;
+
+    for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+      const candidate = generateCode();
+
+      if (!used.has(candidate)) {
+        chosen = candidate;
+        break;
+      }
+    }
+
+    if (chosen === null) {
+      return null;
+    }
+
+    used.add(chosen);
+    assigned.push(chosen);
+  }
+
+  return assigned;
+}
+
+/**
+ * จองหลาย record ของห้องเดียวกันให้ผู้ใช้ — ทั้งชุดสำเร็จหรือไม่สำเร็จพร้อมกัน (atomic)
+ * แต่ละ record ผ่านการตรวจกติกาครบทุกข้อเหมือนการจอง 1 บล็อก (TOR ข้อ 6.2)
+ * และได้รหัสการจอง 6 หลักของตัวเอง
+ */
+export async function createReservations(
+  requests: readonly BookingRequest[],
+  userId: string,
+  deps: BookingDeps = {},
+): Promise<MultiBookingResult> {
+  if (requests.length === 0) {
+    return { ok: false, message: NO_BLOCK_MESSAGE };
+  }
+
+  const first = requests[0]!;
+
+  // record เดียวใช้เส้นทางเดิมของ #8 (มี retry เรื่องรหัสซ้ำในตัว) ไม่ต้องเปิด transaction ครอบ
+  if (requests.length === 1) {
+    const result = await createReservation(first, userId, deps);
+
+    return result.ok ? { ok: true, bookingCodes: [result.bookingCode] } : result;
+  }
+
+  if (requests.some((request) => request.roomId !== first.roomId)) {
+    return { ok: false, message: MIXED_ROOM_MESSAGE };
+  }
+
+  if (requests.some((request) => request.date !== first.date)) {
+    return { ok: false, message: DATE_MESSAGE };
+  }
+
+  if (!parseBookingDate(first.date)) {
+    return { ok: false, message: DATE_MESSAGE };
+  }
+
+  const generateCode = deps.generateCode ?? randomBookingCode;
+  const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
+
+  if (!codes) {
+    return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
+  }
+
+  try {
+    return await db.transaction(async (tx) => {
+      const bookingCodes: string[] = [];
+
+      for (let i = 0; i < requests.length; i++) {
+        const code = codes[i]!;
+        const result = await createReservation(requests[i]!, userId, {
+          ...deps,
+          tx,
+          generateCode: () => code,
+        });
+
+        if (!result.ok) {
+          throw new BookingAbort(result.message);
+        }
+
+        bookingCodes.push(result.bookingCode);
+      }
+
+      return { ok: true, bookingCodes };
+    });
+  } catch (error) {
+    if (error instanceof BookingAbort) {
+      return { ok: false, message: error.message };
+    }
+
+    throw error;
+  }
+}
+
+/** การเลือกหลายบล็อกของห้องเดียวจากหน้าจอง */
+export type BookingSelection = {
+  roomId: string;
+  /** 'YYYY-MM-DD' */
+  date: string;
+  blocks: readonly BookingBlock[];
+};
+
+/**
+ * จองจากการเลือกหลายบล็อก: รวมบล็อกติดกันเป็น record แล้วสร้างทีละ record
+ * (ฝั่ง UI แสดงผลจาก planBooking ชุดเดียวกัน — ที่นี่ตรวจซ้ำอีกชั้นก่อนบันทึก)
+ */
+export async function submitBookingSelection(
+  selection: BookingSelection,
+  userId: string,
+  deps: BookingDeps = {},
+): Promise<MultiBookingResult> {
+  const plan = planBooking(selection.blocks);
+
+  if (plan.records.length === 0) {
+    return { ok: false, message: NO_BLOCK_MESSAGE };
+  }
+
+  return createReservations(
+    plan.records.map((record) => ({
+      roomId: selection.roomId,
+      date: selection.date,
+      startTime: record.start,
+      endTime: record.end,
+    })),
+    userId,
+    deps,
+  );
 }
 
 /** ข้อมูลหน้ายืนยันการจอง — แถวแคบที่หน้า confirmation ต้องแสดง */
