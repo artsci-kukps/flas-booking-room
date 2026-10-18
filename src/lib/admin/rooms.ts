@@ -3,6 +3,8 @@ import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import db from "@/db";
 import { roomType, rooms } from "@/db/schema";
 
+import type { Result } from "@/lib/result";
+
 import type { BookingMode } from "./room-types";
 import { pgErrorCode } from "./pg-error";
 
@@ -20,6 +22,8 @@ export type AdminRoomRow = {
   roomTypeName: string;
   bookingMode: BookingMode;
   maxCapacity: number | null;
+  /** ระยะเวลาขั้นต่ำของประเภทห้อง (นาที) — ใช้เตือน/ตรวจตอนจอง (TOR ข้อ 4) */
+  minDurationMinutes: number;
   facilities: string | null;
   createdAt: Date;
 };
@@ -43,8 +47,7 @@ export type RoomInput = {
 };
 
 /** ผลของการแก้ไขห้อง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type RoomResult =
-  { ok: true; restored?: boolean } | { ok: false; message: string };
+export type RoomResult = Result<{ restored?: boolean }>;
 
 const NAME_REQUIRED_MESSAGE = "กรุณากรอกชื่อห้อง";
 const NAME_TOO_LONG_MESSAGE = "ชื่อห้องยาวเกิน 100 ตัวอักษร";
@@ -115,6 +118,7 @@ const ROOM_COLUMNS = {
   roomTypeName: roomType.typeName,
   bookingMode: roomType.bookingMode,
   maxCapacity: rooms.maxCapacity,
+  minDurationMinutes: roomType.minDurationMinutes,
   facilities: rooms.facilities,
   createdAt: rooms.createdAt,
 };

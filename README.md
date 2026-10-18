@@ -30,6 +30,12 @@ DATABASE_URL=postgresql://...
 # Supabase (Auth)
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+
+# อีเมลผ่าน Resend (คิว notification_outbox — ดู docs/notifications/outbox.md)
+RESEND_API_KEY=<resend-api-key>
+RESEND_FROM=Creative Space <booking@ku.th>
+# secret สำหรับ worker ของ pg_cron ที่ยิงเข้า /api/cron/outbox
+CRON_SECRET=<random-secret>
 ```
 
 ### 3. เตรียมฐานข้อมูล
