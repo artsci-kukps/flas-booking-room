@@ -1,0 +1,82 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import * as bookingAdmin from "@/lib/admin/booking-admin";
+import type { BookingAdminResult } from "@/lib/admin/booking-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+
+/**
+ * Server actions ของการยกเลิกและแก้ไขสถานะการจอง (TOR ข้อ 6.4/7 · ticket #12)
+ * แยกไฟล์จาก action อื่นของหน้าการจอง เพื่อให้แต่ละ ticket แตะคนละส่วน
+ * ทุก action บังคับสิทธิ์แอดมินเอง เพราะ Server Action ถูกเรียกตรงทาง POST ได้
+ */
+
+/** ผลที่ useActionState ใช้แสดงข้อความ/สถานะใหม่ inline */
+export type BookingCancelOverrideActionState = BookingAdminResult | null;
+
+const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
+const PATH = "/admin/booking-management";
+
+function readField(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
+
+/**
+ * ยกเลิกการจองทุกสถานะพร้อมเหตุผล — ช่องว่างถูกปลดล็อกทันทีเมื่อสำเร็จ
+ * ข้อความ "ต้องระบุเหตุผล" มาจากชั้นข้อมูล (validateStatusReason)
+ */
+export async function cancelReservationAction(
+  _prevState: BookingCancelOverrideActionState,
+  formData: FormData,
+): Promise<BookingAdminResult> {
+  const admin = await requireAdmin();
+
+  const id = readField(formData, "id");
+
+  if (!id) {
+    return { ok: false, message: MISSING_ID_MESSAGE };
+  }
+
+  const result = await bookingAdmin.cancelReservation(
+    id,
+    readField(formData, "reason"),
+    admin.id,
+  );
+
+  if (result.ok) {
+    revalidatePath(PATH);
+  }
+
+  return result;
+}
+
+/**
+ * override สถานะการจองได้เสมอเมื่อระบบตั้งผิด (เช่น NO_SHOW → ACTIVE)
+ * พร้อมบันทึกผู้ดำเนินการและเหตุผล
+ */
+export async function overrideReservationStatusAction(
+  _prevState: BookingCancelOverrideActionState,
+  formData: FormData,
+): Promise<BookingAdminResult> {
+  const admin = await requireAdmin();
+
+  const id = readField(formData, "id");
+
+  if (!id) {
+    return { ok: false, message: MISSING_ID_MESSAGE };
+  }
+
+  const result = await bookingAdmin.overrideReservationStatus(
+    id,
+    readField(formData, "status"),
+    readField(formData, "reason"),
+    admin.id,
+  );
+
+  if (result.ok) {
+    revalidatePath(PATH);
+  }
+
+  return result;
+}
