@@ -453,8 +453,8 @@ INSERT INTO room_type (code, type_name, booking_mode, min_duration_minutes) VALU
 ## ภาคผนวก B — ประเด็นที่ยังต้องตัดสินก่อน/ระหว่างพัฒนา
 
 1. ค่าเริ่มต้น `service_period` (NORMAL 08:30–16:30) ต้อง seed หลังสร้างแอดมินคนแรก และแนวทางนำเข้าข้อมูล `holiday`
-2. รูปแบบ/ภาษา/หัวข้อของอีเมล, นโยบาย retry ของ outbox
-3. ตารางเวลา `pg_cron` ที่แน่นอน (NO_SHOW, การส่งอีเมล)
+2. ✅ ตัดสินแล้วใน #14 — รูปแบบ/ภาษา/หัวข้ออีเมลรหัสการจอง + นโยบาย retry ของ outbox (สูงสุด 5 ครั้ง, 1/5/15/60 นาที) ดู `docs/notifications/outbox.md`
+3. ✅ ตัดสินแล้วใน #14 — `pg_cron` ยิง worker ส่งอีเมลทุก 1 นาที (ผ่าน `pg_net` → `/api/cron/outbox`) ดู `docs/notifications/outbox.md` (ตารางเวลา NO_SHOW อยู่ในตั๋ว #13)
 4. UI การเลือกทีละบล็อก + การแสดงจำนวนครั้งที่ต้องยืนยัน ก่อนกดยืนยันการจอง
 5. จะเพิ่ม `reservation_guard()` เป็น BEFORE trigger ฝั่ง DB ด้วยหรือพึ่งชั้น server อย่างเดียว
 6. การบังคับ `max_capacity` ให้ไม่เป็น NULL เมื่อประเภทห้องเป็น `CAPACITY`
