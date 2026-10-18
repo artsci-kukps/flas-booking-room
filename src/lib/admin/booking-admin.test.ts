@@ -8,7 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  */
 
 let selectResults: unknown[][] = []
-let updateResults: unknown[][] = []
+// แถวผลลัพธ์ของ update — ถ้าเป็น Error จะ reject (จำลอง pg error ที่ Drizzle ห่อไว้)
+let updateResults: (unknown[] | Error)[] = []
 let whereParams: string[] = []
 let updateWhereParams: string[] = []
 let setCalls: Record<string, unknown>[] = []
@@ -68,14 +69,21 @@ vi.mock('@/db', () => ({
 }))
 
 import {
+  cancelReservation,
   confirmKeyPickup,
   confirmKeyReturn,
   findBookingByCodeOnDay,
   isBookingCode,
+  isReservationStatus,
   listBookingsForDay,
+  overrideReservationStatus,
+  RESERVATION_STATUSES,
   returnedStatus,
+  validateStatusReason,
   type AdminBookingRow,
 } from './booking-admin'
+
+import { OCCUPYING_STATUSES } from '@/lib/booking/day-availability'
 
 const MONDAY = '2026-10-19'
 const END_TIME = new Date('2026-10-19T03:30:00Z') // 10:30 Bangkok
@@ -113,7 +121,12 @@ beforeEach(() => {
         where: (arg: unknown) => {
           collectSqlParams(arg, updateWhereParams)
           return {
-            returning: () => Promise.resolve(updateResults.shift() ?? []),
+            returning: () => {
+              const result = updateResults.shift() ?? []
+              return result instanceof Error
+                ? Promise.reject(result)
+                : Promise.resolve(result)
+            },
           }
         },
       }
@@ -269,5 +282,194 @@ describe('confirmKeyReturn', () => {
       ok: false,
       message: 'ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่',
     })
+  })
+})
+
+// ============================================
+// การยกเลิก/แก้ไขสถานะโดยแอดมิน (ticket #12)
+// ============================================
+
+const NOW = new Date('2026-10-19T02:45:00Z')
+
+/** เลียนแบบ pg error ที่ Drizzle ห่อไว้ (code อยู่ที่ cause) */
+function wrappedPgError(code: string, pgMessage: string): Error {
+  const cause = Object.assign(new Error(pgMessage), { code })
+  return new Error('Failed query: UPDATE "reservation"\nparams: [...]', { cause })
+}
+
+describe('validateStatusReason', () => {
+  it('ปฏิเสธเหตุผลว่างหรือมีแต่ช่องว่าง', () => {
+    expect(validateStatusReason('')).toBeTypeOf('string')
+    expect(validateStatusReason('   ')).toBeTypeOf('string')
+  })
+
+  it('ยอมรับเหตุผลที่มีข้อความ', () => {
+    expect(validateStatusReason('ผู้ใช้โทรขอยกเลิก')).toBeNull()
+  })
+})
+
+describe('isReservationStatus', () => {
+  it('รู้จักสถานะทั้ง 6', () => {
+    for (const status of RESERVATION_STATUSES) {
+      expect(isReservationStatus(status)).toBe(true)
+    }
+  })
+
+  it('ปฏิเสธค่าที่ไม่ใช่สถานะ', () => {
+    expect(isReservationStatus('BOGUS')).toBe(false)
+    expect(isReservationStatus('cancelled')).toBe(false)
+  })
+})
+
+describe('cancelReservation', () => {
+  it('ยกเลิกได้ทุกสถานะ: ตั้ง CANCELLED พร้อม canceled_at/by/reason', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    const result = await cancelReservation('r-1', 'ผู้ใช้โทรขอยกเลิก', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'CANCELLED' })
+    expect(setCalls).toEqual([
+      {
+        status: 'CANCELLED',
+        canceledAt: NOW,
+        canceledBy: 'a1',
+        canceledReason: 'ผู้ใช้โทรขอยกเลิก',
+      },
+    ])
+    expect(updateWhereParams).toContain('r-1')
+  })
+
+  it('บังคับเหตุผล: ปฏิเสธเมื่อไม่ระบุเหตุผล โดยไม่แก้ข้อมูล', async () => {
+    const result = await cancelReservation('r-1', '   ', 'a1', NOW)
+
+    expect(result.ok).toBe(false)
+    expect(setCalls).toHaveLength(0)
+  })
+
+  it('ปลดล็อกช่องว่างทันที: สถานะ CANCELLED ไม่ครองช่วงเวลา', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    await cancelReservation('r-1', 'เหตุผล', 'a1', NOW)
+
+    // TOR ข้อ 6.2: มีเพียง PENDING/ACTIVE ที่ครองช่วงเวลา — CANCELLED จึงปล่อยห้อง
+    expect(setCalls[0]).toMatchObject({ status: 'CANCELLED' })
+    expect(OCCUPYING_STATUSES).toContain('ACTIVE')
+    expect(OCCUPYING_STATUSES).not.toContain('CANCELLED')
+  })
+
+  it('ไม่พบรายการ → ข้อความไม่พบ', async () => {
+    updateResults = [[]]
+
+    const result = await cancelReservation('r-missing', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่',
+    })
+  })
+})
+
+describe('overrideReservationStatus', () => {
+  it('override NO_SHOW → ACTIVE ได้ทันที พร้อมบันทึกผู้ดำเนินการและเหตุผล', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    const result = await overrideReservationStatus(
+      'r-1',
+      'ACTIVE',
+      'ระบบตั้ง NO_SHOW ผิด ผู้ใช้มารับกุญแจแล้ว',
+      'a1',
+      NOW,
+    )
+
+    expect(result).toEqual({ ok: true, status: 'ACTIVE' })
+    expect(setCalls).toEqual([
+      {
+        status: 'ACTIVE',
+        canceledAt: NOW,
+        canceledBy: 'a1',
+        canceledReason: 'ระบบตั้ง NO_SHOW ผิด ผู้ใช้มารับกุญแจแล้ว',
+      },
+    ])
+  })
+
+  it('override ไปสถานะอื่นได้เสมอ (เช่น COMPLETED)', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    const result = await overrideReservationStatus('r-1', 'COMPLETED', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'COMPLETED' })
+    expect(setCalls[0]).toMatchObject({ status: 'COMPLETED' })
+  })
+
+  it('ปฏิเสธสถานะที่ไม่รู้จัก โดยไม่แก้ข้อมูล', async () => {
+    const result = await overrideReservationStatus('r-1', 'BOGUS', 'เหตุผล', 'a1', NOW)
+
+    expect(result.ok).toBe(false)
+    expect(setCalls).toHaveLength(0)
+  })
+
+  it('บังคับเหตุผล: ปฏิเสธเมื่อไม่ระบุเหตุผล', async () => {
+    const result = await overrideReservationStatus('r-1', 'ACTIVE', '  ', 'a1', NOW)
+
+    expect(result.ok).toBe(false)
+    expect(setCalls).toHaveLength(0)
+  })
+
+  it('ไม่พบรายการ → ข้อความไม่พบ', async () => {
+    updateResults = [[]]
+
+    const result = await overrideReservationStatus('r-missing', 'ACTIVE', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่',
+    })
+  })
+})
+
+describe('การจัดการข้อผิดพลาดจากการเขียนสถานะ', () => {
+  it('override ไปครองช่วงแล้วชนห้อง EXCLUSIVE (23P01) → ข้อความไทย ไม่ throw', async () => {
+    updateResults = [
+      wrappedPgError(
+        '23P01',
+        'conflicting key value violates exclusion constraint "reservation_room_exclusive", key',
+      ),
+    ]
+
+    const result = await overrideReservationStatus('r-1', 'ACTIVE', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({ ok: false, message: expect.any(String) })
+  })
+
+  it('override ชนการจองซ้อนของผู้ใช้เอง (23P01) → ข้อความไทย', async () => {
+    updateResults = [
+      wrappedPgError(
+        '23P01',
+        'conflicting key value violates exclusion constraint "reservation_user_no_overlap", key',
+      ),
+    ]
+
+    const result = await overrideReservationStatus('r-1', 'ACTIVE', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({ ok: false, message: expect.any(String) })
+  })
+
+  it('id ที่ไม่ใช่ uuid (22P02) ถือว่าไม่พบรายการ ไม่ throw', async () => {
+    updateResults = [wrappedPgError('22P02', 'invalid input syntax for type uuid: "abc"')]
+
+    const result = await cancelReservation('abc', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่',
+    })
+  })
+
+  it('ข้อผิดพลาดที่ไม่รู้จักถูกโยนทิ้งต่อ (ไม่ถูกกลบ)', async () => {
+    updateResults = [wrappedPgError('XX000', 'unexpected database error')]
+
+    await expect(
+      overrideReservationStatus('r-1', 'ACTIVE', 'เหตุผล', 'a1', NOW),
+    ).rejects.toThrow('Failed query')
   })
 })
