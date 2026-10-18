@@ -319,8 +319,15 @@ export async function createReservation(
       await enqueueBookingCode(row!, deps.tx);
       return { ok: true, bookingCode: row!.bookingCode };
     } catch (error) {
-      // รหัสซ้ำกับการจองวันเดียวกัน (unique index reservation_code_per_day) — สุ่มใหม่
+      // รหัสซ้ำกับการจองวันเดียวกัน (unique index reservation_code_per_day)
       if (pgErrorCode(error) === "23505") {
+        // ในทรานแซกชันของผู้เรียก (จองหลาย record) PostgreSQL ทำเครื่องหมายทั้ง transaction
+        // เป็น aborted แล้ว จึงสุ่มรหัสใหม่ในนี้ไม่ได้ — โยนออกให้ผู้เรียก rollback
+        // แล้วเริ่มทั้งชุดใหม่พร้อมรหัสชุดใหม่
+        if (deps.tx) {
+          throw error;
+        }
+
         continue;
       }
 
@@ -430,40 +437,52 @@ export async function createReservations(
   }
 
   const generateCode = deps.generateCode ?? randomBookingCode;
-  const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
 
-  if (!codes) {
-    return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
-  }
+  // pre-assign กันรหัสชนกันเองในชุดแล้ว แต่ยังมีโอกาสถูกคำขออื่น "แย่ง" รหัสไปหลัง pre-assign
+  // ทำให้ 23505 กลาง transaction (abort ทั้งชุด) — เริ่มใหม่ทั้งชุดด้วยรหัสชุดใหม่จนครบจำนวนครั้ง
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+    const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
 
-  try {
-    return await db.transaction(async (tx) => {
-      const bookingCodes: string[] = [];
-
-      for (let i = 0; i < requests.length; i++) {
-        const code = codes[i]!;
-        const result = await createReservation(requests[i]!, userId, {
-          ...deps,
-          tx,
-          generateCode: () => code,
-        });
-
-        if (!result.ok) {
-          throw new BookingAbort(result.message);
-        }
-
-        bookingCodes.push(result.bookingCode);
-      }
-
-      return { ok: true, bookingCodes };
-    });
-  } catch (error) {
-    if (error instanceof BookingAbort) {
-      return { ok: false, message: error.message };
+    if (!codes) {
+      return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
     }
 
-    throw error;
+    try {
+      return await db.transaction(async (tx) => {
+        const bookingCodes: string[] = [];
+
+        for (let i = 0; i < requests.length; i++) {
+          const code = codes[i]!;
+          const result = await createReservation(requests[i]!, userId, {
+            ...deps,
+            tx,
+            generateCode: () => code,
+          });
+
+          if (!result.ok) {
+            throw new BookingAbort(result.message);
+          }
+
+          bookingCodes.push(result.bookingCode);
+        }
+
+        return { ok: true, bookingCodes };
+      });
+    } catch (error) {
+      if (error instanceof BookingAbort) {
+        return { ok: false, message: error.message };
+      }
+
+      // รหัสถูกแย่งไปหลัง pre-assign — ทั้งชุดถูก rollback แล้ว ลองใหม่ด้วยรหัสชุดใหม่
+      if (pgErrorCode(error) === "23505") {
+        continue;
+      }
+
+      throw error;
+    }
   }
+
+  return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
 }
 
 /** การเลือกหลายบล็อกของห้องเดียวจากหน้าจอง */
