@@ -3,6 +3,7 @@ import type { AdminBookingRow } from "@/lib/admin/booking-admin";
 import { formatBangkokTime } from "@/lib/format";
 
 import BookingRowActions from "./booking-row-actions";
+import BookingRowStatusActions from "./booking-row-status-actions";
 import { BOOKING_STATUS_CLASS, BOOKING_STATUS_LABEL } from "./booking-status";
 
 function StatusBadge({ status }: { status: AdminBookingRow["status"] }) {
@@ -96,7 +97,10 @@ export default function BookingsTable({ rows }: BookingsTableProps) {
                   <StatusBadge status={row.status} />
                 </td>
                 <td className="px-4 py-4">
-                  <BookingRowActions row={row} className="justify-end" />
+                  <div className="flex flex-col items-end gap-2">
+                    <BookingRowActions row={row} className="justify-end" />
+                    <BookingRowStatusActions row={row} className="justify-end" />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -128,6 +132,7 @@ export default function BookingsTable({ rows }: BookingsTableProps) {
             </p>
 
             <BookingRowActions row={row} className="mt-3" />
+            <BookingRowStatusActions row={row} className="mt-3" />
           </li>
         ))}
       </ul>
