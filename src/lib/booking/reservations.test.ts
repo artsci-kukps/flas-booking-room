@@ -477,7 +477,7 @@ describe('createReservation', () => {
 
     expect(result).toEqual({ ok: true, bookingCode: '123456' })
     expect(enqueue).toHaveBeenCalledTimes(1)
-    expect(enqueue).toHaveBeenCalledWith({
+    expect(enqueue.mock.calls[0][0]).toEqual({
       reservationId: 'res-1',
       toEmail: 'booker@ku.th',
       bookingCode: '123456',

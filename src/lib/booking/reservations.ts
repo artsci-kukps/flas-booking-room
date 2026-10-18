@@ -17,7 +17,8 @@ import { listServicePeriods } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
 import {
   enqueueBookingCodeEmail,
-  type EnqueueBookingCodeEmail,
+  type EnqueueBookingCodeEmailFn,
+  type OutboxExecutor,
 } from "@/lib/notifications/outbox";
 
 import {
@@ -62,7 +63,7 @@ export type BookingDeps = {
   now?: Date;
   generateCode?: () => string;
   /** สร้างรายการคิวส่งรหัสทางอีเมล — ค่าเริ่มต้นเขียนลง notification_outbox จริง */
-  enqueue?: (input: EnqueueBookingCodeEmail) => Promise<void>;
+  enqueue?: EnqueueBookingCodeEmailFn;
 };
 
 const DATE_MESSAGE = "วันที่เลือกไม่ถูกต้อง กรุณาเลือกวันที่ใหม่";
@@ -229,24 +230,27 @@ export async function createReservation(
    * เข้าคิวส่งรหัสทางอีเมล "หนึ่งครั้งต่อการจองหนึ่งระเบียน" (TOR ข้อ 11, #14)
    * อีเมลเป็นส่วนเสริม: หน้ายืนยันแสดงรหัสบนจอเสมอ (#8) การเข้าคิวล้มเหลวจึงไม่ทำให้การจองล้มเหลว
    */
-  async function enqueueBookingCode(row: {
-    id: string;
-    bookingCode: string;
-  }): Promise<void> {
+  async function enqueueBookingCode(
+    row: { id: string; bookingCode: string },
+    executor?: OutboxExecutor,
+  ): Promise<void> {
     if (!booker?.email) {
       return;
     }
 
     try {
-      await enqueue({
-        reservationId: row.id,
-        toEmail: booker.email,
-        bookingCode: row.bookingCode,
-        roomName: room.roomName,
-        bookingDate: request.date,
-        startTime,
-        endTime,
-      });
+      await enqueue(
+        {
+          reservationId: row.id,
+          toEmail: booker.email,
+          bookingCode: row.bookingCode,
+          roomName: room.roomName,
+          bookingDate: request.date,
+          startTime,
+          endTime,
+        },
+        executor,
+      );
     } catch (error) {
       console.error("เข้าคิวส่งรหัสการจองไม่สำเร็จ", error);
     }
@@ -284,6 +288,9 @@ export async function createReservation(
             .values({ ...baseValues, bookingCode })
             .returning({ id: reservation.id, bookingCode: reservation.bookingCode });
 
+          // เข้าคิวในทรานแซกชันเดียวกับการจอง — สำเร็จ/ล้มเหลวไปด้วยกัน
+          await enqueueBookingCode(row!, tx);
+
           return { full: false as const, row: row! };
         });
 
@@ -291,7 +298,6 @@ export async function createReservation(
           return { ok: false, message: CAPACITY_FULL_MESSAGE };
         }
 
-        await enqueueBookingCode(outcome.row);
         return { ok: true, bookingCode: outcome.row.bookingCode };
       }
 

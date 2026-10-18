@@ -73,16 +73,22 @@ export type EnqueueBookingCodeEmail = {
   endTime: Date;
 };
 
-/** ตัวเขียนคิว — รับได้ทั้ง db และ transaction ของ drizzle */
-type OutboxExecutor = Pick<typeof db, "insert">;
+/** ตัวเขียนคิว — รับได้ทั้ง db และ transaction ของ drizzle (ผู้เรียกหลาย record ใช้ tx เดียวกันได้) */
+export type OutboxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type EnqueueBookingCodeEmailFn = (
+  input: EnqueueBookingCodeEmail,
+  executor?: OutboxExecutor,
+) => Promise<void>;
 
 /**
  * สร้างรายการคิวส่งรหัสการจอง (PENDING, next_attempt_at = now())
  * เรียกหนึ่งครั้งต่อการจองหนึ่งระเบียน — การจองหลายบล็อกที่สร้างหลายระเบียนจึงได้หลายอีเมล
+ * ส่ง executor (tx) เดียวกับที่ insert การจอง เพื่อให้คิวและตัวการจอง commit/rollback พร้อมกัน
  */
 export async function enqueueBookingCodeEmail(
   input: EnqueueBookingCodeEmail,
-  executor: OutboxExecutor = db,
+  executor: OutboxExecutor = db as unknown as OutboxExecutor,
 ): Promise<void> {
   const payload: BookingCodePayload = {
     bookingCode: input.bookingCode,
