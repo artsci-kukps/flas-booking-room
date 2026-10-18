@@ -15,6 +15,13 @@
       "when": 1792062866834,
       "tag": "0001_reservation_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792311870942,
+      "tag": "0002_no_show_cron",
+      "breakpoints": true
     }
   ]
 }
