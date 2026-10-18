@@ -39,8 +39,14 @@ export default function RoomForm(props: RoomFormProps) {
   const { onResult } = props;
   const onCancel = props.mode === "edit" ? props.onCancel : undefined;
 
-  const [createState, createAction, createPending] = useActionState(createRoom, INITIAL_STATE);
-  const [editState, editAction, editPending] = useActionState(updateRoom, INITIAL_STATE);
+  const [createState, createAction, createPending] = useActionState(
+    createRoom,
+    INITIAL_STATE,
+  );
+  const [editState, editAction, editPending] = useActionState(
+    updateRoom,
+    INITIAL_STATE,
+  );
 
   const state = isEdit ? editState : createState;
   const action = isEdit ? editAction : createAction;
@@ -62,7 +68,11 @@ export default function RoomForm(props: RoomFormProps) {
     }
 
     onResult(
-      isEdit ? "บันทึกการแก้ไขแล้ว" : state.restored ? "กู้คืนห้องที่เคยถูกลบแล้ว" : "เพิ่มห้องแล้ว",
+      isEdit
+        ? "บันทึกการแก้ไขแล้ว"
+        : state.restored
+          ? "กู้คืนห้องที่เคยถูกลบแล้ว"
+          : "เพิ่มห้องแล้ว",
     );
 
     if (isEdit) {
@@ -98,11 +108,11 @@ export default function RoomForm(props: RoomFormProps) {
             maxLength={100}
             required
             autoComplete="off"
-            placeholder="เช่น S-101"
+            placeholder="เช่น S01"
             className="field"
           />
           <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-            ตั้งชื่อให้สื่อถึงที่ตั้งหรือการใช้งาน เช่น S-101, ห้องประชุม 1
+            ตั้งชื่อให้สื่อถึงที่ตั้งหรือการใช้งาน เช่น S01, G01
           </p>
         </div>
 
@@ -195,13 +205,19 @@ export default function RoomForm(props: RoomFormProps) {
           {pending ? "กำลังบันทึก…" : isEdit ? "บันทึกการแก้ไข" : "เพิ่มห้อง"}
         </button>
         {props.mode === "edit" ? (
-          <button type="button" onClick={props.onCancel} className="btn btn-outline">
+          <button
+            type="button"
+            onClick={props.onCancel}
+            className="btn btn-outline"
+          >
             ยกเลิก
           </button>
         ) : null}
       </div>
 
-      {errorMessage ? <Alert tone="danger" heading={errorMessage} className="mt-4" /> : null}
+      {errorMessage ? (
+        <Alert tone="danger" heading={errorMessage} className="mt-4" />
+      ) : null}
     </form>
   );
 }

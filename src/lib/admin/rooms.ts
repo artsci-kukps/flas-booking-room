@@ -8,7 +8,7 @@ import { pgErrorCode } from "./pg-error";
 
 /**
  * ชั้นข้อมูล/โดเมนของการจัดการห้อง (ไม่ใช่ "use server")
- * เก็บกติกาที่ทดสอบได้แบบบริสุทธิ์ (validateRoomBasics/validateRoomInput) แยกจากที่แตะฐานข้อมูล
+ * เก็บกติกาที่ทดสอบได้(validateRoomBasics/validateRoomInput) แยกจากที่แตะฐานข้อมูล
  */
 
 /** แถวห้องแบบแคบเท่าที่หน้าจัดการต้องใช้ พร้อมข้อมูลประเภทห้องสำหรับแสดงผล */
@@ -43,20 +43,23 @@ export type RoomInput = {
 };
 
 /** ผลของการแก้ไขห้อง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type RoomResult = { ok: true; restored?: boolean } | { ok: false; message: string };
+export type RoomResult =
+  { ok: true; restored?: boolean } | { ok: false; message: string };
 
 const NAME_REQUIRED_MESSAGE = "กรุณากรอกชื่อห้อง";
 const NAME_TOO_LONG_MESSAGE = "ชื่อห้องยาวเกิน 100 ตัวอักษร";
 const ROOM_TYPE_REQUIRED_MESSAGE = "กรุณาเลือกประเภทห้อง";
 const CAPACITY_INVALID_MESSAGE = "ความจุต้องเป็นจำนวนเต็มมากกว่า 0";
-const CAPACITY_REQUIRED_MESSAGE = "ห้องประเภทจองตามความจุ (CAPACITY) ต้องระบุความจุมากกว่า 0";
+const CAPACITY_REQUIRED_MESSAGE =
+  "ห้องประเภทจองตามความจุ (CAPACITY) ต้องระบุความจุมากกว่า 0";
 const ROOM_TYPE_NOT_FOUND_MESSAGE =
   "ไม่พบประเภทห้องที่เลือก อาจถูกลบไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่";
 const ROOM_TYPE_DELETED_RESTORE_MESSAGE =
   "กู้คืนไม่ได้เพราะประเภทห้องของห้องนี้ถูกลบไปแล้ว กรุณากู้คืนประเภทห้องก่อน";
 const NAME_DUPLICATE_MESSAGE = "ชื่อห้องนี้ถูกใช้งานอยู่แล้ว";
 const NOT_FOUND_MESSAGE = "ไม่พบห้องที่ต้องการแก้ไข กรุณารีเฟรชหน้าแล้วลองใหม่";
-const UNIQUE_MESSAGE = "ชื่อห้องซ้ำกับรายการที่ใช้งานอยู่ กรุณารีเฟรชหน้าแล้วลองใหม่";
+const UNIQUE_MESSAGE =
+  "ชื่อห้องซ้ำกับรายการที่ใช้งานอยู่ กรุณารีเฟรชหน้าแล้วลองใหม่";
 
 /** ตรวจกติกาของห้องที่ไม่ขึ้นกับโหมดการจอง — บริสุทธิ์ ทดสอบได้โดยไม่ต้องมี DB */
 export function validateRoomBasics(input: RoomInput): string | null {
@@ -87,7 +90,10 @@ export function validateRoomBasics(input: RoomInput): string | null {
  * ตรวจอินพุตของห้องโดยคำนึงถึงโหมดการจองของประเภทที่เลือก
  * CAPACITY ต้องมีความจุ > 0, EXCLUSIVE ไม่บังคับ (ระบุได้แต่ต้อง > 0)
  */
-export function validateRoomInput(input: RoomInput, bookingMode: BookingMode): string | null {
+export function validateRoomInput(
+  input: RoomInput,
+  bookingMode: BookingMode,
+): string | null {
   const basic = validateRoomBasics(input);
 
   if (basic) {
@@ -153,7 +159,10 @@ async function findActiveBookingMode(
   roomTypeId: string,
 ): Promise<BookingMode | undefined> {
   const rows = await executor
-    .select({ bookingMode: roomType.bookingMode, deletedAt: roomType.deletedAt })
+    .select({
+      bookingMode: roomType.bookingMode,
+      deletedAt: roomType.deletedAt,
+    })
     .from(roomType)
     .where(eq(roomType.id, roomTypeId));
   const type = rows.find((row) => row.deletedAt === null);
@@ -176,7 +185,10 @@ async function findNameCandidates(
 async function findRoomById(
   executor: RoomExecutor,
   id: string,
-): Promise<{ id: string; name: string; roomTypeId: string; deletedAt: Date | null } | undefined> {
+): Promise<
+  | { id: string; name: string; roomTypeId: string; deletedAt: Date | null }
+  | undefined
+> {
   const rows = await executor
     .select({
       id: rooms.id,
@@ -285,7 +297,10 @@ export async function createRoom(input: RoomInput): Promise<RoomResult> {
 }
 
 /** แก้ไขห้องที่ยังใช้งานอยู่ */
-export async function updateRoom(id: string, input: RoomInput): Promise<RoomResult> {
+export async function updateRoom(
+  id: string,
+  input: RoomInput,
+): Promise<RoomResult> {
   const basic = validateRoomBasics(input);
 
   if (basic) {
@@ -350,7 +365,10 @@ export async function updateRoom(id: string, input: RoomInput): Promise<RoomResu
  * ลบห้องแบบ soft delete — บันทึกผู้ลบ
  * ห้องที่ถูกลบจะไม่ปรากฏในรายการและไม่ถูกนำไปจอง (listRooms กรอง deleted_at)
  */
-export async function softDeleteRoom(id: string, actorId: string): Promise<RoomResult> {
+export async function softDeleteRoom(
+  id: string,
+  actorId: string,
+): Promise<RoomResult> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${ROOM_LOCK_KEY})`);
 
@@ -417,5 +435,7 @@ export async function restoreRoom(id: string): Promise<RoomResult> {
 
 /** แปลงข้อผิดพลาด unique violation เป็นข้อความไทย */
 function mapUniqueViolation(error: unknown): RoomResult | null {
-  return pgErrorCode(error) === "23505" ? { ok: false, message: UNIQUE_MESSAGE } : null;
+  return pgErrorCode(error) === "23505"
+    ? { ok: false, message: UNIQUE_MESSAGE }
+    : null;
 }
