@@ -1,9 +1,16 @@
+import { Suspense } from "react";
+
 import { requireUser } from "@/lib/auth/guards";
+import { todayInBangkok } from "@/lib/admin/service-periods";
+import { parseBookingDate } from "@/lib/booking/day-availability";
 
 import MyBookingsSection from "@/components/booking/my-bookings-section";
 import RoomTypesSection from "@/components/booking/room-types-section";
 import ServiceHoursSection from "@/components/booking/service-hours-section";
 import BookingRulesSection from "@/components/booking/booking-rules-section";
+
+import AvailabilityPanel from "./availability-panel";
+import DaySwitcher from "./day-switcher";
 
 /** ชื่อแสดงบนหัวหน้า: เอาชื่อจริง (โทเคนแรก) ถ้ามี ไม่งั้นใช้หน้าอีเมล */
 function displayName(fullName: string | null, email: string): string {
@@ -12,9 +19,17 @@ function displayName(fullName: string | null, email: string): string {
   return email.split("@")[0]!;
 }
 
-export default async function BookingPage() {
+export default async function BookingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser();
   const name = displayName(user.fullName, user.email);
+
+  // ?date=YYYY-MM-DD กำหนดวันที่ดู — ค่าที่ไม่ถูกต้องหรือไม่ได้ส่งมาใช้วันนี้ในกรุงเทพฯ
+  const { date: rawDate } = await searchParams;
+  const date = parseBookingDate(rawDate) ?? todayInBangkok();
 
   return (
     <main className="page py-8 sm:py-10">
@@ -26,6 +41,22 @@ export default async function BookingPage() {
           สวัสดี, {name} — เลือกห้องและช่วงเวลาเป็นบล็อกละ 1 ชั่วโมง
           แล้วยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
         </p>
+      </div>
+
+      <div className="mt-8">
+        <DaySwitcher date={date} />
+        <Suspense
+          fallback={
+            <div
+              role="status"
+              className="panel mt-4 p-10 text-center text-sm text-ink-muted"
+            >
+              กำลังโหลดตารางห้องเรียน…
+            </div>
+          }
+        >
+          <AvailabilityPanel date={date} />
+        </Suspense>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
