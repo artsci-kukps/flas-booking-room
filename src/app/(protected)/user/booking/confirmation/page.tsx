@@ -3,11 +3,13 @@ import Link from "next/link";
 import Alert from "@/components/alert";
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
 import { requireUser } from "@/lib/auth/guards";
-import { getBookingConfirmation } from "@/lib/booking/reservations";
+import { getBookingConfirmation, type BookingConfirmation } from "@/lib/booking/reservations";
 import { formatBangkokTime, formatThaiDate } from "@/lib/format";
 
 /**
- * หน้ายืนยันการจอง — แสดงหลัง bookRoom สำเร็จ (?code= รหัสการจอง 6 หลัก)
+ * หน้ายืนยันการจอง — แสดงหลัง bookRoom สำเร็จ (?code= หนึ่งครั้งต่อหนึ่ง record)
+ * จองหลายช่องที่มีช่วงห่างกันจะได้หลาย record (หลายรหัส) — หน้านี้แสดงทุก record
+ * พร้อมจำนวนครั้งที่ต้องยืนยันกับเจ้าหน้าที่
  * อ่านการจองด้วยรหัส + user id ของผู้เรียกเท่านั้น จึงเปิดดูรหัสของคนอื่นไม่ได้
  * การส่งรหัสทางอีเมลเป็นส่วนเสริมของ ticket #14 — หน้านี้แสดงรหัสบนจอเสมอ ไม่พึ่งอีเมล
  */
@@ -23,6 +25,13 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: "ยกเลิกแล้ว",
   NO_SHOW: "ไม่มาแสดงตัว",
 };
+
+/** แยกค่า ?code= ที่ส่งมาหนึ่งหรือหลายค่า เป็นรหัสที่รูปแบบถูกต้องและไม่ซ้ำ */
+function parseCodes(rawCode: string | string[] | undefined): string[] {
+  const values = Array.isArray(rawCode) ? rawCode : rawCode ? [rawCode] : [];
+
+  return [...new Set(values.filter((code) => CODE_PATTERN.test(code)))];
+}
 
 function NotFoundPanel() {
   return (
@@ -45,6 +54,33 @@ function NotFoundPanel() {
   );
 }
 
+function BookingCard({ booking }: { booking: BookingConfirmation }) {
+  return (
+    <section className="panel p-6 sm:p-8" aria-label={`รหัสการจอง ${booking.bookingCode}`}>
+      <p className="text-xs font-semibold tracking-[0.2em] text-ink-muted">รหัสการจอง</p>
+      <p className="mt-2 text-[2.5rem] font-semibold tabular-nums leading-none tracking-[0.25em] text-ink">
+        {booking.bookingCode}
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
+        <RoomTypeCodeBadge code={booking.roomTypeCode} />
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-ink">{booking.roomName}</p>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            {formatThaiDate(booking.bookingDate)} · {formatBangkokTime(booking.startTime)}
+            {"–"}
+            {formatBangkokTime(booking.endTime)} น.
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-4 text-sm font-medium text-ku">
+        สถานะ: {STATUS_LABEL[booking.status] ?? booking.status}
+      </p>
+    </section>
+  );
+}
+
 export default async function BookingConfirmationPage({
   searchParams,
 }: {
@@ -53,14 +89,16 @@ export default async function BookingConfirmationPage({
   const user = await requireUser();
 
   const { code: rawCode } = await searchParams;
-  const code = Array.isArray(rawCode) ? rawCode[0] : rawCode;
+  const codes = parseCodes(rawCode);
 
-  const booking =
-    code && CODE_PATTERN.test(code)
-      ? await getBookingConfirmation(code, user.id)
-      : null;
+  const resolved = await Promise.all(
+    codes.map((code) => getBookingConfirmation(code, user.id)),
+  );
+  const bookings = resolved.filter(
+    (booking): booking is BookingConfirmation => booking !== null,
+  );
 
-  if (!booking) {
+  if (bookings.length === 0) {
     return <NotFoundPanel />;
   }
 
@@ -75,33 +113,15 @@ export default async function BookingConfirmationPage({
           ณ จุดรับกุญแจ
         </p>
 
-        <section className="panel mt-6 p-6 sm:p-8" aria-labelledby="booking-code-label">
-          <p
-            id="booking-code-label"
-            className="text-xs font-semibold tracking-[0.2em] text-ink-muted"
-          >
-            รหัสการจอง
-          </p>
-          <p className="mt-2 text-[2.5rem] font-semibold tabular-nums leading-none tracking-[0.25em] text-ink">
-            {booking.bookingCode}
-          </p>
+        <p className="mt-4 text-sm font-semibold text-ku">
+          ต้องยืนยันกับเจ้าหน้าที่ {bookings.length} ครั้ง
+        </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
-            <RoomTypeCodeBadge code={booking.roomTypeCode} />
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-ink">{booking.roomName}</p>
-              <p className="mt-0.5 text-sm text-ink-muted">
-                {formatThaiDate(booking.bookingDate)} · {formatBangkokTime(booking.startTime)}
-                {"–"}
-                {formatBangkokTime(booking.endTime)} น.
-              </p>
-            </div>
-          </div>
-
-          <p className="mt-4 text-sm font-medium text-ku">
-            สถานะ: {STATUS_LABEL[booking.status] ?? booking.status}
-          </p>
-        </section>
+        <div className="mt-6 space-y-6">
+          {bookings.map((booking) => (
+            <BookingCard key={booking.bookingCode} booking={booking} />
+          ))}
+        </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/user/booking" className="btn btn-outline">
