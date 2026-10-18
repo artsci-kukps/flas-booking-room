@@ -44,10 +44,11 @@
 
 ## ตารางเวลา `pg_cron` (ภาคผนวก B.3)
 
-- job `notification-outbox-dispatch` ทำงาน **ทุก 1 นาที** (`* * * * *`)
+- job `notification-outbox-dispatch` ทำงาน **ทุก 1 นาที** (`* * * * *`) — รายละเอียด/เหตุผลและการตรวจสอบ
+  อยู่ในแหล่งอ้างอิงกลางของทุก job: [`docs/pg-cron-schedules.md`](../pg-cron-schedules.md)
 - เพราะเป็นงานยิงตามนาที ตารางเวลาจึงไม่ขึ้นกับ timezone; จุดที่ต้องเป็น Asia/Bangkok (การแสดงวัน/เวลา
   ของการจอง) จัดการในชั้นแอปแล้ว (ดูข้อ TOR เรื่องเขตเวลา)
-- ประกาศไว้ใน `drizzle/0002_notification_outbox_cron.sql` (custom migration — `CREATE EXTENSION` /
+- ประกาศไว้ใน `drizzle/0003_notification_outbox_cron.sql` (custom migration — `CREATE EXTENSION` /
   `cron.schedule` ประกาศใน `schema.ts` ไม่ได้ตาม A.12)
 
 ## การตั้งค่า
@@ -76,4 +77,4 @@ ALTER DATABASE <db> SET app.cron_secret = '<CRON_SECRET>';
 - `src/services/resend.service.ts` — ตัวส่งผ่าน Resend (ฉีด fetch ได้, ไม่ยิงเครือข่ายในเทสต์)
 - `src/app/api/cron/outbox/route.ts` — worker endpoint สำหรับ pg_cron (ป้องกันด้วย `CRON_SECRET`)
 - `src/lib/booking/reservations.ts` — เข้าคิวหนึ่งรายการต่อการจองหนึ่งระเบียนเมื่อจองสำเร็จ
-- `drizzle/0002_notification_outbox_cron.sql` — ติดตั้ง pg_cron/pg_net และตั้ง job
+- `drizzle/0003_notification_outbox_cron.sql` — ติดตั้ง pg_cron/pg_net และตั้ง job

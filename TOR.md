@@ -454,8 +454,14 @@ INSERT INTO room_type (code, type_name, booking_mode, min_duration_minutes) VALU
 
 1. ค่าเริ่มต้น `service_period` (NORMAL 08:30–16:30) ต้อง seed หลังสร้างแอดมินคนแรก และแนวทางนำเข้าข้อมูล `holiday`
 2. ✅ ตัดสินแล้วใน #14 — รูปแบบ/ภาษา/หัวข้ออีเมลรหัสการจอง + นโยบาย retry ของ outbox (สูงสุด 5 ครั้ง, 1/5/15/60 นาที) ดู `docs/notifications/outbox.md`
-3. ✅ ตัดสินแล้วใน #14 — `pg_cron` ยิง worker ส่งอีเมลทุก 1 นาที (ผ่าน `pg_net` → `/api/cron/outbox`) ดู `docs/notifications/outbox.md` (ตารางเวลา NO_SHOW อยู่ในตั๋ว #13)
-4. UI การเลือกทีละบล็อก + การแสดงจำนวนครั้งที่ต้องยืนยัน ก่อนกดยืนยันการจอง
+3. ตารางเวลา `pg_cron` ที่แน่นอน (NO_SHOW, การส่งอีเมล)
+   - **✅ NO_SHOW (ตั๋ว #13):** job `reservation-no-show` รัน **ทุกนาที** (`* * * * *`)
+     เรียก `mark_no_show_reservations()` ตั้งเฉพาะ `PENDING` ที่ `start_time + 30 นาที <= now()`
+     เป็น `NO_SHOW`
+   - **✅ การส่งอีเมล (ตั๋ว #14):** job `notification-outbox-dispatch` รัน **ทุกนาที** (`* * * * *`)
+     ใช้ `pg_net` ยิง `POST /api/cron/outbox` ของแอป เพื่อส่งผ่าน Resend และ retry ตามนโยบาย
+   - รายละเอียด/เหตุผล/การตรวจสอบของทั้งสอง job อยู่ที่ [`docs/pg-cron-schedules.md`](docs/pg-cron-schedules.md)
+5. UI การเลือกทีละบล็อก + การแสดงจำนวนครั้งที่ต้องยืนยัน ก่อนกดยืนยันการจอง
 5. จะเพิ่ม `reservation_guard()` เป็น BEFORE trigger ฝั่ง DB ด้วยหรือพึ่งชั้น server อย่างเดียว
 6. การบังคับ `max_capacity` ให้ไม่เป็น NULL เมื่อประเภทห้องเป็น `CAPACITY`
 7. กรณีเปลี่ยน `booking_mode` ของประเภทห้องที่มีข้อมูลการจองอยู่แล้ว (ต้องกัน overlaps ที่ค้าง)

@@ -15,7 +15,7 @@ import {
  * - process: หยิบรายการ PENDING ที่ถึงเวลา (next_attempt_at) ไปส่งผ่าน Resend
  *            สำเร็จ → SENT + sent_at; ล้มเหลว → เพิ่ม attempts + ตั้ง retry; ครบขีดจำกัด → FAILED + last_error
  * นโยบาย retry / รูปแบบอีเมล ตัดสินในตั๋ว #14 (ภาคผนวก B.2) — ดู docs/notifications/outbox.md
- * การเรียก process มาจาก pg_cron ผ่าน route /api/cron/outbox (ดู drizzle/0002_*.sql)
+ * การเรียก process มาจาก pg_cron ผ่าน route /api/cron/outbox (ดู drizzle/0003_notification_outbox_cron.sql)
  */
 
 export const BOOKING_CODE_EMAIL_TYPE = "BOOKING_CODE";

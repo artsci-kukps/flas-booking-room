@@ -1,7 +1,8 @@
 -- ============================================================
 -- #14 notification_outbox — pg_cron + pg_net ยิง worker ส่งอีเมลผ่าน Resend
 --
--- นโยบาย retry / รูปแบบอีเมล / ตารางเวลา: docs/notifications/outbox.md (ภาคผนวก B.2–B.3 ของ TOR)
+-- นโยบาย retry / รูปแบบอีเมล: docs/notifications/outbox.md (ภาคผนวก B.2 ของ TOR)
+-- ตารางเวลา pg_cron ของทุก job:  docs/pg-cron-schedules.md (ภาคผนวก B.3 ของ TOR)
 --
 -- ทำไมต้องมี worker ในแอป:
 --   pg_cron ส่งอีเมล (HTTP ไป Resend) เองไม่ได้ — จึงให้ pg_cron เป็นตัว "ตั้งเวลา"
@@ -20,7 +21,11 @@
 CREATE EXTENSION IF NOT EXISTS pg_cron;--> statement-breakpoint
 CREATE EXTENSION IF NOT EXISTS pg_net;--> statement-breakpoint
 
--- ยิง worker ทุก 1 นาที — ชื่อ job ซ้ำจะถูกแทนที่ (cron.schedule เป็น upsert ตามชื่อ)
+-- เลือก job ที่ชื่อเดิมออกก่อน (กันซ้ำเมื่อรัน migration ซ้ำ/มี job ค้าง)
+SELECT cron.unschedule('notification-outbox-dispatch')
+ WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'notification-outbox-dispatch');--> statement-breakpoint
+
+-- ยิง worker ทุก 1 นาที — ไม่ผูก timezone (pg_cron ตีความ cron เป็น UTC แต่ความถี่ระดับนาทีจึงไม่ต่างกัน)
 SELECT cron.schedule(
     'notification-outbox-dispatch',
     '* * * * *',

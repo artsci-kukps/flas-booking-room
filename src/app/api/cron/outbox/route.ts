@@ -4,7 +4,7 @@ import { processOutboxBatch } from "@/lib/notifications/outbox";
 
 /**
  * Worker ของคิว notification_outbox — pg_cron (ผ่าน pg_net) ยิงเข้ามาที่ endpoint นี้ทุกนาที
- * (ดู drizzle/0002_notification_outbox_cron.sql และ docs/notifications/outbox.md)
+ * (ดู drizzle/0003_notification_outbox_cron.sql และ docs/notifications/outbox.md)
  *
  * ป้องกันด้วย CRON_SECRET: ต้องส่ง `Authorization: Bearer <secret>` หรือ `x-cron-secret`
  * ถ้าไม่ได้ตั้ง CRON_SECRET ฝั่งเซิร์ฟเวอร์ จะปฏิเสธ (fail closed) ไม่ทำงานเงียบ ๆ

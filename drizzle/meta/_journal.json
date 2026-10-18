@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
+      "when": 1792311870942,
+      "tag": "0002_no_show_cron",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
       "when": 1792312200000,
-      "tag": "0002_notification_outbox_cron",
+      "tag": "0003_notification_outbox_cron",
       "breakpoints": true
     }
   ]
