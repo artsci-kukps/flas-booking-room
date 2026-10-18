@@ -3,11 +3,22 @@ import { randomInt } from "node:crypto";
 import { and, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
 
 import db from "@/db";
-import { reservation, roomBlock, rooms, roomType, type Reservation } from "@/db/schema";
+import {
+  reservation,
+  roomBlock,
+  rooms,
+  roomType,
+  users,
+  type Reservation,
+} from "@/db/schema";
 import { listHolidays } from "@/lib/admin/holidays";
 import { pgErrorCode, pgErrorMessage } from "@/lib/admin/pg-error";
 import { listServicePeriods } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
+import {
+  enqueueBookingCodeEmail,
+  type EnqueueBookingCodeEmail,
+} from "@/lib/notifications/outbox";
 
 import {
   bangkokInstant,
@@ -46,10 +57,12 @@ export type BookingResult =
   | { ok: true; bookingCode: string }
   | { ok: false; message: string };
 
-/** ค่าที่ injecting ได้สำหรับเทสต์ (เวลาปัจจุบัน/ตัวสร้างรหัส) */
+/** ค่าที่ injecting ได้สำหรับเทสต์ (เวลาปัจจุบัน/ตัวสร้างรหัส/การเข้าคิวอีเมล) */
 export type BookingDeps = {
   now?: Date;
   generateCode?: () => string;
+  /** สร้างรายการคิวส่งรหัสทางอีเมล — ค่าเริ่มต้นเขียนลง notification_outbox จริง */
+  enqueue?: (input: EnqueueBookingCodeEmail) => Promise<void>;
 };
 
 const DATE_MESSAGE = "วันที่เลือกไม่ถูกต้อง กรุณาเลือกวันที่ใหม่";
@@ -203,13 +216,49 @@ export async function createReservation(
     status: "PENDING" as const,
   };
 
+  // อีเมลผู้จองสำหรับคิวแจ้งเตือน (users.email NOT NULL — ถ้าไม่พบถือว่าผิดปกติและข้ามการเข้าคิว)
+  const [booker] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  const enqueue = deps.enqueue ?? enqueueBookingCodeEmail;
+
+  /**
+   * เข้าคิวส่งรหัสทางอีเมล "หนึ่งครั้งต่อการจองหนึ่งระเบียน" (TOR ข้อ 11, #14)
+   * อีเมลเป็นส่วนเสริม: หน้ายืนยันแสดงรหัสบนจอเสมอ (#8) การเข้าคิวล้มเหลวจึงไม่ทำให้การจองล้มเหลว
+   */
+  async function enqueueBookingCode(row: {
+    id: string;
+    bookingCode: string;
+  }): Promise<void> {
+    if (!booker?.email) {
+      return;
+    }
+
+    try {
+      await enqueue({
+        reservationId: row.id,
+        toEmail: booker.email,
+        bookingCode: row.bookingCode,
+        roomName: room.roomName,
+        bookingDate: request.date,
+        startTime,
+        endTime,
+      });
+    } catch (error) {
+      console.error("เข้าคิวส่งรหัสการจองไม่สำเร็จ", error);
+    }
+  }
+
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
     const bookingCode = generateCode();
 
     try {
       if (room.bookingMode === "CAPACITY") {
         // ล็อกต่อห้องก่อนนับ แล้วจึง insert (สูตร A.5) — advisory xact lock ปล่อยเมื่อจบ transaction
-        return await db.transaction(async (tx) => {
+        const outcome = await db.transaction(async (tx) => {
           await tx.execute(
             sql`SELECT pg_advisory_xact_lock(hashtextextended(${room.roomId}::text, 0))`,
           );
@@ -227,24 +276,32 @@ export async function createReservation(
             );
 
           if (used.length >= (room.maxCapacity ?? 0)) {
-            return { ok: false, message: CAPACITY_FULL_MESSAGE };
+            return { full: true as const };
           }
 
           const [row] = await tx
             .insert(reservation)
             .values({ ...baseValues, bookingCode })
-            .returning({ bookingCode: reservation.bookingCode });
+            .returning({ id: reservation.id, bookingCode: reservation.bookingCode });
 
-          return { ok: true, bookingCode: row!.bookingCode };
+          return { full: false as const, row: row! };
         });
+
+        if (outcome.full) {
+          return { ok: false, message: CAPACITY_FULL_MESSAGE };
+        }
+
+        await enqueueBookingCode(outcome.row);
+        return { ok: true, bookingCode: outcome.row.bookingCode };
       }
 
       // ห้อง EXCLUSIVE: ปล่อยให้ exclusion constraint `reservation_room_exclusive` กันการจองทับ
       const [row] = await db
         .insert(reservation)
         .values({ ...baseValues, bookingCode })
-        .returning({ bookingCode: reservation.bookingCode });
+        .returning({ id: reservation.id, bookingCode: reservation.bookingCode });
 
+      await enqueueBookingCode(row!);
       return { ok: true, bookingCode: row!.bookingCode };
     } catch (error) {
       // รหัสซ้ำกับการจองวันเดียวกัน (unique index reservation_code_per_day) — สุ่มใหม่

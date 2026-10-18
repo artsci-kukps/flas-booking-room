@@ -6,8 +6,10 @@ import {
   roomBlock as roomBlockTable,
   rooms as roomsTable,
   servicePeriod as servicePeriodTable,
+  users as usersTable,
 } from '@/db/schema'
 import { makeHoliday, makeServicePeriod } from '@/lib/admin/test-fixtures'
+import type { EnqueueBookingCodeEmail } from '@/lib/notifications/outbox'
 
 import { createReservation, getBookingConfirmation, randomBookingCode } from './reservations'
 
@@ -87,7 +89,7 @@ function makeInsertMock() {
           if (error !== undefined) {
             return Promise.reject(error)
           }
-          return Promise.resolve([{ bookingCode: values.bookingCode }])
+          return Promise.resolve([{ id: `res-${insertedValues.length}`, bookingCode: values.bookingCode }])
         },
       }
     },
@@ -459,6 +461,81 @@ describe('createReservation', () => {
     await expect(
       createReservation(REQUEST, 'u1', { now: BEFORE_OPEN, generateCode: () => '111111' }),
     ).rejects.toThrow('Failed query')
+  })
+
+  // ---- คิวส่งรหัสทางอีเมล (#14): หนึ่งรายการต่อการจองหนึ่งระเบียน ----
+
+  it('จองสำเร็จ → เข้าคิวส่งรหัสหนึ่งรายการ พร้อมอีเมลผู้จองและข้อมูลห้อง/ช่วงเวลา', async () => {
+    setTableRows(usersTable, [{ email: 'booker@ku.th' }])
+    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {})
+
+    const result = await createReservation(REQUEST, 'u1', {
+      now: BEFORE_OPEN,
+      generateCode: () => '123456',
+      enqueue,
+    })
+
+    expect(result).toEqual({ ok: true, bookingCode: '123456' })
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(enqueue).toHaveBeenCalledWith({
+      reservationId: 'res-1',
+      toEmail: 'booker@ku.th',
+      bookingCode: '123456',
+      roomName: 'S-101',
+      bookingDate: MONDAY,
+      startTime: new Date('2026-10-19T02:30:00Z'),
+      endTime: new Date('2026-10-19T03:30:00Z'),
+    })
+  })
+
+  it('จองห้อง EXCLUSIVE สำเร็จ → เข้าคิวเช่นกัน (หนึ่งครั้งต่อระเบียน)', async () => {
+    setTableRows(roomsTable, [
+      { roomId: 'room-g', roomName: 'G-101', maxCapacity: null, bookingMode: 'EXCLUSIVE', minDurationMinutes: 120 },
+    ])
+    setTableRows(usersTable, [{ email: 'booker@ku.th' }])
+    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {})
+
+    const result = await createReservation(
+      { roomId: 'room-g', date: MONDAY, startTime: '09:30', endTime: '11:30' },
+      'u1',
+      { now: BEFORE_OPEN, generateCode: () => '654321', enqueue },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCode: '654321' })
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(enqueue.mock.calls[0][0]).toMatchObject({ roomName: 'G-101', bookingCode: '654321' })
+  })
+
+  it('จองไม่สำเร็จ (ห้องเต็ม) → ไม่เข้าคิว', async () => {
+    setTableRows(
+      reservationTable,
+      Array.from({ length: 4 }, (_, i) => ({ id: `r-${i}` })),
+    )
+    setTableRows(usersTable, [{ email: 'booker@ku.th' }])
+    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {})
+
+    const result = await createReservation(REQUEST, 'u1', { now: BEFORE_OPEN, enqueue })
+
+    expect(result).toMatchObject({ ok: false })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('เข้าคิวอีเมลล้มเหลว → การจองยังสำเร็จ (หน้ายืนยันยังแสดงรหัสเสมอ)', async () => {
+    setTableRows(usersTable, [{ email: 'booker@ku.th' }])
+    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {
+      throw new Error('queue down')
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await createReservation(REQUEST, 'u1', {
+      now: BEFORE_OPEN,
+      generateCode: () => '123456',
+      enqueue,
+    })
+
+    expect(result).toEqual({ ok: true, bookingCode: '123456' })
+    expect(errorSpy).toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 })
 
