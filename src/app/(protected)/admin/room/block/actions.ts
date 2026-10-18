@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as roomBlocks from "@/lib/admin/room-blocks";
 import type { RoomBlockResult } from "@/lib/admin/room-blocks";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -12,14 +13,9 @@ import { requireAdmin } from "@/lib/auth/guards";
  */
 export type RoomBlockActionState = RoomBlockResult | null;
 
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const START_INVALID_MESSAGE = "วันที่และเวลาเริ่มต้นไม่ถูกต้อง กรุณาระบุใหม่";
 const END_INVALID_MESSAGE = "วันที่และเวลาสิ้นสุดไม่ถูกต้อง กรุณาระบุใหม่";
 const PATH = "/admin/room/block";
-
-function readId(formData: FormData): string {
-  return String(formData.get("id") ?? "").trim();
-}
 
 /**
  * อ่านค่าจากช่อง datetime-local — แปลงเป็นเวลาตามเขต Asia/Bangkok

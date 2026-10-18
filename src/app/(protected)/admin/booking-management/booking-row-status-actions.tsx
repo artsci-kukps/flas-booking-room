@@ -4,9 +4,11 @@ import { useActionState, useState } from "react";
 
 import Alert from "@/components/alert";
 import type { AdminBookingRow } from "@/lib/admin/booking-admin";
-import { RESERVATION_STATUSES } from "@/lib/booking/reservation-status";
+import {
+  RESERVATION_STATUS_LABEL,
+  RESERVATION_STATUSES,
+} from "@/lib/booking/reservation-status";
 
-import { BOOKING_STATUS_LABEL } from "./booking-status";
 import {
   cancelReservationAction,
   overrideReservationStatusAction,
@@ -44,7 +46,7 @@ export default function BookingRowStatusActions({ row, className }: BookingRowSt
   const successMessage = cancelState?.ok
     ? "ยกเลิกการจองแล้ว — ช่องว่างถูกปลดล็อกให้จองทับได้"
     : overrideState?.ok
-      ? `แก้ไขสถานะเป็น “${BOOKING_STATUS_LABEL[overrideState.status]}” แล้ว`
+      ? `แก้ไขสถานะเป็น “${RESERVATION_STATUS_LABEL[overrideState.status]}” แล้ว`
       : null;
 
   const state = mode === "cancel" ? cancelState : mode === "override" ? overrideState : null;
@@ -121,7 +123,7 @@ export default function BookingRowStatusActions({ row, className }: BookingRowSt
           >
             {RESERVATION_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {BOOKING_STATUS_LABEL[status]}
+                {RESERVATION_STATUS_LABEL[status]}
               </option>
             ))}
           </select>

@@ -3,6 +3,8 @@ import { asc, eq } from "drizzle-orm";
 import db from "@/db";
 import { holiday } from "@/db/schema";
 
+import type { Result } from "@/lib/result";
+
 import { pgErrorCode } from "./pg-error";
 
 /**
@@ -28,7 +30,7 @@ export type HolidayInput = {
 };
 
 /** ผลของการแก้ไขวันหยุด — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type HolidayResult = { ok: true } | { ok: false; message: string };
+export type HolidayResult = Result;
 
 const DATE_MESSAGE = "วันที่หยุดต้องอยู่ในรูปแบบ YYYY-MM-DD";
 const NAME_REQUIRED_MESSAGE = "กรุณากรอกชื่อวันหยุด";

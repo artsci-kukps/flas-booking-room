@@ -11,6 +11,8 @@ import {
   type ServicePeriodRow,
 } from "@/lib/admin/service-periods";
 
+import { minutesToTime, SLOT_DURATION_MINUTES, timeToMinutes } from "./time";
+
 /**
  * ตรรกะหน้าผู้ใช้เลือกวัน ห้อง และช่องว่าง (TOR ข้อ 5)
  * แยกเป็นฟังก์ชันบริสุทธิ์ที่ทดสอบได้ ไม่แตะฐานข้อมูล — การดึงข้อมูลจริงอยู่ที่
@@ -24,9 +26,6 @@ const BANGKOK_UTC_OFFSET = "+07:00";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** เวลาในรูป 'HH:MM' หรือ 'HH:MM:SS' (คอลัมน์ time ของ PG อาจคืนวินาที) */
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
-
 /** แปลงเวลาหน้าปัดของวันที่หนึ่งใน Asia/Bangkok เป็น instant (Date จริง) */
 export function bangkokInstant(date: string, time: string): Date {
   return new Date(`${date}T${time.slice(0, 5)}:00${BANGKOK_UTC_OFFSET}`);
@@ -39,9 +38,6 @@ export type SlotRange = {
   /** 'HH:MM' */
   end: string;
 };
-
-/** ระยะเวลาของหนึ่งช่องว่าง (TOR ข้อ 5.3: บล็อกละ 1 ชั่วโมง) */
-const SLOT_DURATION_MINUTES = 60;
 
 /**
  * แตกช่องว่าง 1 ชั่วโมงเริ่มจากเวลาเปิดของวันนั้น (TOR ข้อ 5.3)
@@ -64,25 +60,6 @@ export function buildDaySlots(openTime: string, closeTime: string): SlotRange[] 
   }
 
   return slots;
-}
-
-/** 'HH:MM' หรือ 'HH:MM:SS' → นาทีนับจากเที่ยงคืน (null เมื่อรูปแบบไม่ถูกต้อง) */
-function timeToMinutes(time: string): number | null {
-  if (!TIME_PATTERN.test(time)) {
-    return null;
-  }
-
-  const [hours, minutes] = time.slice(0, 5).split(":").map(Number);
-
-  return hours! * 60 + minutes!;
-}
-
-/** นาทีนับจากเที่ยงคืน → 'HH:MM' */
-function minutesToTime(total: number): string {
-  const hours = Math.floor(total / 60) % 24;
-  const minutes = total % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 /** ช่วงเวลาแบบ instant ที่มาจาก DB (คอลัมน์ timestamptz) */
@@ -256,13 +233,6 @@ function groupByRoom(rows: readonly RangedRoomRow[]): Map<string, TimeRange[]> {
   return grouped;
 }
 
-/** วันถัดไปของสตริง YYYY-MM-DD (คำนวณจากปฏิทิน ไม่พึ่ง timezone ของ server) */
-function nextDay(date: string): string {
-  const parsed = new Date(`${date}T12:00:00Z`);
-
-  return new Date(parsed.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
 /**
  * ความพร้อมของวันที่เลือกสำหรับหน้าผู้ใช้ (TOR ข้อ 5)
  * - วันปิด (เสาร์–อาทิตย์/วันหยุด/ไม่มีช่วงเวลา) คืนผลปิดทันที
@@ -292,7 +262,7 @@ export async function getDayAvailability(
 
   const slots = buildDaySlots(window.openTime, window.closeTime);
   const dayStart = bangkokInstant(date, "00:00");
-  const dayEnd = bangkokInstant(nextDay(date), "00:00");
+  const dayEnd = bangkokInstant(shiftBookingDate(date, 1), "00:00");
 
   const [rooms, reservations, blocks] = await Promise.all([
     listRooms(),

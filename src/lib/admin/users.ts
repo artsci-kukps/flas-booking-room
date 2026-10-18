@@ -3,6 +3,8 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import db from "@/db";
 import { users } from "@/db/schema";
 
+import type { Result } from "@/lib/result";
+
 /**
  * ชั้นข้อมูล/โดเมนของการจัดการผู้ใช้ (ไม่ใช่ "use server")
  * แยกตรรกะกัน lock-out ที่เป็นฟังก์ชันบริสุทธิ์ออกจากที่แตะฐานข้อมูล
@@ -25,9 +27,7 @@ export type AdminUserRow = {
 };
 
 /** ผลของการเปลี่ยนบทบาท/การระงับ — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type UserAdminResult =
-  | { ok: true }
-  | { ok: false; message: string };
+export type UserAdminResult = Result;
 
 /** การเปลี่ยนแปลงที่กำลังจะทำ ใช้เฉพาะกับตัวกัน lock-out */
 export type AdminChange =

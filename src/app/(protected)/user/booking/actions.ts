@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/guards";
 import type { BookingBlock } from "@/lib/booking/booking-plan";
 import { submitBookingSelection } from "@/lib/booking/reservations";
+import { readField } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -13,10 +14,6 @@ import { submitBookingSelection } from "@/lib/booking/reservations";
  * จองสำเร็จไม่ต้องคืนสถานะ — action จะ redirect ไปหน้ายืนยันพร้อมรหัสการจองเอง
  */
 export type BookingActionState = { ok: false; message: string } | null;
-
-function readField(formData: FormData, key: string): string {
-  return String(formData.get(key) ?? "").trim();
-}
 
 function isBlock(value: unknown): value is BookingBlock {
   if (!value || typeof value !== "object") {

@@ -4,17 +4,7 @@ import { formatBangkokTime } from "@/lib/format";
 
 import BookingRowActions from "./booking-row-actions";
 import BookingRowStatusActions from "./booking-row-status-actions";
-import { BOOKING_STATUS_CLASS, BOOKING_STATUS_LABEL } from "./booking-status";
-
-function StatusBadge({ status }: { status: AdminBookingRow["status"] }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${BOOKING_STATUS_CLASS[status]}`}
-    >
-      {BOOKING_STATUS_LABEL[status]}
-    </span>
-  );
-}
+import StatusBadge from "./status-badge";
 
 function TimeRange({ row }: { row: AdminBookingRow }) {
   return (

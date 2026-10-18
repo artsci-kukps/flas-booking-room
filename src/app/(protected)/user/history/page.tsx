@@ -3,7 +3,8 @@ import Link from "next/link";
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
 import { requireUser } from "@/lib/auth/guards";
 import { formatBangkokTime, formatThaiDate, formatThaiDateTime } from "@/lib/format";
-import { listMyBookings, type BookingStatus } from "@/lib/booking/my-bookings";
+import { listMyBookings } from "@/lib/booking/my-bookings";
+import { RESERVATION_STATUS_LABEL } from "@/lib/booking/reservation-status";
 
 import CancelBookingButton from "./cancel-booking-button";
 
@@ -12,15 +13,6 @@ import CancelBookingButton from "./cancel-booking-button";
  * ยกเลิกเองได้เฉพาะ PENDING ก่อนเวลาเริ่ม; เมื่อ ACTIVE แล้วต้องคืนกุญแจก่อน
  * ตัวตน/สิทธิ์ถูกตรวจด้วย requireUser() ในหน้า และพื้นที่ /user ถูกกันด้วย layout อีกชั้น
  */
-
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  PENDING: "จองแล้ว รอรับกุญแจ",
-  ACTIVE: "กำลังใช้งาน",
-  COMPLETED: "เสร็จสิ้น",
-  LATE_RETURN: "คืนกุญแจช้า",
-  CANCELLED: "ยกเลิกแล้ว",
-  NO_SHOW: "ไม่มาแสดงตัว",
-};
 
 export default async function HistoryPage() {
   const user = await requireUser();
@@ -72,7 +64,9 @@ export default async function HistoryPage() {
                 </div>
 
                 <div className="text-right">
-                  <p className="text-sm font-medium text-ku">{STATUS_LABEL[booking.status]}</p>
+                  <p className="text-sm font-medium text-ku">
+                    {RESERVATION_STATUS_LABEL[booking.status]}
+                  </p>
                   {booking.status === "CANCELLED" && booking.canceledAt ? (
                     <p className="mt-0.5 text-xs text-ink-muted">
                       ยกเลิกเมื่อ {formatThaiDateTime(booking.canceledAt)}

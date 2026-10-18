@@ -74,15 +74,14 @@ import {
   confirmKeyReturn,
   findBookingByCodeOnDay,
   isBookingCode,
-  isReservationStatus,
   listBookingsForDay,
   overrideReservationStatus,
-  RESERVATION_STATUSES,
   returnedStatus,
   validateStatusReason,
   type AdminBookingRow,
 } from './booking-admin'
 
+import { isReservationStatus, RESERVATION_STATUSES } from '@/lib/booking/reservation-status'
 import { OCCUPYING_STATUSES } from '@/lib/booking/day-availability'
 
 const MONDAY = '2026-10-19'

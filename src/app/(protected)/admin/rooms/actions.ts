@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as roomRecords from "@/lib/admin/rooms";
 import type { RoomInput, RoomResult } from "@/lib/admin/rooms";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -12,12 +13,7 @@ import { requireAdmin } from "@/lib/auth/guards";
  */
 export type RoomActionState = RoomResult | null;
 
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PATH = "/admin/rooms";
-
-function readId(formData: FormData): string {
-  return String(formData.get("id") ?? "").trim();
-}
 
 /** ช่องว่าง = null (ความจุ/สิ่งอำนวยความสะดวกไม่บังคับ) */
 function readOptionalNumber(formData: FormData, key: string): number | null {

@@ -1,4 +1,4 @@
-import type { Reservation } from '@/db/schema'
+import type { ReservationStatus } from "@/lib/booking/reservation-status";
 
 /**
  * กฎ NO_SHOW อัตโนมัติ (TOR ข้อ 7)
@@ -14,23 +14,20 @@ import type { Reservation } from '@/db/schema'
  */
 
 /** ระยะผ่อนผันก่อนถือว่าไม่มารับกุญแจ (นาที) — ต้องตรงกับ SQL */
-export const NO_SHOW_GRACE_MINUTES = 30
-
-/** สถานะการจอง (mirror ค่าจาก enum reservation_status) */
-export type ReservationStatus = Reservation['status']
+export const NO_SHOW_GRACE_MINUTES = 30;
 
 /** ข้อมูลต่ำสุดที่กฎ NO_SHOW ต้องใช้ */
 export type NoShowCandidate = {
-  status: ReservationStatus
-  startTime: Date
-}
+  status: ReservationStatus;
+  startTime: Date;
+};
 
 /**
  * เส้นตัดเวลาของการจองหนึ่งรายการ = start_time + 30 นาที
  * คืน Date ใหม่เสมอ (ไม่แก้ไขค่าที่รับมา)
  */
 export function noShowCutoff(startTime: Date): Date {
-  return new Date(startTime.getTime() + NO_SHOW_GRACE_MINUTES * 60 * 1000)
+  return new Date(startTime.getTime() + NO_SHOW_GRACE_MINUTES * 60 * 1000);
 }
 
 /**
@@ -39,7 +36,10 @@ export function noShowCutoff(startTime: Date): Date {
  * - now ต้องถึงหรือเลยเส้นตัด (now >= start_time + 30 นาที)
  */
 export function isNoShowCandidate(candidate: NoShowCandidate, now: Date): boolean {
-  return candidate.status === 'PENDING' && now.getTime() >= noShowCutoff(candidate.startTime).getTime()
+  return (
+    candidate.status === "PENDING" &&
+    now.getTime() >= noShowCutoff(candidate.startTime).getTime()
+  );
 }
 
 /**
@@ -51,5 +51,5 @@ export function selectNoShowReservations<T extends NoShowCandidate>(
   rows: readonly T[],
   now: Date,
 ): T[] {
-  return rows.filter((row) => isNoShowCandidate(row, now))
+  return rows.filter((row) => isNoShowCandidate(row, now));
 }
