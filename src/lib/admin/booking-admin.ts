@@ -4,14 +4,11 @@ import db from "@/db";
 import { reservation, rooms, roomType, users } from "@/db/schema";
 import {
   isReservationStatus,
-  RESERVATION_STATUSES,
   type ReservationStatus,
 } from "@/lib/booking/reservation-status";
+import type { Result } from "@/lib/result";
 
-import { pgErrorCode, pgErrorMessage } from "./pg-error";
-
-export { isReservationStatus, RESERVATION_STATUSES };
-export type { ReservationStatus };
+import { exclusionViolationMessage, pgErrorCode } from "./pg-error";
 
 /**
  * ชั้นข้อมูล/โดเมนของตารางจองและการรับ–คืนกุญแจฝั่งแอดมิน (TOR ข้อ 7, 8 · ticket #11)
@@ -39,9 +36,7 @@ export type AdminBookingRow = {
 };
 
 /** ผลของการยืนยันรับ–คืนกุญแจ — คืนสถานะใหม่ให้ UI แสดงได้ */
-export type BookingAdminResult =
-  | { ok: true; status: ReservationStatus }
-  | { ok: false; message: string };
+export type BookingAdminResult = Result<{ status: ReservationStatus }>;
 
 const NOT_FOUND_MESSAGE = "ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PICKUP_NOT_PENDING_MESSAGE =
@@ -266,52 +261,23 @@ export async function confirmKeyReturn(
 // (exclusion constraint และการนับความจูนับเฉพาะ PENDING/ACTIVE — TOR ข้อ 6.2)
 // จึงจองทับได้ทันที
 
-const CONSTRAINT_NAME_PATTERN = /exclusion constraint "([a-z0-9_]+)"/i;
-
-/**
- * อ่านชื่อ exclusion constraint ที่ถูกละเมิด — ทั้งตัว error เองและ cause
- * (DrizzleQueryError ห่อ pg error ไว้ โดยข้อความ "Failed query" ไม่มีชื่อ constraint)
- */
-function exclusionConstraintName(error: unknown): string | null {
-  const direct = pgErrorMessage(error);
-  const cause =
-    error instanceof Error && error.cause ? pgErrorMessage(error.cause) : null;
-
-  return (
-    direct?.match(CONSTRAINT_NAME_PATTERN)?.[1] ??
-    cause?.match(CONSTRAINT_NAME_PATTERN)?.[1] ??
-    null
-  );
-}
-
 /**
  * แปลงข้อผิดพลาดจากการเขียนสถานะเป็นข้อความไทย
  * - 23P01: override กลับไปสถานะที่ครองช่วงแล้วชนการจองที่มีอยู่ (ห้อง/ผู้ใช้)
  * - 22P02: id ที่ไม่ใช่ uuid — มองว่าไม่พบรายการ ไม่ให้ 500
  * คืน null เมื่อไม่รู้จัก เพื่อให้ผู้เรียกโยนต่อ
  */
-function statusOverrideErrorMessage(error: unknown): string | null {
-  const code = pgErrorCode(error);
+const EXCLUSION_MESSAGES: Readonly<Record<string, string>> = {
+  reservation_user_no_overlap: USER_OVERLAP_OVERRIDE_MESSAGE,
+  reservation_room_exclusive: ROOM_TAKEN_OVERRIDE_MESSAGE,
+};
 
-  if (code === "22P02") {
+function statusOverrideErrorMessage(error: unknown): string | null {
+  if (pgErrorCode(error) === "22P02") {
     return NOT_FOUND_MESSAGE;
   }
 
-  if (code !== "23P01") {
-    return null;
-  }
-
-  const constraint = exclusionConstraintName(error);
-
-  if (constraint === "reservation_user_no_overlap") {
-    return USER_OVERLAP_OVERRIDE_MESSAGE;
-  }
-
-  if (constraint === "reservation_room_exclusive") {
-    return ROOM_TAKEN_OVERRIDE_MESSAGE;
-  }
-
-  return null;
+  return exclusionViolationMessage(error, EXCLUSION_MESSAGES);
 }
 
 /** เขียนสถานะใหม่ลงแถวการจอง แล้วแปลงข้อผิดพลาดที่รู้จักเป็นข้อความไทย */

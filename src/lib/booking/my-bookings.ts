@@ -1,9 +1,9 @@
-import type { Reservation } from "@/db/schema";
-
 import { and, desc, eq, gt } from "drizzle-orm";
 
 import db from "@/db";
 import { reservation, roomType, rooms } from "@/db/schema";
+import type { ReservationStatus } from "@/lib/booking/reservation-status";
+import type { Result } from "@/lib/result";
 
 /**
  * โดเมนของการจองของฉันและการยกเลิกโดยผู้ใช้ (TOR ข้อ 6.4)
@@ -14,9 +14,6 @@ import { reservation, roomType, rooms } from "@/db/schema";
  * และชั้นบันทึกใช้คำตอบเดียวกัน ส่วนที่แตะฐานข้อมูล (listMyBookings / cancelMyReservation)
  * อยู่ท้ายไฟล์นี้
  */
-
-/** สถานะการจองของผู้ใช้ (enum เดียวกับ reservation.status) */
-export type BookingStatus = Reservation["status"];
 
 /** ผลการตัดสินว่ายกเลิกได้หรือไม่ — คืนรูปเดียวกันให้ UI แสดงข้อความ inline */
 export type Cancelability = { ok: true } | { ok: false; message: string };
@@ -38,7 +35,7 @@ export const CANCEL_NOT_PENDING_MESSAGE =
  * แม้เวลาเริ่มจะผ่านไปแล้วก็ตาม
  */
 export function cancelability(
-  status: BookingStatus,
+  status: ReservationStatus,
   startTime: Date,
   now: Date,
 ): Cancelability {
@@ -65,7 +62,7 @@ export function cancelability(
 export type MyBooking = {
   id: string;
   bookingCode: string;
-  status: BookingStatus;
+  status: ReservationStatus;
   roomName: string;
   roomTypeCode: string;
   /** 'YYYY-MM-DD' (booking_date ที่ trigger เซ็ต) */
@@ -118,7 +115,7 @@ export async function listMyBookings(
 }
 
 /** ผลของการยกเลิกการจอง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline */
-export type CancelResult = { ok: true } | { ok: false; message: string };
+export type CancelResult = Result;
 
 const CANCEL_NOT_FOUND_MESSAGE =
   "ไม่พบรายการจองนี้ หรือไม่ใช่การจองของคุณ กรุณารีเฟรชหน้าแล้วลองใหม่";

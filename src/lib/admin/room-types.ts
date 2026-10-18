@@ -3,6 +3,8 @@ import { and, asc, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import db from "@/db";
 import { roomType } from "@/db/schema";
 
+import type { Result } from "@/lib/result";
+
 import { pgErrorCode } from "./pg-error";
 
 /**
@@ -48,9 +50,7 @@ export type RoomTypeInput = {
 };
 
 /** ผลของการแก้ไขประเภทห้อง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type RoomTypeResult =
-  | { ok: true; restored?: boolean }
-  | { ok: false; message: string };
+export type RoomTypeResult = Result<{ restored?: boolean }>;
 
 const CODE_MESSAGE = "รหัสประเภทห้องต้องเป็นตัวอักษร 1 ตัว เช่น S, G, P";
 const NAME_REQUIRED_MESSAGE = "กรุณากรอกชื่อประเภทห้อง";

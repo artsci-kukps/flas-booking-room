@@ -4,7 +4,7 @@ import type { AdminBookingRow } from "@/lib/admin/booking-admin";
 import { formatBangkokTime, formatThaiDate } from "@/lib/format";
 
 import BookingRowActions from "./booking-row-actions";
-import { BOOKING_STATUS_CLASS, BOOKING_STATUS_LABEL } from "./booking-status";
+import StatusBadge from "./status-badge";
 
 /**
  * สถานะของผลการค้นรหัส — คำนวณฝั่งหน้าเพจแล้วส่งเข้ามาให้แสดงผล
@@ -23,11 +23,7 @@ function FoundCard({ booking }: { booking: AdminBookingRow }) {
         <p className="text-2xl font-semibold tabular-nums tracking-[0.25em] text-ink">
           {booking.bookingCode}
         </p>
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${BOOKING_STATUS_CLASS[booking.status]}`}
-        >
-          {BOOKING_STATUS_LABEL[booking.status]}
-        </span>
+        <StatusBadge status={booking.status} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">

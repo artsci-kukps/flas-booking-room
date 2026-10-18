@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as roomTypes from "@/lib/admin/room-types";
 import type { RoomTypeInput, RoomTypeResult } from "@/lib/admin/room-types";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -13,12 +14,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 export type RoomTypeActionState = RoomTypeResult | null;
 
 const INVALID_MODE_MESSAGE = "โหมดการจองไม่ถูกต้อง";
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PATH = "/admin/room/type";
-
-function readId(formData: FormData): string {
-  return String(formData.get("id") ?? "").trim();
-}
 
 /** แปลงค่าดิบจากฟอร์มเป็นอินพุตประเภทห้อง — คืนข้อความไทยเมื่อโหมดการจองไม่ถูกต้อง */
 function readInput(formData: FormData): RoomTypeInput | string {

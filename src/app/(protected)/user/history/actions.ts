@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/guards";
 import { cancelMyReservation } from "@/lib/booking/my-bookings";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -11,7 +12,6 @@ import { cancelMyReservation } from "@/lib/booking/my-bookings";
  */
 export type CancelActionState = { ok: true } | { ok: false; message: string } | null;
 
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const HISTORY_PATH = "/user/history";
 const BOOKING_PATH = "/user/booking";
 
@@ -26,7 +26,7 @@ export async function cancelBooking(
 ): Promise<CancelActionState> {
   const user = await requireUser();
 
-  const id = String(formData.get("id") ?? "").trim();
+  const id = readId(formData);
 
   if (!id) {
     return { ok: false, message: MISSING_ID_MESSAGE };

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as servicePeriods from "@/lib/admin/service-periods";
 import type { ServicePeriodInput, ServicePeriodResult } from "@/lib/admin/service-periods";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -13,12 +14,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 export type ServicePeriodActionState = ServicePeriodResult | null;
 
 const INVALID_KIND_MESSAGE = "ประเภทช่วงเวลาต้องเป็น NORMAL หรือ EXAM";
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PATH = "/admin/system-setting";
-
-function readId(formData: FormData): string {
-  return String(formData.get("id") ?? "").trim();
-}
 
 /** แปลงค่าดิบจากฟอร์มเป็นอินพุตช่วงเวลา — คืนข้อความไทยเมื่อ kind ไม่ถูกต้อง */
 function readInput(formData: FormData): ServicePeriodInput | string {

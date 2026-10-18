@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/guards";
+import { readField } from "@/lib/form-data";
 import {
   changeUserRole,
   setUserBlocked,
@@ -17,10 +18,6 @@ export type AdminActionState = UserAdminResult | null;
 
 const INVALID_ROLE_MESSAGE = "บทบาทที่เลือกไม่ถูกต้อง";
 
-function readTargetId(formData: FormData): string {
-  return String(formData.get("targetId") ?? "").trim();
-}
-
 /**
  * เปลี่ยนบทบาท user ↔ admin — ตรวจสิทธิ์ฝั่งเซิร์ฟเวอร์เสมอ
  * (การเปลี่ยนบทบาทไม่บันทึกผู้ดำเนินการ: v1 ไม่มีตาราง audit ตาม TOR 3.3)
@@ -31,7 +28,7 @@ export async function updateUserRole(
 ): Promise<UserAdminResult> {
   await requireAdmin();
 
-  const targetId = readTargetId(formData);
+  const targetId = readField(formData, "targetId");
   const role = formData.get("role");
 
   if (role !== "user" && role !== "admin") {
@@ -54,7 +51,7 @@ export async function updateUserBlocked(
 ): Promise<UserAdminResult> {
   const admin = await requireAdmin();
 
-  const targetId = readTargetId(formData);
+  const targetId = readField(formData, "targetId");
   const blocked = formData.get("blocked");
 
   if (blocked !== "true" && blocked !== "false") {

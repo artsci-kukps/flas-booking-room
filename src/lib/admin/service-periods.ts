@@ -8,6 +8,8 @@ import {
   type ServicePeriodKind,
 } from "@/db/schema";
 
+import type { Result } from "@/lib/result";
+
 import { pgErrorCode } from "./pg-error";
 
 export type { ServicePeriodKind } from "@/db/schema";
@@ -42,7 +44,7 @@ export type ServicePeriodInput = {
 };
 
 /** ผลของการแก้ไขช่วงเวลา — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type ServicePeriodResult = { ok: true } | { ok: false; message: string };
+export type ServicePeriodResult = Result;
 
 /** ตรวจว่าเป็น kind ที่รู้จักหรือไม่ — ใช้กับค่าดิบจากฟอร์ม */
 export function isServicePeriodKind(value: unknown): value is ServicePeriodKind {

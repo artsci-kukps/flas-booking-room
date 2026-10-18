@@ -12,7 +12,10 @@ import {
   type Reservation,
 } from "@/db/schema";
 import { listHolidays } from "@/lib/admin/holidays";
-import { pgErrorCode, pgErrorMessage } from "@/lib/admin/pg-error";
+import {
+  exclusionViolationMessage,
+  pgErrorCode,
+} from "@/lib/admin/pg-error";
 import { listServicePeriods } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
 import {
@@ -20,6 +23,7 @@ import {
   type EnqueueBookingCodeEmailFn,
   type OutboxExecutor,
 } from "@/lib/notifications/outbox";
+import type { Result } from "@/lib/result";
 
 import { planBooking, type BookingBlock } from "./booking-plan";
 import {
@@ -29,6 +33,7 @@ import {
   parseBookingDate,
   resolveDayServiceWindow,
 } from "./day-availability";
+import { SLOT_DURATION_MINUTES } from "./time";
 
 /**
  * ชั้นข้อมูล/โดเมนของการจองห้องของผู้ใช้ (ไม่ใช่ "use server" — TOR ข้อ 6)
@@ -55,9 +60,7 @@ export type BookingRequest = {
 };
 
 /** ผลของการจอง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type BookingResult =
-  | { ok: true; bookingCode: string }
-  | { ok: false; message: string };
+export type BookingResult = Result<{ bookingCode: string }>;
 
 /** ค่าที่ injecting ได้สำหรับเทสต์ (เวลาปัจจุบัน/ตัวสร้างรหัส/การเข้าคิวอีเมล) */
 export type BookingDeps = {
@@ -100,9 +103,6 @@ function holidayMessage(name: string | null): string {
 function minDurationMessage(minutes: number): string {
   return `ห้องนี้ต้องจองอย่างน้อย ${minutes} นาที กรุณาเลือกช่วงเวลาต่อเนื่องให้ครบ`;
 }
-
-/** ระยะเวลาของหนึ่งบล็อก (TOR ข้อ 5.3) */
-const SLOT_DURATION_MINUTES = 60;
 
 /** จำนวนครั้งสูงสุดที่สุ่มรหัสใหม่เมื่อชนกับการจองวันเดียวกัน (reservation_code_per_day) */
 const MAX_CODE_ATTEMPTS = 5;
@@ -319,8 +319,15 @@ export async function createReservation(
       await enqueueBookingCode(row!, deps.tx);
       return { ok: true, bookingCode: row!.bookingCode };
     } catch (error) {
-      // รหัสซ้ำกับการจองวันเดียวกัน (unique index reservation_code_per_day) — สุ่มใหม่
+      // รหัสซ้ำกับการจองวันเดียวกัน (unique index reservation_code_per_day)
       if (pgErrorCode(error) === "23505") {
+        // ในทรานแซกชันของผู้เรียก (จองหลาย record) PostgreSQL ทำเครื่องหมายทั้ง transaction
+        // เป็น aborted แล้ว จึงสุ่มรหัสใหม่ในนี้ไม่ได้ — โยนออกให้ผู้เรียก rollback
+        // แล้วเริ่มทั้งชุดใหม่พร้อมรหัสชุดใหม่
+        if (deps.tx) {
+          throw error;
+        }
+
         continue;
       }
 
@@ -338,9 +345,7 @@ export async function createReservation(
 }
 
 /** ผลของการจองหลาย record — คืนรหัสเรียงตาม record ที่สร้าง */
-export type MultiBookingResult =
-  | { ok: true; bookingCodes: string[] }
-  | { ok: false; message: string };
+export type MultiBookingResult = Result<{ bookingCodes: string[] }>;
 
 const NO_BLOCK_MESSAGE = "กรุณาเลือกช่วงเวลาที่จะจองอย่างน้อย 1 บล็อก";
 const MIXED_ROOM_MESSAGE = "จองได้ทีละห้องต่อหนึ่งครั้ง กรุณาเลือกช่วงเวลาในห้องเดียวกัน";
@@ -430,40 +435,52 @@ export async function createReservations(
   }
 
   const generateCode = deps.generateCode ?? randomBookingCode;
-  const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
 
-  if (!codes) {
-    return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
-  }
+  // pre-assign กันรหัสชนกันเองในชุดแล้ว แต่ยังมีโอกาสถูกคำขออื่น "แย่ง" รหัสไปหลัง pre-assign
+  // ทำให้ 23505 กลาง transaction (abort ทั้งชุด) — เริ่มใหม่ทั้งชุดด้วยรหัสชุดใหม่จนครบจำนวนครั้ง
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+    const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
 
-  try {
-    return await db.transaction(async (tx) => {
-      const bookingCodes: string[] = [];
-
-      for (let i = 0; i < requests.length; i++) {
-        const code = codes[i]!;
-        const result = await createReservation(requests[i]!, userId, {
-          ...deps,
-          tx,
-          generateCode: () => code,
-        });
-
-        if (!result.ok) {
-          throw new BookingAbort(result.message);
-        }
-
-        bookingCodes.push(result.bookingCode);
-      }
-
-      return { ok: true, bookingCodes };
-    });
-  } catch (error) {
-    if (error instanceof BookingAbort) {
-      return { ok: false, message: error.message };
+    if (!codes) {
+      return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
     }
 
-    throw error;
+    try {
+      return await db.transaction(async (tx) => {
+        const bookingCodes: string[] = [];
+
+        for (let i = 0; i < requests.length; i++) {
+          const code = codes[i]!;
+          const result = await createReservation(requests[i]!, userId, {
+            ...deps,
+            tx,
+            generateCode: () => code,
+          });
+
+          if (!result.ok) {
+            throw new BookingAbort(result.message);
+          }
+
+          bookingCodes.push(result.bookingCode);
+        }
+
+        return { ok: true, bookingCodes };
+      });
+    } catch (error) {
+      if (error instanceof BookingAbort) {
+        return { ok: false, message: error.message };
+      }
+
+      // รหัสถูกแย่งไปหลัง pre-assign — ทั้งชุดถูก rollback แล้ว ลองใหม่ด้วยรหัสชุดใหม่
+      if (pgErrorCode(error) === "23505") {
+        continue;
+      }
+
+      throw error;
+    }
   }
+
+  return { ok: false, message: CODE_UNAVAILABLE_MESSAGE };
 }
 
 /** การเลือกหลายบล็อกของห้องเดียวจากหน้าจอง */
@@ -541,43 +558,17 @@ export async function getBookingConfirmation(
   return row ?? null;
 }
 
-const CONSTRAINT_NAME_PATTERN = /exclusion constraint "([a-z0-9_]+)"/i;
-
-/**
- * อ่านชื่อ constraint จากข้อความ error ที่ violation — ทั้งตัว error เองและ cause
- * (DrizzleQueryError ห่อ pg error ไว้ ข้อความ "Failed query" ของมันไม่มีชื่อ constraint
- *  ส่วน PostgreSQL ไม่ใส่ชื่อ constraint ใน field `constraint` สำหรับ exclusion violations)
- */
-function exclusionConstraintName(error: unknown): string | null {
-  const direct = pgErrorMessage(error);
-  const cause =
-    error instanceof Error && error.cause ? pgErrorMessage(error.cause) : null;
-
-  return (
-    direct?.match(CONSTRAINT_NAME_PATTERN)?.[1] ??
-    cause?.match(CONSTRAINT_NAME_PATTERN)?.[1] ??
-    null
-  );
-}
-
 /**
  * แปลง exclusion constraint ที่ violation เป็นข้อความไทยที่ผู้ใช้เข้าใจ
  * 23P01 บนตาราง reservation มีได้แค่สอง constraint นี้
  */
+const EXCLUSION_MESSAGES: Readonly<Record<string, string>> = {
+  reservation_user_no_overlap: USER_OVERLAP_MESSAGE,
+  reservation_room_exclusive: ROOM_TAKEN_MESSAGE,
+};
+
 function mapExclusionViolation(error: unknown): BookingResult | null {
-  if (pgErrorCode(error) !== "23P01") {
-    return null;
-  }
+  const message = exclusionViolationMessage(error, EXCLUSION_MESSAGES);
 
-  const constraint = exclusionConstraintName(error);
-
-  if (constraint === "reservation_user_no_overlap") {
-    return { ok: false, message: USER_OVERLAP_MESSAGE };
-  }
-
-  if (constraint === "reservation_room_exclusive") {
-    return { ok: false, message: ROOM_TAKEN_MESSAGE };
-  }
-
-  return null;
+  return message ? { ok: false, message } : null;
 }

@@ -58,3 +58,43 @@ function readMessage(value: unknown): string | null {
 
   return typeof message === "string" ? message : null;
 }
+
+/** รูปแบบชื่อ constraint ในข้อความ exclusion violation ของ PostgreSQL */
+const EXCLUSION_CONSTRAINT_PATTERN = /exclusion constraint "([a-z0-9_]+)"/i;
+
+/**
+ * อ่านชื่อ exclusion constraint ที่ถูกละเมิด (เช่น `reservation_room_exclusive`)
+ *
+ * PostgreSQL ไม่ใส่ชื่อ constraint ไว้ใน field `constraint` สำหรับ 23P01 จึงต้องแกะจากข้อความ
+ * และต้องตรวจทั้งตัว error เองและ cause หนึ่งชั้น เพราะ DrizzleQueryError มีข้อความ
+ * "Failed query" ของตัวเองที่ไม่มีชื่อ constraint
+ */
+export function exclusionConstraintName(error: unknown): string | null {
+  const direct = pgErrorMessage(error);
+  const cause =
+    error instanceof Error && error.cause ? pgErrorMessage(error.cause) : null;
+
+  return (
+    direct?.match(EXCLUSION_CONSTRAINT_PATTERN)?.[1] ??
+    cause?.match(EXCLUSION_CONSTRAINT_PATTERN)?.[1] ??
+    null
+  );
+}
+
+/**
+ * แปลง exclusion violation (23P01) เป็นข้อความไทยตามชื่อ constraint
+ * `messages` คือตารางชื่อ constraint → ข้อความของผู้เรียก (แต่ละบริบทใช้ถ้อยคำต่างกัน)
+ * คืน null เมื่อรหัสไม่ใช่ 23P01 แกะชื่อไม่ได้ หรือชื่อนั้นไม่อยู่ในตาราง
+ */
+export function exclusionViolationMessage(
+  error: unknown,
+  messages: Readonly<Record<string, string>>,
+): string | null {
+  if (pgErrorCode(error) !== "23P01") {
+    return null;
+  }
+
+  const constraint = exclusionConstraintName(error);
+
+  return constraint ? (messages[constraint] ?? null) : null;
+}

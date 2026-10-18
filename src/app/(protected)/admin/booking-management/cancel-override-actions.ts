@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as bookingAdmin from "@/lib/admin/booking-admin";
 import type { BookingAdminResult } from "@/lib/admin/booking-admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readField } from "@/lib/form-data";
 
 /**
  * Server actions ของการยกเลิกและแก้ไขสถานะการจอง (TOR ข้อ 6.4/7 · ticket #12)
@@ -15,12 +16,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 /** ผลที่ useActionState ใช้แสดงข้อความ/สถานะใหม่ inline */
 export type BookingCancelOverrideActionState = BookingAdminResult | null;
 
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PATH = "/admin/booking-management";
-
-function readField(formData: FormData, key: string): string {
-  return String(formData.get(key) ?? "").trim();
-}
 
 /**
  * ยกเลิกการจองทุกสถานะพร้อมเหตุผล — ช่องว่างถูกปลดล็อกทันทีเมื่อสำเร็จ

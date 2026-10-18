@@ -734,6 +734,60 @@ describe('createReservations (จองหลาย record)', () => {
     // ทั้งชุดทำงานใน transaction เดียว → throw ออกจาก callback เพื่อ rollback
     expect(transactionMock).toHaveBeenCalledTimes(1)
   })
+
+  // ---- การแย่งรหัสกับทรานแซกชันอื่น (23505) ต้องไม่ทำให้ทั้งคำขอเป็น 500 ----
+
+  it('รหัสถูกแย่งไปหลัง pre-assign (23505): rollback ทั้งชุดแล้วสุ่มรหัสใหม่ทั้งชุดจนสำเร็จ', async () => {
+    setRoomG()
+    // มีคนจองรหัสที่เรา pre-assign ไปได้ก่อน (race) — insert แรกของความพยายามแรกชน 23505
+    insertErrors = [
+      wrappedPgError(
+        '23505',
+        'duplicate key value violates unique constraint "reservation_code_per_day"',
+      ),
+    ]
+
+    const result = await createReservations(
+      [
+        { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '13:30', endTime: '15:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222', '333333', '444444']) },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCodes: ['333333', '444444'] })
+    // ความพยายามแรกล้มทั้งชุด (rollback) แล้วเริ่มทรานแซกชันใหม่ด้วยรหัสชุดใหม่
+    expect(transactionMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('รหัสถูกแย่งซ้ำทุกความพยายาม: คืนข้อความสร้างรหัสไม่ได้ ไม่โยนทิ้ง (ไม่ใช่ 500)', async () => {
+    setRoomG()
+    insertErrors = Array.from({ length: 5 }, () =>
+      wrappedPgError(
+        '23505',
+        'duplicate key value violates unique constraint "reservation_code_per_day"',
+      ),
+    )
+    let next = 0
+    const generateCode = () => String(100000 + next++)
+
+    const result = await createReservations(
+      [
+        { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '13:30', endTime: '15:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode },
+    )
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'ไม่สามารถสร้างรหัสการจองได้ กรุณาลองใหม่อีกครั้ง',
+    })
+    // พยายามครบจำนวนสูงสุดแล้วยอมแพ้ด้วยข้อความ friendly ไม่ปล่อย 23505 ออกไปเป็น 500
+    expect(transactionMock).toHaveBeenCalledTimes(5)
+  })
 })
 
 describe('submitBookingSelection (รวมบล็อกเป็น record แล้วจอง)', () => {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as bookingAdmin from "@/lib/admin/booking-admin";
 import type { BookingAdminResult } from "@/lib/admin/booking-admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * Server actions ของการยืนยันรับ–คืนกุญแจ (TOR ข้อ 8 · ticket #11)
@@ -15,12 +16,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 /** สถานะที่ useActionState ใช้แสดงข้อความ/ผลลัพธ์ inline */
 export type BookingKeyActionState = BookingAdminResult | null;
 
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PATH = "/admin/booking-management";
-
-function readId(formData: FormData): string {
-  return String(formData.get("id") ?? "").trim();
-}
 
 /** ยืนยันรับกุญแจ (PENDING → ACTIVE) — ผู้ยืนยันคือแอดมินที่ล็อกอินอยู่ */
 export async function confirmKeyPickupAction(

@@ -7,6 +7,8 @@
  * (ตัดสินใจว่าจะสร้างกี่ record) เพื่อให้ทั้งสองฝั่งเห็นผลตรงกัน
  */
 
+import { timeToMinutes } from "./time";
+
 /** หนึ่งบล็อกที่ผู้ใช้เลือก — ช่วงเวลาหน้าปัดของวันที่เลือก (ปกติบล็อกละ 1 ชั่วโมง) */
 export type BookingBlock = {
   /** 'HH:MM' */
@@ -31,17 +33,6 @@ export type BookingPlan = {
   confirmationCount: number;
   totalMinutes: number;
 };
-
-/** 'HH:MM' → นาทีนับจากเที่ยงคืน (null เมื่อรูปแบบไม่ถูกต้อง) */
-function timeToMinutes(time: string): number | null {
-  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
-
-  if (!match) {
-    return null;
-  }
-
-  return Number(match[1]) * 60 + Number(match[2]);
-}
 
 /**
  * รวมบล็อกที่ติดกันเป็น record และแยกบล็อกที่มีช่องว่าง (TOR ข้อ 6.1)

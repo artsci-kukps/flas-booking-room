@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as holidays from "@/lib/admin/holidays";
 import type { HolidayInput, HolidayResult } from "@/lib/admin/holidays";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
  * สถานะที่ useActionState ใช้แสดงข้อความ inline
@@ -12,12 +13,7 @@ import { requireAdmin } from "@/lib/auth/guards";
  */
 export type HolidayActionState = HolidayResult | null;
 
-const MISSING_ID_MESSAGE = "ไม่พบรายการที่ต้องการ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PATH = "/admin/holidays";
-
-function readId(formData: FormData): string {
-  return String(formData.get("id") ?? "").trim();
-}
 
 /** แปลงค่าดิบจากฟอร์มเป็นอินพุตวันหยุด */
 function readInput(formData: FormData): HolidayInput {

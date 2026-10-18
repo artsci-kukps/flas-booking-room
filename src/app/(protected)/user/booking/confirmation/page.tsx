@@ -4,6 +4,7 @@ import Alert from "@/components/alert";
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
 import { requireUser } from "@/lib/auth/guards";
 import { getBookingConfirmation, type BookingConfirmation } from "@/lib/booking/reservations";
+import { RESERVATION_STATUS_LABEL } from "@/lib/booking/reservation-status";
 import { formatBangkokTime, formatThaiDate } from "@/lib/format";
 
 /**
@@ -15,16 +16,6 @@ import { formatBangkokTime, formatThaiDate } from "@/lib/format";
  */
 
 const CODE_PATTERN = /^\d{6}$/;
-
-/** สถานะที่หน้านี้อาจพบ — ผู้ใช้เพิ่งจองจึงเห็น PENDING เป็นหลัก */
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: "จองแล้ว รอรับกุญแจ",
-  ACTIVE: "กำลังใช้งาน",
-  COMPLETED: "เสร็จสิ้น",
-  LATE_RETURN: "คืนกุญแจช้า",
-  CANCELLED: "ยกเลิกแล้ว",
-  NO_SHOW: "ไม่มาแสดงตัว",
-};
 
 /** แยกค่า ?code= ที่ส่งมาหนึ่งหรือหลายค่า เป็นรหัสที่รูปแบบถูกต้องและไม่ซ้ำ */
 function parseCodes(rawCode: string | string[] | undefined): string[] {
@@ -75,7 +66,7 @@ function BookingCard({ booking }: { booking: BookingConfirmation }) {
       </div>
 
       <p className="mt-4 text-sm font-medium text-ku">
-        สถานะ: {STATUS_LABEL[booking.status] ?? booking.status}
+        สถานะ: {RESERVATION_STATUS_LABEL[booking.status]}
       </p>
     </section>
   );

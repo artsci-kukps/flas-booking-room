@@ -1,24 +1,19 @@
-import type { ReservationStatus } from "@/lib/admin/booking-admin";
+import type { ReservationStatus } from "@/lib/booking/reservation-status";
 
 /**
- * ป้ายและสีของสถานะการจอง — ใช้ร่วมกันระหว่างตารางการจองและผลการค้นรหัส
- * (สอดคล้องกับ StatusLegendSection ที่อธิบายความหมายของทั้ง 6 สถานะ)
+ * สีของป้ายสถานะการจอง (ฝั่งแอดมิน) — ใช้ร่วมกันระหว่างตารางการจองและผลการค้นรหัส
+ * ชื่อสถานะมาจาก RESERVATION_STATUS_LABEL แหล่งเดียว (อย่านิยามซ้ำที่นี่)
+ *
  * สีทั้งหมดอ้างจากโทเคนใน globals.css เท่านั้น (Named-Not-Shaded)
+ * ตาม DESIGN.md: เขียว = ว่าง/พร้อมใช้, เหลืองอำพัน = ถูกใช้/ไม่ว่าง, เทา = เป็นกลาง
+ * PENDING (จองแล้ว) และ ACTIVE (กำลังใช้งาน) ต่างก็ "ครอง" ช่วงเวลาอยู่ → เหลืองอำพัน
+ * LATE_RETURN เป็นความผิดปกติระดับเตือน (ไม่ใช่ error) → เหลืองอำพันพร้อมเส้นขอบ
  */
-export const BOOKING_STATUS_LABEL: Record<ReservationStatus, string> = {
-  PENDING: "รอรับกุญแจ",
-  ACTIVE: "กำลังใช้งาน",
-  COMPLETED: "เสร็จสิ้น",
-  LATE_RETURN: "คืนช้า",
-  CANCELLED: "ยกเลิกแล้ว",
-  NO_SHOW: "ไม่มาแสดงตัว",
-};
-
 export const BOOKING_STATUS_CLASS: Record<ReservationStatus, string> = {
   PENDING: "bg-amber-soft text-amber-ink",
-  ACTIVE: "bg-ku-soft text-ku",
+  ACTIVE: "bg-amber-soft text-amber-ink",
   COMPLETED: "bg-canvas text-ink-muted",
-  LATE_RETURN: "bg-danger-soft text-danger",
+  LATE_RETURN: "border border-border bg-amber-soft text-amber-ink",
   CANCELLED: "bg-canvas text-ink-muted",
   NO_SHOW: "bg-canvas text-ink-muted",
 };

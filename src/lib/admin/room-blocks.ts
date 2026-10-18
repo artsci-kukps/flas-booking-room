@@ -3,6 +3,8 @@ import { asc, eq } from "drizzle-orm";
 import db from "@/db";
 import { roomBlock, rooms, users } from "@/db/schema";
 
+import type { Result } from "@/lib/result";
+
 import { pgErrorCode } from "./pg-error";
 
 /**
@@ -35,7 +37,7 @@ export type RoomBlockRow = {
 };
 
 /** ผลของการเพิ่ม/ลบบล็อกห้อง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
-export type RoomBlockResult = { ok: true } | { ok: false; message: string };
+export type RoomBlockResult = Result;
 
 const ROOM_REQUIRED_MESSAGE = "กรุณาเลือกห้อง";
 const START_REQUIRED_MESSAGE = "กรุณากรอกวันที่และเวลาเริ่มต้น";
