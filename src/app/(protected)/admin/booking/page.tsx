@@ -19,8 +19,8 @@ function displayName(fullName: string | null, email: string): string {
 }
 
 /**
- * หน้าจองห้องของแอดมิน — ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ (เลือกห้อง → popup เลือกวัน
- * วันนี้/วันพรุ่งนี้ → เลือกเวลา) ต่างกันที่ basePath และ server action ของพื้นที่ /admin
+ * หน้าจองห้องของแอดมิน — ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ (ผนังห้อง → popup จองครบวงจร:
+ * เลือกวัน วันนี้/วันพรุ่งนี้ → เลือกบล็อกเวลา → ยืนยัน) ต่างกันที่ server action ของพื้นที่ /admin
  */
 export default async function AdminBookingPage({
   searchParams,
@@ -78,7 +78,6 @@ export default async function AdminBookingPage({
       </div>
 
       <BookingFlow
-        basePath="/admin/booking"
         today={today}
         date={date}
         roomId={roomId}

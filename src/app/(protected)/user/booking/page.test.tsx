@@ -10,19 +10,16 @@ vi.mock('@/lib/auth/guards', () => ({ requireUser: requireUserMock }))
 // ตรรกะการจอง/การดึงห้องจริงอยู่ที่ BookingFlow — ที่นี่ตรวจแค่การส่งต่อค่า
 vi.mock('@/components/booking/booking-flow', () => ({
   default: ({
-    basePath,
     today,
     date,
     roomId,
   }: {
-    basePath: string
     today: string
     date?: string | null
     roomId?: string | null
   }) => (
     <section
       data-testid="booking-flow"
-      data-base-path={basePath}
       data-today={today}
       data-date={date ?? ''}
       data-room={roomId ?? ''}
@@ -61,10 +58,9 @@ describe('หน้าจองห้องของผู้ใช้ (/user/bo
     expect(requireUserMock).toHaveBeenCalledTimes(1)
   })
 
-  it('ส่งวันนี้ในกรุงเทพฯ และฐานเส้นทางของผู้ใช้ให้ขั้นตอนการจอง', async () => {
+  it('ส่งวันนี้ในกรุงเทพฯ ให้ขั้นตอนการจอง', async () => {
     const html = await renderPage()
 
-    expect(html).toContain('data-base-path="/user/booking"')
     expect(html).toContain('data-today="2026-10-19"')
   })
 

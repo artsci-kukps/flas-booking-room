@@ -43,7 +43,6 @@ export default async function BookingPage({
       </div>
 
       <BookingFlow
-        basePath="/user/booking"
         today={today}
         date={date}
         roomId={roomId}

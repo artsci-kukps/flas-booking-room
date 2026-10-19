@@ -1,27 +1,90 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-const pushMock = vi.fn()
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock }),
-}))
-
 import { bookingDateOptions } from '@/lib/booking/booking-date'
+import type { BookRoomAction } from '@/lib/booking/booking-action'
+import type { DayAvailability, RoomSlotView } from '@/lib/booking/day-availability'
 
 import RoomDatePopup from './room-date-popup'
 
+const bookRoomMock = vi.fn()
+
 const ROOMS = [
-  { id: 'room-s', name: 'S-101', roomTypeCode: 'S', roomTypeName: 'ห้องทั่วไป' },
-  { id: 'room-g', name: 'G-101', roomTypeCode: 'G', roomTypeName: 'ห้องประชุมใหญ่' },
+  {
+    id: 'room-s',
+    name: 'S-101',
+    roomTypeCode: 'S',
+    roomTypeName: 'ห้องทั่วไป',
+    minDurationMinutes: 60,
+  },
+  {
+    id: 'room-g',
+    name: 'G-101',
+    roomTypeCode: 'G',
+    roomTypeName: 'ห้องประชุมใหญ่',
+    minDurationMinutes: 120,
+  },
 ]
 
-function renderPopup(basePath = '/user/booking') {
+function makeSlot(start: string, end: string, overrides: Partial<RoomSlotView> = {}): RoomSlotView {
+  return {
+    start,
+    end,
+    status: 'free',
+    usedCount: 0,
+    past: false,
+    selectable: true,
+    ...overrides,
+  }
+}
+
+/** วันเปิด — ช่องว่างต่างกันตามวัน เพื่อพิสูจน์ว่า popup ดึงช่องของ "วันที่เลือก" จริง */
+function openDay(date: string): DayAvailability {
+  const isTomorrow = date === '2026-10-20'
+  return {
+    date,
+    open: true,
+    kind: 'NORMAL',
+    openTime: '08:30',
+    closeTime: '16:30',
+    rooms: [
+      {
+        ...ROOMS[0]!,
+        bookingMode: 'CAPACITY',
+        maxCapacity: 4,
+        slots: [isTomorrow ? makeSlot('10:30', '11:30') : makeSlot('08:30', '09:30')],
+      },
+      {
+        ...ROOMS[1]!,
+        bookingMode: 'EXCLUSIVE',
+        maxCapacity: null,
+        slots: [isTomorrow ? makeSlot('10:30', '12:30') : makeSlot('08:30', '10:30')],
+      },
+    ],
+  }
+}
+
+const CLOSED_TOMORROW: DayAvailability = {
+  date: '2026-10-20',
+  open: false,
+  reason: 'holiday',
+  holidayName: 'วันปิยมหาราช',
+}
+
+function renderPopup(
+  overrides: Partial<Parameters<typeof RoomDatePopup>[0]> = {},
+) {
+  const days = overrides.days ?? [
+    { option: bookingDateOptions('2026-10-19')[0]!, availability: openDay('2026-10-19') },
+    { option: bookingDateOptions('2026-10-19')[1]!, availability: openDay('2026-10-20') },
+  ]
+
   return renderToStaticMarkup(
     <RoomDatePopup
       rooms={ROOMS}
-      dates={bookingDateOptions('2026-10-19')}
-      basePath={basePath}
+      days={days}
+      bookRoomAction={bookRoomMock as unknown as BookRoomAction}
+      {...overrides}
     />,
   )
 }
@@ -63,10 +126,50 @@ describe('room date popup', () => {
     expect(html).not.toContain('21 ต.ค. 2569')
   })
 
-  it('มีปุ่มยกเลิกและปุ่มไปขั้นเลือกเวลา', () => {
+  it('ยังไม่ได้เริ่มจากลิงก์: มีปุ่มยกเลิก แต่ยังไม่มีช่องว่างและปุ่มยืนยัน', () => {
     const html = renderPopup()
 
     expect(html).toContain('ยกเลิก')
-    expect(html).toContain('เลือกเวลา')
+    expect(html).not.toContain('ยืนยันการจอง')
+    expect(html).not.toContain('08:30')
+    expect(html).not.toContain('บล็อกละ')
+  })
+
+  it('เริ่มจากลิงก์ ?room&date: popup มาพร้อมห้อง ประเภท วันที่ ช่องว่างของวันนั้น และปุ่มยืนยัน', () => {
+    const html = renderPopup({ initialRoom: ROOMS[1], initialDate: '2026-10-20' })
+
+    // ห้อง + ประเภท (หัว popup) และความยาวบล็อกตามประเภทห้อง (G = 2 ชั่วโมง)
+    expect(html).toContain('G-101')
+    expect(html).toContain('ห้องประชุมใหญ่')
+    expect(html).toContain('บล็อกละ 2 ชั่วโมง')
+
+    // ช่องว่างของ "วันที่เลือก" (2026-10-20) — ไม่ใช่ช่องของวันนี้
+    expect(html).toContain('10:30–12:30')
+    expect(html).not.toContain('08:30–10:30')
+
+    // เวลาทำการของวัน และวันที่ในสรุปก่อนยืนยัน
+    expect(html).toContain('08:30–16:30')
+    expect(html).toContain('วันที่ 20 ต.ค. 2569')
+
+    // ยืนยันอยู่ในฟอร์มเดียวกับสรุปและปุ่มยกเลิก — หนึ่งฟอร์มเดียวใน popup
+    expect(html).toContain('ยืนยันการจอง')
+    expect(html).toContain('ยกเลิก')
+    expect(html.match(/<form/g)).toHaveLength(1)
+  })
+
+  it('วันที่เลือกปิดทำการ: แสดงข้อความปิดแทนช่องว่าง ไม่มีปุ่มยืนยัน', () => {
+    const html = renderPopup({
+      days: [
+        { option: bookingDateOptions('2026-10-19')[0]!, availability: openDay('2026-10-19') },
+        { option: bookingDateOptions('2026-10-19')[1]!, availability: CLOSED_TOMORROW },
+      ],
+      initialRoom: ROOMS[1],
+      initialDate: '2026-10-20',
+    })
+
+    expect(html).toContain('ปิดทำการ — วันปิยมหาราช')
+    expect(html).not.toContain('ยืนยันการจอง')
+    expect(html).not.toContain('10:30–12:30')
+    expect(html).toContain('ยกเลิก')
   })
 })

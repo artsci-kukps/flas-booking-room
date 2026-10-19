@@ -10,18 +10,26 @@ type BookingSummaryProps = {
   plan: BookingPlan;
   roomName: string;
   minDurationMinutes: number;
+  /** วันที่ที่เลือกในป้ายไทย — popup จองห้องส่งมาให้เห็นก่อนกดยืนยัน (ticket #19) */
+  dateLabel?: string;
 };
 
 export default function BookingSummary({
   plan,
   roomName,
   minDurationMinutes,
+  dateLabel,
 }: BookingSummaryProps) {
   if (plan.records.length === 0) {
     return (
-      <p className="text-base font-semibold text-ink">
-        แตะช่องว่างเพื่อเลือกเวลาที่จะจอง (เลือกได้หลายชั่วโมง)
-      </p>
+      <div className="min-w-0">
+        {dateLabel ? (
+          <p className="text-xs font-semibold text-ink-muted">วันที่ {dateLabel}</p>
+        ) : null}
+        <p className="mt-0.5 text-base font-semibold text-ink">
+          แตะช่องว่างเพื่อเลือกเวลาที่จะจอง (เลือกได้หลายชั่วโมง)
+        </p>
+      </div>
     );
   }
 
@@ -31,6 +39,10 @@ export default function BookingSummary({
     <div className="min-w-0">
       <p className="text-xs font-semibold text-ink-muted">การจองของคุณ</p>
       <p className="mt-0.5 text-base font-semibold text-ink">ห้อง {roomName}</p>
+
+      {dateLabel ? (
+        <p className="mt-0.5 text-sm tabular-nums text-ink-muted">วันที่ {dateLabel}</p>
+      ) : null}
 
       <ul className="mt-1.5 space-y-0.5 text-sm tabular-nums text-ink">
         {plan.records.map((record) => (

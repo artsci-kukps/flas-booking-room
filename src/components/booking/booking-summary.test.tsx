@@ -75,4 +75,41 @@ describe('BookingSummary', () => {
 
     expect(html).not.toContain('อย่างน้อย 120 นาที')
   })
+
+  it('ส่งวันที่มา (popup จองห้อง): แสดงวันที่คู่กับห้องก่อนกดยืนยัน', () => {
+    const html = renderToStaticMarkup(
+      <BookingSummary
+        plan={planBooking([block('08:30', '09:30')])}
+        roomName="S-101"
+        minDurationMinutes={60}
+        dateLabel="19 ต.ค. 2569"
+      />,
+    )
+
+    expect(html).toContain('ห้อง S-101')
+    expect(html).toContain('วันที่ 19 ต.ค. 2569')
+    expect(html).toContain('08:30–09:30')
+  })
+
+  it('ยังไม่เลือกบล็อกแต่ส่งวันที่มา: แสดงวันที่คู่กับคำใบ้ให้แตะช่องว่าง', () => {
+    const html = renderToStaticMarkup(
+      <BookingSummary
+        plan={planBooking([])}
+        roomName="S-101"
+        minDurationMinutes={60}
+        dateLabel="20 ต.ค. 2569"
+      />,
+    )
+
+    expect(html).toContain('วันที่ 20 ต.ค. 2569')
+    expect(html).toContain('แตะช่องว่าง')
+  })
+
+  it('ไม่ส่งวันที่ (ผู้ใช้เดิม): ไม่มีบรรทัดวันที่เจือปน', () => {
+    const html = renderToStaticMarkup(
+      <BookingSummary plan={planBooking([])} roomName="S-101" minDurationMinutes={60} />,
+    )
+
+    expect(html).not.toContain('วันที่')
+  })
 })

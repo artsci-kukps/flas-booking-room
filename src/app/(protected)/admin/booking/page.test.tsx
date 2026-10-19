@@ -8,19 +8,16 @@ vi.mock('@/lib/auth/guards', () => ({ requireAdmin: requireAdminMock }))
 // ตรรกะการจอง/db อยู่ที่ BookingFlow — ที่นี่ตรวจแค่การส่งต่อค่าและสิทธิ์
 vi.mock('@/components/booking/booking-flow', () => ({
   default: ({
-    basePath,
     today,
     date,
     roomId,
   }: {
-    basePath: string
     today: string
     date?: string | null
     roomId?: string | null
   }) => (
     <section
       data-testid="booking-flow"
-      data-base-path={basePath}
       data-today={today}
       data-date={date ?? ''}
       data-room={roomId ?? ''}
@@ -58,10 +55,9 @@ describe('หน้าจองห้องของแอดมิน (/admin/b
     expect(requireAdminMock).toHaveBeenCalledTimes(1)
   })
 
-  it('ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ แต่ชี้ฐานเส้นทางของแอดมิน', async () => {
+  it('ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ พร้อมวันนี้ในกรุงเทพฯ', async () => {
     const html = await renderPage()
 
-    expect(html).toContain('data-base-path="/admin/booking"')
     expect(html).toContain('data-today="2026-10-19"')
   })
 
