@@ -17,6 +17,7 @@ import {
   pgErrorCode,
 } from "@/lib/admin/pg-error";
 import { listServicePeriods } from "@/lib/admin/service-periods";
+import { todayInBangkok } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
 import {
   enqueueBookingCodeEmail,
@@ -33,6 +34,7 @@ import {
   parseBookingDate,
   resolveDayServiceWindow,
 } from "./day-availability";
+import { isBookableBookingDate } from "./booking-date";
 
 /**
  * ชั้นข้อมูล/โดเมนของการจองห้องของผู้ใช้ (ไม่ใช่ "use server" — TOR ข้อ 6)
@@ -85,6 +87,8 @@ const NO_SERVICE_PERIOD_MESSAGE = "ยังไม่มีช่วงเวล
 const SLOT_OUTSIDE_MESSAGE =
   "ช่วงเวลาที่เลือกไม่อยู่ในเวลาให้บริการของวันนั้น กรุณาเลือกช่วงเวลาใหม่";
 const PAST_MESSAGE = "ช่วงเวลาที่เลือกเริ่มไปแล้ว กรุณาเลือกช่วงเวลาใหม่";
+const BOOKING_WINDOW_MESSAGE =
+  "จองได้เฉพาะวันนี้หรือวันพรุ่งนี้เท่านั้น กรุณาเลือกวันที่ใหม่";
 const ROOM_NOT_FOUND_MESSAGE =
   "ไม่พบห้องที่เลือก ห้องอาจถูกยกเลิกไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่";
 const BLOCKED_MESSAGE = "ห้องนี้ถูกบล็อกในช่วงเวลาที่เลือก กรุณาเลือกห้องหรือช่วงเวลาอื่น";
@@ -145,6 +149,12 @@ export async function createReservation(
 
   if (!parseBookingDate(request.date)) {
     return { ok: false, message: DATE_MESSAGE };
+  }
+
+  const today = todayInBangkok(now);
+
+  if (!isBookableBookingDate(request.date, today)) {
+    return { ok: false, message: BOOKING_WINDOW_MESSAGE };
   }
 
   const [servicePeriods, holidays] = await Promise.all([
@@ -439,8 +449,15 @@ export async function createReservations(
 
   const generateCode = deps.generateCode ?? randomBookingCode;
 
+  // ป้องกันผ่าน createReservations ด้วย — แต่ให้ตรวจซ้ำก็ไม่เสีย: ต้องอยู่ในหน้าต่างจองได้ (วันนี้/พรุ่งนี้)
+  const nowForCheck = deps.now ?? new Date();
+  const todayForCheck = todayInBangkok(nowForCheck);
+  if (!isBookableBookingDate(first.date, todayForCheck)) {
+    return { ok: false, message: BOOKING_WINDOW_MESSAGE };
+  }
+
   // pre-assign กันรหัสชนกันเองในชุดแล้ว แต่ยังมีโอกาสถูกคำขออื่น "แย่ง" รหัสไปหลัง pre-assign
-  // ทำให้ 23505 กลาง transaction (abort ทั้งชุด) — เริ่มใหม่ทั้งชุดด้วยรหัสชุดใหม่จนครบจำนวนครั้ง
+  // ทำให้ 23505 กลาง transaction (abort ทั้งชุด) — เริ่มใหม่ทั้งชุดด้วยรหัสชุดใหม่จานครบจำนวนครั้ง
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
     const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
 

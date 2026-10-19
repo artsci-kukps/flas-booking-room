@@ -219,11 +219,51 @@ describe('createReservation', () => {
     expect(insertMock).not.toHaveBeenCalled()
   })
 
-  it('วันเสาร์–อาทิตย์: ปฏิเสธด้วยข้อความปิดทำการ ไม่มีการ insert', async () => {
+  it('วันพรุ่งนี้ (อยู่ในหน้าต่างจองได้): จองได้ตามปกติ', async () => {
+    // today (BEFORE_OPEN) = 2026-10-19 → พรุ่งนี้ = อังคาร 2026-10-20
     const result = await createReservation(
-      { ...REQUEST, date: '2026-10-17' }, // เสาร์
+      { ...REQUEST, date: '2026-10-20' },
+      'u1',
+      { now: BEFORE_OPEN, generateCode: () => '123456' },
+    )
+
+    expect(result).toEqual({ ok: true, bookingCode: '123456' })
+  })
+
+  it('วันมะรืน (เกินหน้าต่างจองได้): ปฏิเสธด้วยข้อความจองได้เฉพาะวันนี้/พรุ่งนี้ ไม่แตะ DB', async () => {
+    const result = await createReservation(
+      { ...REQUEST, date: '2026-10-21' }, // พุธ — เกินหน้าต่าง
       'u1',
       { now: BEFORE_OPEN },
+    )
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'จองได้เฉพาะวันนี้หรือวันพรุ่งนี้เท่านั้น กรุณาเลือกวันที่ใหม่',
+    })
+    expect(fromMock).not.toHaveBeenCalled()
+    expect(insertMock).not.toHaveBeenCalled()
+  })
+
+  it('วันย้อนหลัง (เมื่อวาน): ปฏิเสธด้วยข้อความหน้าต่างจองได้เช่นกัน', async () => {
+    const result = await createReservation(
+      { ...REQUEST, date: '2026-10-18' }, // อยู่ก่อนวันนี้ (2026-10-19)
+      'u1',
+      { now: BEFORE_OPEN },
+    )
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'จองได้เฉพาะวันนี้หรือวันพรุ่งนี้เท่านั้น กรุณาเลือกวันที่ใหม่',
+    })
+    expect(insertMock).not.toHaveBeenCalled()
+  })
+
+  it('วันเสาร์–อาทิตย์: ปฏิเสธด้วยข้อความปิดทำการ ไม่มีการ insert', async () => {
+    const result = await createReservation(
+      { ...REQUEST, date: '2026-10-17' }, // เสาร์ — อยู่ในหน้าต่างจองได้ (วันพรุ่งนี้ของ 2026-10-16)
+      'u1',
+      { now: new Date('2026-10-15T17:00:00Z') },
     )
 
     expect(result).toEqual({
@@ -702,6 +742,23 @@ describe('createReservations (จองหลาย record)', () => {
 
     expect(result).toEqual({ ok: true, bookingCodes: ['111111'] })
     expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('record อยู่นอกหน้าต่างจองได้ (วันมะรืน): ทั้งชุดถูกปฏิเสธ ไม่มี insert', async () => {
+    const result = await createReservations(
+      [
+        { roomId: 'room-s', date: '2026-10-21', startTime: '08:30', endTime: '09:30' },
+        { roomId: 'room-s', date: '2026-10-21', startTime: '10:30', endTime: '11:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']) },
+    )
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'จองได้เฉพาะวันนี้หรือวันพรุ่งนี้เท่านั้น กรุณาเลือกวันที่ใหม่',
+    })
+    expect(insertMock).not.toHaveBeenCalled()
   })
 
   it('ข้ามห้องในหนึ่งการจองไม่ได้: ปฏิเสธก่อนแตะ DB', async () => {
