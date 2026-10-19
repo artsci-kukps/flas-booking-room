@@ -3,6 +3,10 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import db from "@/db";
 import { reservation, roomType, rooms } from "@/db/schema";
 import type { ReservationStatus } from "@/lib/booking/reservation-status";
+import {
+  enqueueBookingCancellationForReservation,
+  type EnqueueCancellationDeps,
+} from "@/lib/notifications/cancellation";
 import type { Result } from "@/lib/result";
 
 /**
@@ -117,6 +121,11 @@ export async function listMyBookings(
 /** ผลของการยกเลิกการจอง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline */
 export type CancelResult = Result;
 
+/** ค่าที่ฉีดได้สำหรับเทสต์ (เวลาปัจจุบัน/การเข้าคิวอีเมลยกเลิก) */
+export type CancelDeps = EnqueueCancellationDeps & {
+  now?: Date;
+};
+
 const CANCEL_NOT_FOUND_MESSAGE =
   "ไม่พบรายการจองนี้ หรือไม่ใช่การจองของคุณ กรุณารีเฟรชหน้าแล้วลองใหม่";
 const CANCEL_CONFLICT_MESSAGE = "สถานะการจองเปลี่ยนไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่";
@@ -130,11 +139,14 @@ const CANCEL_CONFLICT_MESSAGE = "สถานะการจองเปลี�
  * การยกเลิกไม่ต้องระบุเหตุผล (ต่างจากแอดมินที่ต้องระบุ) — TOR ข้อ 6.4
  * เมื่อสถานะเป็น CANCELLED แล้ว exclusion constraint/การนับความจุ (เฉพาะ PENDING/ACTIVE)
  * จะมองข้ามทันที ช่องว่างจึงกลับมาจองได้ทันที
+ *
+ * หลังยกเลิกสำเร็จจะเข้าคิวอีเมลแจ้งเตือนการยกเลิก (type BOOKING_CANCELLED) แบบ best-effort
+ * — ล้มเหลวก็ไม่ทำให้การยกเลิกล้มเหลว (เหมือนการเข้าคิวรหัสการจอง)
  */
 export async function cancelMyReservation(
   reservationId: string,
   userId: string,
-  deps: { now?: Date } = {},
+  deps: CancelDeps = {},
 ): Promise<CancelResult> {
   const now = deps.now ?? new Date();
 
@@ -157,6 +169,11 @@ export async function cancelMyReservation(
     .returning({ id: reservation.id });
 
   if (updated.length > 0) {
+    // ผู้ใช้ยกเลิกเองไม่ต้องระบุเหตุผล → reason เป็น null
+    await enqueueBookingCancellationForReservation(reservationId, null, {
+      enqueue: deps.enqueue,
+    });
+
     return { ok: true };
   }
 

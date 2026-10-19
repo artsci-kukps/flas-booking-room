@@ -61,6 +61,17 @@ const { selectMock, fromMock, updateMock, setMock } = vi.hoisted(() => ({
   setMock: vi.fn(),
 }))
 
+const { enqueueCancellationMock } = vi.hoisted(() => ({
+  enqueueCancellationMock: vi.fn<(reservationId: string, reason: string | null) => Promise<void>>(
+    async () => {},
+  ),
+}))
+
+vi.mock('@/lib/notifications/cancellation', () => ({
+  enqueueBookingCancellationForReservation: (...args: [string, string | null]) =>
+    enqueueCancellationMock(...args),
+}))
+
 vi.mock('@/db', () => ({
   default: {
     select: (...args: unknown[]) => selectMock(...args),
@@ -366,6 +377,31 @@ describe('cancelReservation', () => {
       message: 'ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่',
     })
   })
+
+  it('ยกเลิกสำเร็จ → เข้าคิวอีเมลแจ้งเตือนการยกเลิกพร้อมเหตุผล (ตัดช่องว่างหัวท้าย)', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    const result = await cancelReservation('r-1', '  ผู้ใช้โทรขอยกเลิก  ', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'CANCELLED' })
+    expect(enqueueCancellationMock).toHaveBeenCalledTimes(1)
+    expect(enqueueCancellationMock).toHaveBeenCalledWith('r-1', 'ผู้ใช้โทรขอยกเลิก')
+  })
+
+  it('ยกเลิกไม่สำเร็จ (ไม่พบรายการ) → ไม่เข้าคิวอีเมล', async () => {
+    updateResults = [[]]
+
+    await cancelReservation('r-missing', 'เหตุผล', 'a1', NOW)
+
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
+
+  it('บังคับเหตุผลไม่ผ่าน → ไม่เข้าคิวอีเมล', async () => {
+    const result = await cancelReservation('r-1', '   ', 'a1', NOW)
+
+    expect(result.ok).toBe(false)
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('overrideReservationStatus', () => {
@@ -423,6 +459,14 @@ describe('overrideReservationStatus', () => {
       ok: false,
       message: 'ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่',
     })
+  })
+
+  it('override สถานะ (แม้เป็น CANCELLED) → ไม่เข้าคิวอีเมลแจ้งเตือนการยกเลิก', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    await overrideReservationStatus('r-1', 'CANCELLED', 'เหตุผล', 'a1', NOW)
+
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
   })
 })
 

@@ -2,6 +2,10 @@ import { and, asc, eq, lte } from "drizzle-orm";
 
 import db from "@/db";
 import { notificationOutbox, type NewNotificationOutbox } from "@/db/schema";
+import {
+  bookingCancellationEmailSubject,
+  renderBookingCancellationEmail,
+} from "@/services/emails/booking-cancellation";
 import { bookingCodeEmailSubject, renderBookingCodeEmail } from "@/services/emails/booking-code";
 import {
   sendEmailViaResend,
@@ -12,6 +16,7 @@ import {
 /**
  * คิวส่งอีเมล notification_outbox (TOR ข้อ 11)
  * - enqueue: จองสำเร็จ → สร้างรายการ PENDING หนึ่งรายการต่อการจองหนึ่งระเบียน
+ *            ยกเลิกการจอง → สร้างรายการ PENDING แจ้งเตือนการยกเลิก (#21)
  * - process: หยิบรายการ PENDING ที่ถึงเวลา (next_attempt_at) ไปส่งผ่าน Resend
  *            สำเร็จ → SENT + sent_at; ล้มเหลว → เพิ่ม attempts + ตั้ง retry; ครบขีดจำกัด → FAILED + last_error
  * นโยบาย retry / รูปแบบอีเมล ตัดสินในตั๋ว #14 (ภาคผนวก B.2) — ดู docs/notifications/outbox.md
@@ -19,6 +24,9 @@ import {
  */
 
 export const BOOKING_CODE_EMAIL_TYPE = "BOOKING_CODE";
+
+/** ประเภทการแจ้งเตือน: อีเมลแจ้งเตือนการยกเลิกการจอง (ticket #21) */
+export const BOOKING_CANCELLED_EMAIL_TYPE = "BOOKING_CANCELLED";
 
 /** จำนวนครั้งสูงสุดที่พยายามส่ง (ครั้งแรก + retry) — เกินนี้เป็น FAILED */
 export const MAX_OUTBOX_ATTEMPTS = 5;
@@ -73,11 +81,41 @@ export type EnqueueBookingCodeEmail = {
   endTime: Date;
 };
 
+/** ข้อมูลที่ใช้สร้างอีเมลแจ้งเตือนการยกเลิก — เก็บเป็น jsonb ในคอลัมน์ payload */
+export type BookingCancelledPayload = {
+  bookingCode: string;
+  roomName: string;
+  /** 'YYYY-MM-DD' */
+  bookingDate: string;
+  /** ISO 8601 */
+  startTime: string;
+  /** ISO 8601 */
+  endTime: string;
+  /** เหตุผลการยกเลิก — null เมื่อผู้ใช้ยกเลิกเอง (ไม่ต้องระบุเหตุผล) */
+  reason: string | null;
+};
+
+export type EnqueueBookingCancellationEmail = {
+  reservationId: string;
+  toEmail: string;
+  bookingCode: string;
+  roomName: string;
+  bookingDate: string;
+  startTime: Date;
+  endTime: Date;
+  reason?: string | null;
+};
+
 /** ตัวเขียนคิว — รับได้ทั้ง db และ transaction ของ drizzle (ผู้เรียกหลาย record ใช้ tx เดียวกันได้) */
 export type OutboxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type EnqueueBookingCodeEmailFn = (
   input: EnqueueBookingCodeEmail,
+  executor?: OutboxExecutor,
+) => Promise<void>;
+
+export type EnqueueBookingCancellationEmailFn = (
+  input: EnqueueBookingCancellationEmail,
   executor?: OutboxExecutor,
 ) => Promise<void>;
 
@@ -107,8 +145,46 @@ export async function enqueueBookingCodeEmail(
   });
 }
 
-/** อ่าน payload ของ BOOKING_CODE — คืน null เมื่อรูปแบบไม่ครบ (ถือเป็นความผิดพลาดถาวร) */
-function parseBookingCodePayload(payload: unknown): BookingCodePayload | null {
+/**
+ * สร้างรายการคิวแจ้งเตือนการยกเลิกการจอง (PENDING, next_attempt_at = now())
+ * เรียกหลังการยกเลิกสำเร็จ — reason เป็น null ได้เมื่อผู้ใช้ยกเลิกเอง (TOR ข้อ 6.4)
+ * ส่ง executor (tx) เดียวกับที่ update การจองได้ หากต้องการให้คิวและตัวการยกเลิก commit/rollback พร้อมกัน
+ */
+export async function enqueueBookingCancellationEmail(
+  input: EnqueueBookingCancellationEmail,
+  executor: OutboxExecutor = db as unknown as OutboxExecutor,
+): Promise<void> {
+  const reason = input.reason?.trim() || null;
+
+  const payload: BookingCancelledPayload = {
+    bookingCode: input.bookingCode,
+    roomName: input.roomName,
+    bookingDate: input.bookingDate,
+    startTime: input.startTime.toISOString(),
+    endTime: input.endTime.toISOString(),
+    reason,
+  };
+
+  await executor.insert(notificationOutbox).values({
+    reservationId: input.reservationId,
+    type: BOOKING_CANCELLED_EMAIL_TYPE,
+    toEmail: input.toEmail,
+    subject: bookingCancellationEmailSubject(input.bookingCode),
+    payload,
+  });
+}
+
+/** ฟิลด์อ้างอิงการจองที่ payload ทุกประเภทใช้ร่วมกัน */
+type BookingRefPayload = {
+  bookingCode: string;
+  roomName: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+};
+
+/** ตรวจและดึงรหัส/ห้อง/ช่วงเวลาที่ทุก payload ต้องมี — คืน null เมื่อผิดรูปแบบ */
+function parseBookingRefPayload(payload: unknown): BookingRefPayload | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
@@ -135,6 +211,28 @@ function parseBookingCodePayload(payload: unknown): BookingCodePayload | null {
     startTime: startTime as string,
     endTime: endTime as string,
   };
+}
+
+/** อ่าน payload ของ BOOKING_CODE — คืน null เมื่อรูปแบบไม่ครบ (ถือเป็นความผิดพลาดถาวร) */
+function parseBookingCodePayload(payload: unknown): BookingCodePayload | null {
+  return parseBookingRefPayload(payload);
+}
+
+/** reason ไม่บังคับ แต่ถ้ามีต้องเป็น string (null/undefined ได้) */
+function parseBookingCancelledPayload(payload: unknown): BookingCancelledPayload | null {
+  const base = parseBookingRefPayload(payload);
+
+  if (!base) {
+    return null;
+  }
+
+  const rawReason = (payload as Record<string, unknown>).reason;
+
+  if (rawReason !== undefined && rawReason !== null && typeof rawReason !== "string") {
+    return null;
+  }
+
+  return { ...base, reason: typeof rawReason === "string" ? rawReason : null };
 }
 
 function errorMessage(error: unknown): string {
@@ -200,6 +298,23 @@ export async function processOutboxBatch(
           bookingDate: payload.bookingDate,
           startTime: new Date(payload.startTime),
           endTime: new Date(payload.endTime),
+        });
+
+        message = { to: row.toEmail, ...mail };
+      } else {
+        permanentError = `payload ของรายการ ${row.id} ผิดรูปแบบ (type=${row.type})`;
+      }
+    } else if (row.type === BOOKING_CANCELLED_EMAIL_TYPE) {
+      const payload = parseBookingCancelledPayload(row.payload);
+
+      if (payload) {
+        const mail = renderBookingCancellationEmail({
+          bookingCode: payload.bookingCode,
+          roomName: payload.roomName,
+          bookingDate: payload.bookingDate,
+          startTime: new Date(payload.startTime),
+          endTime: new Date(payload.endTime),
+          reason: payload.reason,
         });
 
         message = { to: row.toEmail, ...mail };
