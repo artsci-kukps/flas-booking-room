@@ -75,6 +75,7 @@ export async function bookRoom(
   }
 
   revalidatePath("/user/booking");
+  revalidatePath("/admin/booking");
 
   const params = new URLSearchParams();
 
@@ -82,5 +83,8 @@ export async function bookRoom(
     params.append("code", code);
   }
 
-  redirect(`/user/booking/confirmation?${params.toString()}`);
+  const confirmationPath =
+    user.role === "admin" ? "/admin/booking/confirmation" : "/user/booking/confirmation";
+
+  redirect(`${confirmationPath}?${params.toString()}`);
 }

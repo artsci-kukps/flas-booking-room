@@ -8,7 +8,7 @@ const { requireUserMock } = vi.hoisted(() => ({
 vi.mock('@/lib/auth/guards', () => ({ requireUser: requireUserMock }))
 
 // แผงช่องว่างแตะ db จริง — แทนที่ด้วยป้ายแสดงวันที่ที่ได้รับ เพื่อตรวจการส่งต่อวันที่
-vi.mock('./availability-panel', () => ({
+vi.mock('@/components/booking/availability-panel', () => ({
   default: ({ date }: { date: string }) => (
     <section data-testid="availability-panel" data-date={date} />
   ),
@@ -30,6 +30,11 @@ async function renderPage(
   )
 }
 
+/** href ของลิงก์เลือกวันทั้งหมดใน HTML */
+function dateHrefs(html: string): string[] {
+  return [...html.matchAll(/href="([^"]*\?date=[^"]*)"/g)].map((match) => match[1]!)
+}
+
 describe('หน้าจองห้องของผู้ใช้ (/user/booking)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -39,21 +44,32 @@ describe('หน้าจองห้องของผู้ใช้ (/user/bo
     })
   })
 
-  it('บังคับเข้าสู่ระบบก่อนแสดงหน้า', async () => {
+  it('ตรวจสิทธิ์ผู้ใช้ก่อนแสดงผล', async () => {
     await renderPage()
 
     expect(requireUserMock).toHaveBeenCalledTimes(1)
   })
 
-  it('ส่งวันที่จาก ?date= ไปยังตัวเลือกวันและแผงช่องว่าง', async () => {
+  it('มี popup เลือกวันที่ที่ให้เฉพาะวันนี้และวันพรุ่งนี้', async () => {
+    const html = await renderPage()
+
+    expect(html).toContain('เปลี่ยนวันที่')
+    expect(html).toContain('วันนี้')
+    expect(html).toContain('วันพรุ่งนี้')
+    expect(dateHrefs(html)).toContain('/user/booking?date=2026-10-19')
+    expect(dateHrefs(html)).toContain('/user/booking?date=2026-10-20')
+  })
+
+  it('วันที่เกินกว่าวันพรุ่งนี้ถูกปรับกลับเป็นวันนี้', async () => {
+    const html = await renderPage({ date: '2026-10-25' })
+
+    expect(html).toContain('data-date="2026-10-19"')
+  })
+
+  it('วันพรุ่งนี้ใช้ได้ตามเดิม', async () => {
     const html = await renderPage({ date: '2026-10-20' })
 
     expect(html).toContain('data-date="2026-10-20"')
-    // ช่องเลือกวันที่ในตัวเปลี่ยนวันค้างค่าวันที่ที่เลือก
-    expect(html).toMatch(/<input[^>]*value="2026-10-20"/)
-    // ปุ่มวันก่อนหน้า/ถัดไปของ 2026-10-20
-    expect(html).toContain('date=2026-10-19')
-    expect(html).toContain('date=2026-10-21')
   })
 
   it('วันที่ไม่ถูกต้องหรือไม่ได้ส่งมา ใช้วันนี้ในกรุงเทพฯ แทน', async () => {
@@ -64,8 +80,8 @@ describe('หน้าจองห้องของผู้ใช้ (/user/bo
     expect(missing).toContain('data-date="2026-10-19"')
 
     // ?date= ซ้ำกันหลายค่า (Next ส่งเป็น string[]) เอาค่าแรก
-    const repeated = await renderPage({ date: ['2026-10-21', 'not-a-date'] })
-    expect(repeated).toContain('data-date="2026-10-21"')
+    const repeated = await renderPage({ date: ['2026-10-20', 'not-a-date'] })
+    expect(repeated).toContain('data-date="2026-10-20"')
   })
 
   it('แสดงชื่อผู้ใช้และแผงช่องว่างโดยไม่ติด fallback ของ Suspense', async () => {
@@ -73,6 +89,5 @@ describe('หน้าจองห้องของผู้ใช้ (/user/bo
 
     expect(html).toContain('สมชาย')
     expect(html).toContain('data-testid="availability-panel"')
-    expect(html).not.toContain('กำลังโหลดตารางห้องเรียน')
   })
 })

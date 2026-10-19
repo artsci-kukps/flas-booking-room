@@ -2,15 +2,14 @@ import { Suspense } from "react";
 
 import { requireUser } from "@/lib/auth/guards";
 import { todayInBangkok } from "@/lib/admin/service-periods";
-import { parseBookingDate } from "@/lib/booking/day-availability";
+import { resolveBookableDate } from "@/lib/booking/booking-dates";
 
+import AvailabilityPanel from "@/components/booking/availability-panel";
+import BookingDatePicker from "@/components/booking/booking-date-picker";
+import BookingRulesSection from "@/components/booking/booking-rules-section";
 import MyBookingsSection from "@/components/booking/my-bookings-section";
 import RoomTypesSection from "@/components/booking/room-types-section";
 import ServiceHoursSection from "@/components/booking/service-hours-section";
-import BookingRulesSection from "@/components/booking/booking-rules-section";
-
-import AvailabilityPanel from "./availability-panel";
-import DaySwitcher from "./day-switcher";
 
 /** ชื่อแสดงบนหัวหน้า: เอาชื่อจริง (โทเคนแรก) ถ้ามี ไม่งั้นใช้หน้าอีเมล */
 function displayName(fullName: string | null, email: string): string {
@@ -27,9 +26,11 @@ export default async function BookingPage({
   const user = await requireUser();
   const name = displayName(user.fullName, user.email);
 
-  // ?date=YYYY-MM-DD กำหนดวันที่ดู — ค่าที่ไม่ถูกต้องหรือไม่ได้ส่งมาใช้วันนี้ในกรุงเทพฯ
+  // ?date=YYYY-MM-DD กำหนดวันที่จอง — ค่าที่ไม่ถูกต้อง ผ่านมาแล้ว หรือเกินวันพรุ่งนี้
+  // ถูกปรับกลับเป็นวันนี้เสมอ จึงจองได้เฉพาะวันนี้และวันพรุ่งนี้ (ticket T16-1)
+  const today = todayInBangkok();
   const { date: rawDate } = await searchParams;
-  const date = parseBookingDate(rawDate) ?? todayInBangkok();
+  const date = resolveBookableDate(rawDate, today);
 
   return (
     <main className="page py-8 sm:py-10">
@@ -38,13 +39,17 @@ export default async function BookingPage({
           จองห้อง
         </h1>
         <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-          สวัสดี, {name} — เลือกห้องและช่วงเวลาเป็นบล็อกละ 1 ชั่วโมง
-          แล้วยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
+          สวัสดี, {name} — เลือกวันนี้หรือวันพรุ่งนี้ แล้วเลือกช่วงเวลาเป็นบล็อกละ 1
+          ชั่วโมง ยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
         </p>
       </div>
 
       <div className="mt-8">
-        <DaySwitcher date={date} />
+        <BookingDatePicker
+          basePath="/user/booking"
+          today={today}
+          selected={date}
+        />
         <Suspense
           fallback={
             <div
