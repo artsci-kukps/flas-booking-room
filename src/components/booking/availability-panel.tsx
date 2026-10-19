@@ -1,3 +1,4 @@
+import type { BookRoomAction } from "@/lib/booking/booking-action";
 import { getDayAvailability } from "@/lib/booking/day-availability";
 import { formatThaiDate } from "@/lib/format";
 
@@ -6,8 +7,23 @@ import SlotPicker from "./slot-picker";
 /**
  * แผงแสดงช่องว่างของห้องในวันที่เลือก — อ่านข้อมูลจาก getDayAvailability แล้วแสดงผล
  * การเลือกช่องว่างและการยืนยันจองเป็นของ SlotPicker (client component, ticket #8)
+ * ใช้ร่วมกันทั้งหน้าผู้ใช้และแอดมิน โดยส่ง server action ของพื้นที่นั้นเข้ามา
  */
-export default async function AvailabilityPanel({ date }: { date: string }) {
+
+type AvailabilityPanelProps = {
+  /** 'YYYY-MM-DD' — วันที่ต้องการดูช่องว่าง */
+  date: string;
+  /** server action สำหรับยืนยันการจองของพื้นที่นี้ (user/admin) */
+  bookRoomAction: BookRoomAction;
+  /** เมื่อระบุ แสดงเฉพาะห้องนี้ (ขั้นเลือกเวลาหลังเลือกห้องจาก popup) */
+  roomId?: string;
+};
+
+export default async function AvailabilityPanel({
+  date,
+  bookRoomAction,
+  roomId,
+}: AvailabilityPanelProps) {
   const data = await getDayAvailability(date);
 
   if (!data.open) {
@@ -38,6 +54,7 @@ export default async function AvailabilityPanel({ date }: { date: string }) {
   }
 
   const dateTh = formatThaiDate(data.date);
+  const rooms = roomId ? data.rooms.filter((room) => room.id === roomId) : data.rooms;
 
   return (
     <section aria-labelledby="availability-heading" className="mt-6 space-y-6">
@@ -52,7 +69,7 @@ export default async function AvailabilityPanel({ date }: { date: string }) {
         </div>
       </div>
 
-      <SlotPicker date={data.date} rooms={data.rooms} />
+      <SlotPicker date={data.date} rooms={rooms} bookRoomAction={bookRoomAction} />
     </section>
   );
 }

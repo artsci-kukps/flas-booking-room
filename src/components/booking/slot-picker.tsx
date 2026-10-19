@@ -9,8 +9,9 @@ import type { RoomDayAvailability } from "@/lib/booking/day-availability";
 import { slotAriaLabel, slotChipClass, slotStatusLabel } from "@/lib/booking/slot-display";
 import { toggleSlotSelection, type SlotSelection } from "@/lib/booking/slot-selection";
 
+import type { BookRoomAction } from "@/lib/booking/booking-action";
+
 import BookingSummary from "./booking-summary";
-import { bookRoom } from "./actions";
 
 /**
  * แผงเลือกช่องว่างเพื่อยืนยันการจอง (TOR ข้อ 5.3, 6.1: เลือกเป็นบล็อกเท่านั้น)
@@ -26,11 +27,13 @@ type SlotPickerProps = {
   /** 'YYYY-MM-DD' — วันที่หน้าจองกำลังดูอยู่ */
   date: string;
   rooms: RoomDayAvailability[];
+  /** server action ที่รับผิดชอบการจอง — หน้าผู้ใช้/แอดมินส่งของตัวเองเข้ามา */
+  bookRoomAction: BookRoomAction;
 };
 
-export default function SlotPicker({ date, rooms }: SlotPickerProps) {
+export default function SlotPicker({ date, rooms, bookRoomAction }: SlotPickerProps) {
   const [selected, setSelected] = useState<SlotSelection | null>(null);
-  const [state, formAction, pending] = useActionState(bookRoom, null);
+  const [state, formAction, pending] = useActionState(bookRoomAction, null);
 
   const isSelected = (room: RoomDayAvailability, start: string): boolean =>
     selected?.roomId === room.id && selected.blocks.some((block) => block.start === start);

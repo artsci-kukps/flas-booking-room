@@ -1,16 +1,15 @@
-import { Suspense } from "react";
 import Link from "next/link";
 
-import { todayInBangkok } from "@/lib/admin/service-periods";
-import { requireAdmin } from "@/lib/auth/guards";
-import { resolveBookableDate } from "@/lib/booking/booking-dates";
-
-import AvailabilityPanel from "@/components/booking/availability-panel";
-import BookingDatePicker from "@/components/booking/booking-date-picker";
-import BookingRulesSection from "@/components/booking/booking-rules-section";
+import BookingFlow from "@/components/booking/booking-flow";
 import MyBookingsSection from "@/components/booking/my-bookings-section";
 import RoomTypesSection from "@/components/booking/room-types-section";
 import ServiceHoursSection from "@/components/booking/service-hours-section";
+import BookingRulesSection from "@/components/booking/booking-rules-section";
+import { requireAdmin } from "@/lib/auth/guards";
+import { todayInBangkok } from "@/lib/admin/service-periods";
+import { parseBookingDate, parseBookingRoomId } from "@/lib/booking/booking-date";
+
+import { bookRoom } from "./actions";
 
 /** ชื่อแสดงบนหัวหน้า: เอาชื่อจริง (โทเคนแรก) ถ้ามี ไม่งั้นใช้หน้าอีเมล */
 function displayName(fullName: string | null, email: string): string {
@@ -20,9 +19,8 @@ function displayName(fullName: string | null, email: string): string {
 }
 
 /**
- * หน้าจองห้องของแอดมิน — เนื้อหาและกติกาชุดเดียวกับหน้าผู้ใช้ทุกประการ
- * ใช้ตัวเลือกวันและแผงช่องว่างชุดเดียวกับผู้ใช้ จึงจองได้เฉพาะวันนี้และวันพรุ่งนี้
- * (ticket T16-1) พร้อมทางลัดไปส่วนจัดการจองของระบบ
+ * หน้าจองห้องของแอดมิน — ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ (เลือกห้อง → popup เลือกวัน
+ * วันนี้/วันพรุ่งนี้ → เลือกเวลา) ต่างกันที่ basePath และ server action ของพื้นที่ /admin
  */
 export default async function AdminBookingPage({
   searchParams,
@@ -32,11 +30,10 @@ export default async function AdminBookingPage({
   const admin = await requireAdmin();
   const name = displayName(admin.fullName, admin.email);
 
-  // ?date=YYYY-MM-DD วันที่จอง — ค่าที่ไม่ถูกต้อง ผ่านมาแล้ว หรือเกินวันพรุ่งนี้
-  // ถูกปรับกลับเป็นวันนี้เสมอ (ticket T16-1)
+  const params = await searchParams;
   const today = todayInBangkok();
-  const { date: rawDate } = await searchParams;
-  const date = resolveBookableDate(rawDate, today);
+  const date = parseBookingDate(params.date);
+  const roomId = parseBookingRoomId(params.room);
 
   return (
     <main className="page py-8 sm:py-10">
@@ -45,9 +42,8 @@ export default async function AdminBookingPage({
           จองห้อง
         </h1>
         <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-          สวัสดี, {name} — จองห้องให้ตัวเองแบบเดียวกับผู้ใช้ทั่วไป
-          เลือกวันนี้หรือวันพรุ่งนี้ แล้วเลือกช่วงเวลาเป็นบล็อกละ 1 ชั่วโมง
-          ยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
+          สวัสดี, {name} — เลือกห้อง เลือกวันที่ (วันนี้หรือวันพรุ่งนี้) และช่วงเวลา
+          เป็นบล็อกละ 1 ชั่วโมง แล้วยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
         </p>
       </div>
 
@@ -81,25 +77,13 @@ export default async function AdminBookingPage({
         </Link>
       </div>
 
-      <div className="mt-6">
-        <BookingDatePicker
-          basePath="/admin/booking"
-          today={today}
-          selected={date}
-        />
-        <Suspense
-          fallback={
-            <div
-              role="status"
-              className="panel mt-4 p-10 text-center text-sm text-ink-muted"
-            >
-              กำลังโหลดตารางห้องเรียน…
-            </div>
-          }
-        >
-          <AvailabilityPanel date={date} />
-        </Suspense>
-      </div>
+      <BookingFlow
+        basePath="/admin/booking"
+        today={today}
+        date={date}
+        roomId={roomId}
+        bookRoomAction={bookRoom}
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

@@ -21,9 +21,12 @@ vi.mock('./slot-picker', () => ({
   ),
 }))
 
+import type { BookRoomAction } from '@/lib/booking/booking-action'
 import type { DayAvailability, RoomSlotView } from '@/lib/booking/day-availability'
 
 import AvailabilityPanel from './availability-panel'
+
+const bookRoomActionMock = vi.fn() as unknown as BookRoomAction
 
 function makeSlot(overrides: Partial<RoomSlotView> = {}): RoomSlotView {
   return {
@@ -89,13 +92,26 @@ describe('availability panel', () => {
   })
 
   it('วันเปิด: แสดงวันที่ไทย เวลาทำการ และส่งวันที่ + ห้องทั้งหมดให้ตัวเลือกช่อง', async () => {
-    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-19' }))
+    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-19', bookRoomAction: bookRoomActionMock }))
 
     expect(getDayAvailabilityMock).toHaveBeenCalledWith('2026-10-19')
     expect(html).toContain('2569') // ปีพุทธศักราชจาก formatThaiDate
     expect(html).toContain('08:30–16:30')
     expect(html).toContain('data-date="2026-10-19"')
     expect(html).toContain('data-rooms="S-101,G-101"')
+  })
+
+  it('เมื่อระบุ roomId แสดงเฉพาะห้องนั้น (ขั้นเลือกเวลาหลังเลือกห้องจาก popup)', async () => {
+    const html = renderToStaticMarkup(
+      await AvailabilityPanel({
+        date: '2026-10-19',
+        roomId: 'room-g',
+        bookRoomAction: bookRoomActionMock,
+      }),
+    )
+
+    expect(html).toContain('data-rooms="G-101"')
+    expect(html).not.toContain('S-101')
   })
 
   it('วันเสาร์–อาทิตย์: แสดงข้อความปิดทำการ ไม่แสดงห้อง', async () => {
@@ -106,7 +122,7 @@ describe('availability panel', () => {
       holidayName: null,
     } satisfies DayAvailability)
 
-    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-17' }))
+    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-17', bookRoomAction: bookRoomActionMock }))
 
     expect(html).toContain('ปิดทำการ')
     expect(html).toContain('เสาร์')
@@ -121,7 +137,7 @@ describe('availability panel', () => {
       holidayName: 'วันปิยมหาราช',
     } satisfies DayAvailability)
 
-    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-19' }))
+    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-19', bookRoomAction: bookRoomActionMock }))
 
     expect(html).toContain('วันปิยมหาราช')
     expect(html).toContain('ปิดทำการ')
@@ -135,7 +151,7 @@ describe('availability panel', () => {
       holidayName: null,
     } satisfies DayAvailability)
 
-    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-19' }))
+    const html = renderToStaticMarkup(await AvailabilityPanel({ date: '2026-10-19', bookRoomAction: bookRoomActionMock }))
 
     expect(html).toContain('ยังไม่มีช่วงเวลาให้บริการ')
   })

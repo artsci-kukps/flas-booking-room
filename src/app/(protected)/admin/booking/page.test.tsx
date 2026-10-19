@@ -1,70 +1,74 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-const { requireAdminMock } = vi.hoisted(() => ({
-  requireAdminMock: vi.fn(),
-}))
+const { requireAdminMock } = vi.hoisted(() => ({ requireAdminMock: vi.fn() }))
 
 vi.mock('@/lib/auth/guards', () => ({ requireAdmin: requireAdminMock }))
 
-// แผงช่องว่างแตะ db จริง — แทนที่ด้วยป้ายแสดงวันที่ที่ได้รับ เพื่อตรวจการส่งต่อวันที่
-vi.mock('@/components/booking/availability-panel', () => ({
-  default: ({ date }: { date: string }) => (
-    <section data-testid="availability-panel" data-date={date} />
+// ตรรกะการจอง/db อยู่ที่ BookingFlow — ที่นี่ตรวจแค่การส่งต่อค่าและสิทธิ์
+vi.mock('@/components/booking/booking-flow', () => ({
+  default: ({
+    basePath,
+    today,
+    date,
+    roomId,
+  }: {
+    basePath: string
+    today: string
+    date?: string | null
+    roomId?: string | null
+  }) => (
+    <section
+      data-testid="booking-flow"
+      data-base-path={basePath}
+      data-today={today}
+      data-date={date ?? ''}
+      data-room={roomId ?? ''}
+    />
   ),
 }))
 
-// คงฟังก์ชันจริงไว้ทั้งหมด ยกเว้น todayInBangkok ที่ล็อกเป็นวันคงที่
 vi.mock('@/lib/admin/service-periods', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/admin/service-periods')>()),
   todayInBangkok: () => '2026-10-19',
 }))
 
-import { ADMIN } from '@/lib/admin/test-fixtures'
-
 import AdminBookingPage from './page'
 
-function render(params: Record<string, string | string[] | undefined> = {}) {
-  return AdminBookingPage({ searchParams: Promise.resolve(params) }).then(
-    renderToStaticMarkup,
+async function renderPage(
+  params: Record<string, string | string[] | undefined> = {},
+) {
+  return renderToStaticMarkup(
+    await AdminBookingPage({ searchParams: Promise.resolve(params) }),
   )
-}
-
-/** href ของลิงก์เลือกวันทั้งหมดใน HTML */
-function dateHrefs(html: string): string[] {
-  return [...html.matchAll(/href="([^"]*\?date=[^"]*)"/g)].map((match) => match[1]!)
 }
 
 describe('หน้าจองห้องของแอดมิน (/admin/booking)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdminMock.mockResolvedValue(ADMIN)
+    requireAdminMock.mockResolvedValue({
+      fullName: 'ผู้ดูแล ระบบ',
+      email: 'admin@ku.ac.th',
+    })
   })
 
-  it('ตรวจสิทธิ์แอดมินก่อนแสดงผล', async () => {
-    await render()
+  it('บังคับสิทธิ์แอดมินก่อนแสดงหน้า', async () => {
+    await renderPage()
 
     expect(requireAdminMock).toHaveBeenCalledTimes(1)
   })
 
-  it('มี popup เลือกวันที่ที่ให้เฉพาะวันนี้และวันพรุ่งนี้ (เส้นทางของแอดมิน)', async () => {
-    const html = await render()
+  it('ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ แต่ชี้ฐานเส้นทางของแอดมิน', async () => {
+    const html = await renderPage()
 
-    expect(html).toContain('เปลี่ยนวันที่')
-    expect(dateHrefs(html)).toContain('/admin/booking?date=2026-10-19')
-    expect(dateHrefs(html)).toContain('/admin/booking?date=2026-10-20')
-    expect(dateHrefs(html)).toHaveLength(2)
+    expect(html).toContain('data-base-path="/admin/booking"')
+    expect(html).toContain('data-today="2026-10-19"')
   })
 
-  it('หลังเลือกวันแล้วแสดงขั้นตอนเลือกเวลา (แผงช่องว่างของวันนั้น)', async () => {
-    const html = await render({ date: '2026-10-20' })
+  it('ส่งวันที่และห้องจาก query ต่อให้ขั้นตอนการจอง', async () => {
+    const html = await renderPage({ date: '2026-10-20', room: 'room-s' })
 
     expect(html).toContain('data-date="2026-10-20"')
-  })
-
-  it('วันที่เกินกว่าวันพรุ่งนี้ถูกปรับกลับเป็นวันนี้', async () => {
-    const html = await render({ date: '2026-10-25' })
-
-    expect(html).toContain('data-date="2026-10-19"')
+    expect(html).toContain('data-room="room-s"')
   })
 })

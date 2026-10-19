@@ -94,6 +94,16 @@ body {
     @apply border border-danger-line bg-surface text-danger hover:bg-danger-soft active:bg-danger-soft;
   }
 
+  /* popup เลือกวันจอง — ใช้ <dialog> แบบ modal ของเบราว์เซอร์
+     พื้นผิวแบน: เส้นขอบ 1px + ฉากมืด ink/25 (ไม่มีเงา) ตาม Flat-By-Default */
+  .modal {
+    @apply m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-card border border-border bg-surface p-6 text-ink;
+  }
+
+  .modal::backdrop {
+    background-color: rgb(11 11 12 / 0.25);
+  }
+
   .icon-btn {
     @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas hover:text-ink active:bg-canvas;
   }

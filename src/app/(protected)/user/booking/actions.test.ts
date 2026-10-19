@@ -35,12 +35,6 @@ const USER = {
   isBlocked: false,
 }
 
-const ADMIN = {
-  ...USER,
-  id: 'a1',
-  role: 'admin',
-}
-
 const BLOCKS = [
   { start: '08:30', end: '09:30' },
   { start: '09:30', end: '10:30' },
@@ -74,15 +68,6 @@ describe('bookRoom action', () => {
 
     expect(revalidatePathMock).toHaveBeenCalledWith('/user/booking')
     expect(redirectMock).toHaveBeenCalledWith('/user/booking/confirmation?code=123456')
-  })
-
-  it('แอดมินจองจากหน้าจองของแอดมิน: พาไปหน้ายืนยันของแอดมิน', async () => {
-    requireUserMock.mockResolvedValue(ADMIN)
-
-    await bookRoom(null, form(VALID_FORM))
-
-    expect(revalidatePathMock).toHaveBeenCalledWith('/admin/booking')
-    expect(redirectMock).toHaveBeenCalledWith('/admin/booking/confirmation?code=123456')
   })
 
   it('จองสำเร็จหลาย record: ส่งรหัสทุก record ไปหน้ายืนยัน', async () => {

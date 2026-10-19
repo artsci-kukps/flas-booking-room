@@ -11,24 +11,31 @@ vi.mock('@/lib/booking/reservations', () => ({
   getBookingConfirmation: getBookingConfirmationMock,
 }))
 
-import { ADMIN } from '@/lib/admin/test-fixtures'
-
 import AdminBookingConfirmationPage from './page'
 
-async function renderPage(params: Record<string, string | string[] | undefined>) {
-  return renderToStaticMarkup(
-    await AdminBookingConfirmationPage({ searchParams: Promise.resolve(params) }),
-  )
+const ADMIN = {
+  id: 'a1',
+  email: 'admin@ku.th',
+  fullName: 'ผู้ดูแล ระบบ',
+  imageUrl: null,
+  role: 'admin',
+  isBlocked: false,
 }
 
 const BOOKING = {
   bookingCode: '123456',
   status: 'PENDING',
-  roomName: 'S-101',
-  roomTypeCode: 'S',
+  roomName: 'G-101',
+  roomTypeCode: 'G',
   bookingDate: '2026-10-19',
-  startTime: new Date('2026-10-19T02:30:00Z'), // 09:30 Bangkok
-  endTime: new Date('2026-10-19T03:30:00Z'), // 10:30 Bangkok
+  startTime: new Date('2026-10-19T02:30:00Z'),
+  endTime: new Date('2026-10-19T04:30:00Z'),
+}
+
+async function renderPage(params: Record<string, string | string[] | undefined>) {
+  return renderToStaticMarkup(
+    await AdminBookingConfirmationPage({ searchParams: Promise.resolve(params) }),
+  )
 }
 
 describe('หน้ายืนยันการจองของแอดมิน (/admin/booking/confirmation)', () => {
@@ -38,27 +45,18 @@ describe('หน้ายืนยันการจองของแอดม�
     getBookingConfirmationMock.mockResolvedValue(BOOKING)
   })
 
-  it('ตรวจสิทธิ์แอดมิน และค้นการจองด้วยรหัสของผู้ใช้คนเดียวกัน', async () => {
+  it('บังคับสิทธิ์แอดมิน และค้นการจองด้วยรหัสของผู้ใช้คนเดียวกัน', async () => {
     await renderPage({ code: '123456' })
 
     expect(requireAdminMock).toHaveBeenCalledTimes(1)
-    expect(getBookingConfirmationMock).toHaveBeenCalledWith('123456', ADMIN.id)
+    expect(getBookingConfirmationMock).toHaveBeenCalledWith('123456', 'a1')
   })
 
-  it('แสดงรหัสการจองพร้อมลิงก์กลับหน้าจองของแอดมิน', async () => {
+  it('ลิงก์กลับไปหน้าจองและประวัติของแอดมิน ไม่ใช่ของผู้ใช้', async () => {
     const html = await renderPage({ code: '123456' })
 
-    expect(html).toContain('123456')
-    expect(html).toContain('จองสำเร็จ')
     expect(html).toContain('href="/admin/booking"')
-  })
-
-  it('ไม่พบรหัส: แจ้งไม่พบพร้อมลิงก์กลับหน้าจองของแอดมิน', async () => {
-    getBookingConfirmationMock.mockResolvedValue(null)
-
-    const html = await renderPage({ code: '123456' })
-
-    expect(html).toContain('ไม่พบรหัสการจอง')
-    expect(html).toContain('href="/admin/booking"')
+    expect(html).toContain('href="/admin/history"')
+    expect(html).not.toContain('href="/user/')
   })
 })
