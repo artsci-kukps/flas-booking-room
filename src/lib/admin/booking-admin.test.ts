@@ -425,6 +425,8 @@ describe('overrideReservationStatus', () => {
         canceledReason: 'ระบบตั้ง NO_SHOW ผิด ผู้ใช้มารับกุญแจแล้ว',
       },
     ])
+    // ไม่ใช่การยกเลิก → ไม่มีอีเมลยกเลิก
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
   })
 
   it('override ไปสถานะอื่นได้เสมอ (เช่น COMPLETED)', async () => {
@@ -461,12 +463,34 @@ describe('overrideReservationStatus', () => {
     })
   })
 
-  it('override สถานะ (แม้เป็น CANCELLED) → ไม่เข้าคิวอีเมลแจ้งเตือนการยกเลิก', async () => {
+  it('override ไป CANCELLED สำเร็จ → เข้าคิวอีเมลแจ้งเตือนการยกเลิก (ตัดช่องว่างหัว-ท้าย เหตุผล)', async () => {
     updateResults = [[{ id: 'r-1' }]]
 
-    await overrideReservationStatus('r-1', 'CANCELLED', 'เหตุผล', 'a1', NOW)
+    const result = await overrideReservationStatus('r-1', 'CANCELLED', '  เหตุผล  ', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'CANCELLED' })
+    expect(enqueueCancellationMock).toHaveBeenCalledWith('r-1', 'เหตุผล')
+  })
+
+  it('override ไม่พบรายการ → ไม่เข้าคิวอีเมล', async () => {
+    updateResults = [[]]
+
+    await overrideReservationStatus('r-missing', 'CANCELLED', 'เหตุผล', 'a1', NOW)
 
     expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
+
+  it('เข้าคิวอีเมลล้มเหลว → override ยังสำเร็จ (fail-open) พร้อมบันทึกข้อผิดพลาด', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+    enqueueCancellationMock.mockRejectedValueOnce(new Error('queue down'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await overrideReservationStatus('r-1', 'CANCELLED', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'CANCELLED' })
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
   })
 })
 

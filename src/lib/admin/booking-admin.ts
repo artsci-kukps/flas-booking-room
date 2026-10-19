@@ -347,6 +347,7 @@ export async function cancelReservation(
 /**
  * แก้ไขสถานะการจอง (override) — ทำได้เสมอเมื่อระบบตั้งสถานะผิด (TOR ข้อ 7)
  * เช่นแก้ NO_SHOW ที่ระบบตั้งผิดกลับเป็น ACTIVE พร้อมบันทึกผู้ดำเนินการและเหตุผล
+ * หาก override ไป CANCELLED จะเข้าคิวอีเมลแจ้งเตือนการยกเลิกให้ผู้จอง (เหมือน cancelReservation)
  */
 export async function overrideReservationStatus(
   reservationId: string,
@@ -365,5 +366,17 @@ export async function overrideReservationStatus(
     return { ok: false, message: invalid };
   }
 
-  return applyStatusOverride(reservationId, status, reason, actorId, now);
+  const result = await applyStatusOverride(reservationId, status, reason, actorId, now);
+
+  // ยกเลิกผ่านแอดมิน (override ไป CANCELLED) ต้องแจ้งทางอีเมลเช่นเดียวกับ cancelReservation (tor ข้อ 5.1)
+  // fail-open: คิวอีเมลล้มเหลวไม่ทำให้ override ที่อัปเดตสถานะสำเร็จแล้วล้มไปด้วย
+  if (result.ok && result.status === "CANCELLED") {
+    try {
+      await enqueueBookingCancellationForReservation(reservationId, reason.trim());
+    } catch (error) {
+      console.error("Failed to enqueue cancellation email for status override", error);
+    }
+  }
+
+  return result;
 }
