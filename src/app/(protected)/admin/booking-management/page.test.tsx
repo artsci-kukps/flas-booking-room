@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-const { requireAdminMock, listBookingsForDayMock, findBookingByCodeOnDayMock } =
+const { requireAdminMock, listBookingsForDayMock, findBookingByCodeOnDayMock, getDayAvailabilityMock, bookRoomMock } =
   vi.hoisted(() => ({
     requireAdminMock: vi.fn(),
     listBookingsForDayMock: vi.fn(),
     findBookingByCodeOnDayMock: vi.fn(),
+    getDayAvailabilityMock: vi.fn(),
+    bookRoomMock: vi.fn(),
   }))
 
 vi.mock('@/lib/auth/guards', () => ({ requireAdmin: requireAdminMock }))
@@ -15,9 +17,17 @@ vi.mock('@/lib/admin/booking-admin', () => ({
   findBookingByCodeOnDay: findBookingByCodeOnDayMock,
   isBookingCode: (value: string) => /^\d{6}$/.test(value),
 }))
+// ตารางสถานะห้องดึงความพร้อมของวัน — คงตรรกะวันที่ (parseBookingDate) ไว้ แล้ว stub การดึง DB
+vi.mock('@/lib/booking/day-availability', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/booking/day-availability')>()),
+  getDayAvailability: getDayAvailabilityMock,
+}))
+// server action จองของแอดมิน — ส่งเข้า client component เป็น prop เทสต์นี้ไม่เรียกจริง
+vi.mock('@/app/(protected)/admin/booking/actions', () => ({ bookRoom: bookRoomMock }))
 
 import { ADMIN, buttonLabels } from '@/lib/admin/test-fixtures'
 import type { AdminBookingRow } from '@/lib/admin/booking-admin'
+import type { DayAvailability } from '@/lib/booking/day-availability'
 
 import BookingManagementPage from './page'
 
@@ -44,11 +54,52 @@ function render(params: Record<string, string> = {}): Promise<string> {
   }).then(renderToStaticMarkup)
 }
 
+/** วันเปิดพร้อมห้อง S-204 สองช่วง (ว่าง + ถูกบล็อก) — ใช้ตรวจตารางสถานะบนหน้า */
+function openDay(): DayAvailability {
+  return {
+    date: DATE,
+    open: true,
+    kind: 'NORMAL',
+    openTime: '08:30',
+    closeTime: '10:30',
+    rooms: [
+      {
+        id: 'room-s204',
+        name: 'S-204',
+        roomTypeCode: 'S',
+        roomTypeName: 'ห้องทั่วไป',
+        bookingMode: 'CAPACITY',
+        maxCapacity: 4,
+        minDurationMinutes: 60,
+        slots: [
+          {
+            start: '08:30',
+            end: '09:30',
+            status: 'free',
+            usedCount: 0,
+            past: false,
+            selectable: true,
+          },
+          {
+            start: '09:30',
+            end: '10:30',
+            status: 'blocked',
+            usedCount: 0,
+            past: false,
+            selectable: false,
+          },
+        ],
+      },
+    ],
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   requireAdminMock.mockResolvedValue(ADMIN)
   listBookingsForDayMock.mockResolvedValue([bookingRow()])
   findBookingByCodeOnDayMock.mockResolvedValue(null)
+  getDayAvailabilityMock.mockResolvedValue(openDay())
 })
 
 describe('admin booking-management page', () => {
@@ -123,5 +174,25 @@ describe('admin booking-management page', () => {
     await render({ date: browsedDay, code: '123456' })
 
     expect(findBookingByCodeOnDayMock).toHaveBeenCalledWith('123456', today)
+  })
+
+  it('แสดงตารางสถานะห้องของวันที่เลือก (ว่าง/ถูกบล็อก) จาก getDayAvailability', async () => {
+    const html = await render()
+
+    expect(getDayAvailabilityMock).toHaveBeenCalledWith(DATE)
+    expect(html).toContain('ตารางสถานะห้อง')
+    expect(html).toContain('S-204')
+    expect(html).toContain('ว่าง')
+    expect(html).toContain('ถูกบล็อก')
+  })
+
+  it('ตารางสถานะอยู่ร่วมหน้ากับตารางรายการจองเดิม — รับ–คืนกุญแจและลิงก์วันยังครบ', async () => {
+    const html = await render()
+
+    expect(html).toContain('ตารางสถานะห้อง')
+    expect(html).toContain('รายการจองวันที่')
+    expect(html).toContain('123456')
+    expect(buttonLabels(html)).toContain('ยืนยันรับกุญแจ')
+    expect(html).toContain('ดูวันก่อนหน้า')
   })
 })

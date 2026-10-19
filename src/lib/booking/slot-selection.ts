@@ -1,4 +1,4 @@
-import type { RoomSlotView } from "./day-availability";
+import type { RoomDayAvailability, RoomSlotView } from "./day-availability";
 
 import type { BookingBlock } from "./booking-plan";
 
@@ -47,4 +47,30 @@ export function toggleSlotSelection(
   }
 
   return { roomId: current.roomId, roomName: current.roomName, blocks };
+}
+
+/**
+ * การเลือกเริ่มต้นเมื่อเปิด popup จากการคลิกช่องว่างในตารางห้อง (ticket #20)
+ * - ชี้เวลาที่มีจริงในวันนั้นและ `selectable` = เลือกบล็อกนั้นทันที (จองผ่านตารางน้อยกว่า 1 คลิก)
+ * - ชี้ช่องที่เลือกไม่ได้หรือเวลาที่ไม่มี → null — กัน popup เปิดมาพร้อมบล็อกที่ยืนยันไม่ได้
+ */
+export function preselectSlot(
+  room: Pick<RoomDayAvailability, "id" | "name" | "slots">,
+  start: string | null | undefined,
+): SlotSelection | null {
+  if (!start) {
+    return null;
+  }
+
+  const slot = room.slots.find((candidate) => candidate.start === start);
+
+  if (!slot || !slot.selectable) {
+    return null;
+  }
+
+  return {
+    roomId: room.id,
+    roomName: room.name,
+    blocks: [{ start: slot.start, end: slot.end }],
+  };
 }

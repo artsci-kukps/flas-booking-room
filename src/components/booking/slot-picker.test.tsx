@@ -168,4 +168,36 @@ describe('SlotPicker', () => {
     // ปุ่มเสริมอยู่ในฟอร์มเดียวกับปุ่มยืนยัน (นับ <form …> หนึ่งใบ)
     expect(html.match(/<form/g)).toHaveLength(1)
   })
+
+  it('รับ initialSlot จากตาราง: บล็อกนั้นถูกเลือกไว้ล่วงหน้าและฟอร์มส่งได้ทันที', () => {
+    const html = renderToStaticMarkup(
+      <SlotPicker
+        date="2026-10-19"
+        room={ROOM_CAPACITY}
+        bookRoomAction={bookRoomMock as unknown as BookRoomAction}
+        initialSlot="08:30"
+      />,
+    )
+
+    // ช่องที่คลิกจากตารางถูกเลือก (aria-pressed) — สรุป/ปุ่มยืนยันใช้ได้โดยไม่ต้องแตะอีกครั้ง
+    expect(buttonWithAriaLabel(html, '08:30–09:30 น. ว่าง')).toContain('aria-pressed="true"')
+    expect(html).toContain('name="roomId"')
+    expect(html).toContain('name="blocks"')
+    expect(html).toContain('&quot;start&quot;:&quot;08:30&quot;')
+    expect(hasDisabledAttr(html.match(/<button[^>]*type="submit"[^>]*>/)?.[0])).toBe(false)
+  })
+
+  it('initialSlot ชี้ช่องที่เลือกไม่ได้ (ถูกบล็อก) → ไม่พร้อมเลือก ไม่มีบล็อกในฟอร์ม', () => {
+    const html = renderToStaticMarkup(
+      <SlotPicker
+        date="2026-10-19"
+        room={ROOM_CAPACITY}
+        bookRoomAction={bookRoomMock as unknown as BookRoomAction}
+        initialSlot="10:30"
+      />,
+    )
+
+    expect(html).not.toContain('name="blocks"')
+    expect(hasDisabledAttr(html.match(/<button[^>]*type="submit"[^>]*>/)?.[0])).toBe(true)
+  })
 })

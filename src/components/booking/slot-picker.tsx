@@ -6,7 +6,11 @@ import Alert from "@/components/alert";
 import { meetsMinDuration, planBooking } from "@/lib/booking/booking-plan";
 import type { RoomDayAvailability } from "@/lib/booking/day-availability";
 import { slotAriaLabel, slotChipClass, slotStatusLabel } from "@/lib/booking/slot-display";
-import { toggleSlotSelection, type SlotSelection } from "@/lib/booking/slot-selection";
+import {
+  preselectSlot,
+  toggleSlotSelection,
+  type SlotSelection,
+} from "@/lib/booking/slot-selection";
 import { formatThaiDate } from "@/lib/format";
 
 import type { BookRoomAction } from "@/lib/booking/booking-action";
@@ -32,6 +36,11 @@ type SlotPickerProps = {
   bookRoomAction: BookRoomAction;
   /** ปุ่มเสริมข้างปุ่มยืนยันในฟอร์ม (popup ใช้เป็นปุ่ม "ยกเลิก") */
   secondaryAction?: ReactNode;
+  /**
+   * เวลาเริ่มของบล็อกที่เลือกไว้ล่วงหน้า ('HH:MM') — ตารางห้องส่งบล็อกที่ผู้ใช้คลิกเข้ามา
+   * ให้ popup เปิดพร้อมเลือกบล็อกนั้นทันที (ticket #20) ช่องที่เลือกไม่ได้จะไม่ถูกเลือก
+   */
+  initialSlot?: string | null;
 };
 
 export default function SlotPicker({
@@ -39,8 +48,12 @@ export default function SlotPicker({
   room,
   bookRoomAction,
   secondaryAction,
+  initialSlot = null,
 }: SlotPickerProps) {
-  const [selected, setSelected] = useState<SlotSelection | null>(null);
+  // ค่าเริ่มต้นจากตาราง — mount ครั้งเดียวต่อ popup (component ถูก key ด้วย ห้อง+วัน ทุกครั้งที่เปิด)
+  const [selected, setSelected] = useState<SlotSelection | null>(() =>
+    preselectSlot(room, initialSlot),
+  );
   const [state, formAction, pending] = useActionState(bookRoomAction, null);
 
   const isSelected = (start: string): boolean =>

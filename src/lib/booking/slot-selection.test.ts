@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { RoomSlotView } from './day-availability'
 
-import { toggleSlotSelection, type SlotSelection } from './slot-selection'
+import { preselectSlot, toggleSlotSelection, type SlotSelection } from './slot-selection'
 
 /**
  * ตรรกะการเลือกช่องว่างหลายบล็อกของผู้ใช้ (TOR ข้อ 6.1)
@@ -91,5 +91,36 @@ describe('toggleSlotSelection', () => {
 
     expect(toggleSlotSelection(current, ROOM_G, slot({ selectable: false }))).toBe(current)
     expect(toggleSlotSelection(null, ROOM_G, slot({ past: true, selectable: false }))).toBeNull()
+  })
+})
+
+/**
+ * การเลือกเริ่มต้นจากตารางห้อง (ticket #20) — ผู้ใช้คลิกช่องว่างในตาราง
+ * แล้ว popup เปิดมาพร้อมบล็อกนั้นถูกเลือกไว้แล้ว
+ */
+describe('preselectSlot', () => {
+  const room = {
+    id: 'room-s',
+    name: 'S-101',
+    slots: [slot(), slot({ start: '10:30', end: '11:30', status: 'blocked', selectable: false })],
+  }
+
+  it('ชี้เวลาที่มีจริงและเลือกได้ → คืนการเลือกพร้อมบล็อกนั้น', () => {
+    expect(preselectSlot(room, '09:30')).toEqual(
+      selected([{ start: '09:30', end: '10:30' }]),
+    )
+  })
+
+  it('ชี้ช่องที่เลือกไม่ได้ (ถูกบล็อก/เต็ม/ผ่านไปแล้ว) → ไม่พร้อมเลือก (null)', () => {
+    expect(preselectSlot(room, '10:30')).toBeNull()
+  })
+
+  it('เวลาที่ไม่มีในวันนั้น → null', () => {
+    expect(preselectSlot(room, '12:00')).toBeNull()
+  })
+
+  it('ไม่ระบุเวลา → null (ค่าเริ่มต้นเมื่อเปิด popup โดยไม่ได้คลิกจากตาราง)', () => {
+    expect(preselectSlot(room, null)).toBeNull()
+    expect(preselectSlot(room, undefined)).toBeNull()
   })
 })

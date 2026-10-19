@@ -3,24 +3,25 @@ import Link from "next/link";
 import { shiftBookingDate } from "@/lib/booking/day-availability";
 import { formatThaiDate } from "@/lib/format";
 
-const PATH = "/admin/booking-management";
-
-function hrefFor(date: string): string {
-  return `${PATH}?date=${date}`;
-}
+/**
+ * ตัวเลือกวันของตารางการจอง — ใช้ร่วมกันทุกหน้าที่มีตารางรายวัน
+ * (หน้าตารางจองของผู้ใช้/แอดมิน และศูนย์จัดการจอง, ticket #20)
+ * นำทางด้วยพารามิเตอร์ ?date=YYYY-MM-DD ของหน้าตัวเอง (`path`) เพื่อให้ server
+ * อ่านวันที่เดียวกันไปดึงตาราง/รายการจอง
+ */
 
 type BookingDayNavProps = {
+  /** เส้นทางหน้าที่มีตาราง — ลิงก์วันทั้งหมดชี้ไปหน้านี้ (?date=YYYY-MM-DD) */
+  path: string;
   /** วันที่กำลังดู (YYYY-MM-DD) */
   date: string;
-  /** วันปัจจุบันในเขตไทย — ปุ่ม "วันนี้" */
+  /** วันปัจจุบันในเขตเวลาไทย — ปุ่ม "วันนี้" */
   today: string;
 };
 
-/**
- * ตัวเลือกวันของตารางจองฝั่งแอดมิน — ปุ่มก่อน/ถัดไป ช่องเลือกวัน และกลับมาวันนี้
- * นำทางด้วยพารามิเตอร์ ?date=YYYY-MM-DD เพื่อให้ server อ่านวันที่เดียวกันไปดึงตาราง
- */
-export default function BookingDayNav({ date, today }: BookingDayNavProps) {
+export default function BookingDayNav({ path, date, today }: BookingDayNavProps) {
+  const hrefFor = (target: string): string => `${path}?date=${target}`;
+
   return (
     <div className="panel mt-4 flex flex-wrap items-center gap-3 p-4">
       <div className="min-w-0 flex-1">
@@ -36,7 +37,7 @@ export default function BookingDayNav({ date, today }: BookingDayNavProps) {
         <span aria-hidden="true">‹</span> วันก่อนหน้า
       </Link>
 
-      <form action={PATH} method="get" className="flex items-center gap-2">
+      <form action={path} method="get" className="flex items-center gap-2">
         <label className="sr-only" htmlFor="booking-day-nav-date">
           เลือกวันที่
         </label>

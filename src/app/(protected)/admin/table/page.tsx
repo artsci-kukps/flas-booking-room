@@ -1,38 +1,75 @@
-import Link from "next/link";
+import type { Metadata } from "next";
+import { requireAdmin } from "@/lib/auth/guards";
+import { todayInBangkok } from "@/lib/admin/service-periods";
+import BookingDayNav from "@/components/booking/booking-day-nav";
+import RoomTimeGrid from "@/components/booking/room-time-grid";
+import { parseBookingDate } from "@/lib/booking/booking-date";
+import { getDayAvailability } from "@/lib/booking/day-availability";
+import { formatThaiDate } from "@/lib/format";
 
-import PlaceholderPanel from "@/components/placeholder-panel";
+import { bookRoom } from "../booking/actions";
 
-const POINTS = [
-  "เลือกดูได้ตามวันและห้องที่สนใจ",
-  "แสดงช่วงเวลาเป็นบล็อกละ 1 ชั่วโมง ตามเวลาเปิดของวันนั้น",
-  "แยกสีตามสถานะครองช่วงเวลา (PENDING / ACTIVE)",
-  "ช่วงที่ถูกล็อกห้องและวันหยุดแสดงเป็นสีเทา",
-  "ดูแลจัดการโดยตรงได้ที่หน้าการจองและรับ–คืนกุญแจ",
-] as const;
+export const metadata: Metadata = {
+  title: "ตารางจอง",
+};
+
+const PATH = "/admin/table";
+const BOOKING_MANAGEMENT_PATH = "/admin/booking-management";
 
 /**
- * ตารางจองของแอดมิน — ภาพรวมทุกห้องในหนึ่งวัน ใช้ดูความว่างก่อนกดจอง
- * และเป็นทางเข้าสู่ศูนย์จัดการจองของระบบ
+ * ตารางจองภาพรวมของแอดมิน (ticket #20, spec #16) — หน้าเดียวกับตารางของผู้ใช้
+ * แต่ตรวจสิทธิ์แอดมิน และเพิ่มทางเข้า "จัดการการจอง" เพราะดูได้ทั้งวันจากหน้านี้
+ * ความพร้อมของวันดึงด้วย getDayAvailability() ชุดเดียวกับหน้าจอง
+ * (CAPACITY/EXCLUSIVE ไม่คำนวณซ้ำที่ client)
  */
-export default function AdminTablePage() {
+export default async function AdminTablePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  await requireAdmin();
+
+  const params = await searchParams;
+  const today = todayInBangkok();
+  const date = parseBookingDate(params.date) ?? today;
+  const availability = await getDayAvailability(date);
+
   return (
     <main className="page py-8 sm:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">
             ตารางจอง
           </h1>
           <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-            ภาพรวมการจองของทุกห้องในหนึ่งวัน ใช้ดูความว่างก่อนกดจอง
-            และติดตามว่าช่วงเวลาใดถูกใช้ไปแล้ว
+            ภาพรวมการจองของทุกห้องในหนึ่งวัน — ดูว่าช่วงเวลาใดว่างหรือถูกจองไปแล้ว
+            แล้วคลิกช่องว่างเพื่อจองผ่าน popup ได้ทันที
           </p>
         </div>
-        <Link href="/admin/booking-management" className="btn btn-outline">
+        <a
+          href={BOOKING_MANAGEMENT_PATH}
+          className="btn btn-outline btn-sm"
+        >
           จัดการการจอง
-        </Link>
+        </a>
       </div>
 
-      <PlaceholderPanel points={POINTS} />
+      <BookingDayNav path={PATH} date={date} today={today} />
+
+      <section className="mt-6" aria-labelledby="room-grid-heading">
+        <h2
+          id="room-grid-heading"
+          className="text-base font-semibold tracking-tight text-ink"
+        >
+          ตารางสถานะห้องวันที่ {formatThaiDate(date)}
+        </h2>
+        <RoomTimeGrid
+          date={date}
+          today={today}
+          availability={availability}
+          bookRoomAction={bookRoom}
+        />
+      </section>
     </main>
   );
 }
