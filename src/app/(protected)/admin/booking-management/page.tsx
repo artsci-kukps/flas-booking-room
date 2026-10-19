@@ -7,10 +7,8 @@ import { todayInBangkok } from "@/lib/admin/service-periods";
 import { requireAdmin } from "@/lib/auth/guards";
 import BookingDayNav from "@/components/booking/booking-day-nav";
 import RoomTimeGrid from "@/components/booking/room-time-grid";
-import {
-  getDayAvailability,
-  parseBookingDate,
-} from "@/lib/booking/day-availability";
+import { getDayAvailability } from "@/lib/booking/day-availability";
+import { parseBookingDate } from "@/lib/booking/booking-date";
 import { formatThaiDate } from "@/lib/format";
 
 import { bookRoom } from "../booking/actions";

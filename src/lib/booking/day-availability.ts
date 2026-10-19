@@ -11,12 +11,11 @@ import {
   type ServicePeriodRow,
 } from "@/lib/admin/service-periods";
 
-import { isValidBookingDate, parseBookingDate, shiftBookingDate } from "./booking-date";
+import { isValidBookingDate, shiftBookingDate } from "./booking-date";
 import { minutesToTime, SLOT_DURATION_MINUTES, timeToMinutes } from "./time";
 
 // วันที่ (รูปแบบ/การเลื่อนวัน) เป็นตรรกะบริสุทธิ์ที่ย้ายไป booking-date แล้ว
-// re-export ไว้เพื่อให้ผู้เรียกเดิม (reservations, หน้าจอ) ยัง import จากที่นี่ได้
-export { parseBookingDate, shiftBookingDate };
+// ผู้เรียกใหม่ import จาก booking-date.ts โดยตรง (ยกเลิก re-export เดิม)
 
 /**
  * ตรรกะหน้าผู้ใช้เลือกวัน ห้อง และช่องว่าง (TOR ข้อ 5)

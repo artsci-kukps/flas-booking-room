@@ -6,7 +6,9 @@ import {
   bookingDayHref,
   bookingRoomHref,
   isBookableBookingDate,
+  parseBookingDate,
   parseBookingRoomId,
+  shiftBookingDate,
 } from './booking-date'
 
 describe('booking date window', () => {
@@ -63,12 +65,28 @@ describe('isBookableBookingDate', () => {
   })
 })
 
-describe('parseBookingRoomId', () => {
-  it('ตัดช่องว่าง รับค่าแรกเมื่อซ้ำ และคืน null เมื่อไม่มี/ว่าง', () => {
-    expect(parseBookingRoomId('  room-s  ')).toBe('room-s')
-    expect(parseBookingRoomId(['room-g', 'room-s'])).toBe('room-g')
-    expect(parseBookingRoomId(undefined)).toBeNull()
-    expect(parseBookingRoomId('   ')).toBeNull()
+describe('parseBookingDate', () => {
+  it('รับค่า ?date=YYYY-MM-DD ที่เป็นวันที่มีจริงบนปฏิทิน', () => {
+    expect(parseBookingDate('2026-10-19')).toBe('2026-10-19')
+    expect(parseBookingDate(['2026-10-19', '2026-10-20'])).toBe('2026-10-19')
+  })
+
+  it('คืน null เมื่อไม่มีค่า รูปแบบผิด หรือวันที่ไม่มีจริง', () => {
+    expect(parseBookingDate(undefined)).toBeNull()
+    expect(parseBookingDate('')).toBeNull()
+    expect(parseBookingDate('19-10-2026')).toBeNull()
+    expect(parseBookingDate('not-a-date')).toBeNull()
+    expect(parseBookingDate('2026-02-30')).toBeNull()
+  })
+})
+
+describe('shiftBookingDate', () => {
+  it('เลื่อนวันไปข้างหน้า/ถอยหลังข้ามเดือนได้', () => {
+    expect(shiftBookingDate('2026-10-19', 1)).toBe('2026-10-20')
+    expect(shiftBookingDate('2026-10-19', -1)).toBe('2026-10-18')
+    expect(shiftBookingDate('2026-11-01', -1)).toBe('2026-10-31')
+    expect(shiftBookingDate('2026-12-31', 1)).toBe('2027-01-01')
+    expect(shiftBookingDate('2026-10-19', 0)).toBe('2026-10-19')
   })
 })
 

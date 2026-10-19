@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { shiftBookingDate } from "@/lib/booking/day-availability";
+import { shiftBookingDate } from "@/lib/booking/booking-date";
 import { formatThaiDate } from "@/lib/format";
 
 /**

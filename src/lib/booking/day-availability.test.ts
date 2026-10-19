@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { holiday as holidayTable, reservation as reservationTable, roomBlock as roomBlockTable, rooms as roomsTable, servicePeriod as servicePeriodTable } from '@/db/schema'
 import { makeHoliday, makeRoom, makeServicePeriod } from '@/lib/admin/test-fixtures'
 
-import { buildDaySlots, computeRoomSlots, getDayAvailability, parseBookingDate, resolveDayServiceWindow, shiftBookingDate } from './day-availability'
+import { buildDaySlots, computeRoomSlots, getDayAvailability, resolveDayServiceWindow } from './day-availability'
 
 /**
  * จำลอง query ของ drizzle ให้ "await ได้" และต่อ .where()/.orderBy()/.innerJoin() ได้ทุกแบบ
@@ -442,30 +442,5 @@ describe('getDayAvailability', () => {
 
     const queriedTables = fromMock.mock.calls.map(([table]) => table)
     expect(queriedTables).not.toContain(roomsTable)
-  })
-})
-
-describe('parseBookingDate', () => {
-  it('รับค่า ?date=YYYY-MM-DD ที่เป็นวันที่มีจริงบนปฏิทิน', () => {
-    expect(parseBookingDate('2026-10-19')).toBe('2026-10-19')
-    expect(parseBookingDate(['2026-10-19', '2026-10-20'])).toBe('2026-10-19') // ใช้ค่าแรกเมื่อซ้ำ
-  })
-
-  it('คืน null เมื่อไม่มีค่า รูปแบบผิด หรือวันที่ไม่มีจริง', () => {
-    expect(parseBookingDate(undefined)).toBeNull()
-    expect(parseBookingDate('')).toBeNull()
-    expect(parseBookingDate('19-10-2026')).toBeNull()
-    expect(parseBookingDate('not-a-date')).toBeNull()
-    expect(parseBookingDate('2026-02-30')).toBeNull()
-  })
-})
-
-describe('shiftBookingDate', () => {
-  it('เลื่อนวันไปข้างหน้า/ถอยหลังข้ามเดือนได้', () => {
-    expect(shiftBookingDate('2026-10-19', 1)).toBe('2026-10-20')
-    expect(shiftBookingDate('2026-10-19', -1)).toBe('2026-10-18')
-    expect(shiftBookingDate('2026-11-01', -1)).toBe('2026-10-31')
-    expect(shiftBookingDate('2026-12-31', 1)).toBe('2027-01-01')
-    expect(shiftBookingDate('2026-10-19', 0)).toBe('2026-10-19')
   })
 })
