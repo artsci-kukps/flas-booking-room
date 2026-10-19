@@ -11,7 +11,12 @@ import {
   type ServicePeriodRow,
 } from "@/lib/admin/service-periods";
 
+import { isValidBookingDate, parseBookingDate, shiftBookingDate } from "./booking-date";
 import { minutesToTime, SLOT_DURATION_MINUTES, timeToMinutes } from "./time";
+
+// วันที่ (รูปแบบ/การเลื่อนวัน) เป็นตรรกะบริสุทธิ์ที่ย้ายไป booking-date แล้ว
+// re-export ไว้เพื่อให้ผู้เรียกเดิม (reservations, หน้าจอ) ยัง import จากที่นี่ได้
+export { parseBookingDate, shiftBookingDate };
 
 /**
  * ตรรกะหน้าผู้ใช้เลือกวัน ห้อง และช่องว่าง (TOR ข้อ 5)
@@ -23,8 +28,6 @@ import { minutesToTime, SLOT_DURATION_MINUTES, timeToMinutes } from "./time";
  */
 
 const BANGKOK_UTC_OFFSET = "+07:00";
-
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** แปลงเวลาหน้าปัดของวันที่หนึ่งใน Asia/Bangkok เป็น instant (Date จริง) */
 export function bangkokInstant(date: string, time: string): Date {
@@ -350,51 +353,12 @@ export function resolveDayServiceWindow(
   };
 }
 
-/** ตรวจวันที่ 'YYYY-MM-DD' ว่ารูปแบบถูกและเป็นวันที่มีจริงบนปฏิทิน (กัน 2026-02-30) */
-function isValidDateString(date: string): boolean {
-  if (!DATE_PATTERN.test(date)) {
-    return false;
-  }
-
-  const parsed = new Date(`${date}T12:00:00Z`);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return false;
-  }
-
-  return parsed.toISOString().startsWith(date);
-}
-
-/**
- * เลื่อนวันที่ 'YYYY-MM-DD' ไป n วัน (ติดลบ = ถอยหลัง) ตามปฏิทินจริง ข้ามเดือน/ปีได้
- * ใช้ประกอบปุ่มเปลี่ยนวันดูของหน้าผู้ใช้ — ไม่พึ่ง timezone ของ server (UTC เที่ยงวัน)
- */
-export function shiftBookingDate(date: string, days: number): string {
-  const parsed = new Date(`${date}T12:00:00Z`);
-
-  return new Date(parsed.getTime() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-/**
- * อ่านพารามิเตอร์ ?date= ของหน้า — คืน 'YYYY-MM-DD' ที่ใช้ได้ หรือ null เมื่อไม่มี/ผิดรูปแบบ
- * (ผู้เรียกตัดสินใจเองว่าจะ fallback เป็นวันนี้หรือค่าอื่น)
- */
-export function parseBookingDate(value: string | string[] | null | undefined): string | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-
-  if (!raw || !isValidDateString(raw)) {
-    return null;
-  }
-
-  return raw;
-}
-
 /**
  * ตรวจวันเสาร์–อาทิตย์จากสตริง YYYY-MM-DD โดยตรง (UTC เที่ยงวัน ไม่มี edge เขตเวลา)
  * คืน false เมื่อรูปแบบวันที่ไม่ถูกต้อง
  */
 function isWeekend(date: string): boolean {
-  if (!isValidDateString(date)) {
+  if (!isValidBookingDate(date)) {
     return false;
   }
 

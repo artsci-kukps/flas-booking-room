@@ -1,17 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-const { bookRoomMock } = vi.hoisted(() => ({
-  bookRoomMock: vi.fn(),
-}))
-
-vi.mock('./actions', () => ({
-  bookRoom: bookRoomMock,
-}))
-
+import type { BookRoomAction } from '@/lib/booking/booking-action'
 import type { RoomDayAvailability } from '@/lib/booking/day-availability'
 
 import SlotPicker from './slot-picker'
+
+// server action ถูกส่งเข้ามาเป็น prop จากหน้าผู้ใช้/แอดมิน — เทสต์นี้ไม่เรียกจริง
+const { bookRoomMock } = vi.hoisted(() => ({ bookRoomMock: vi.fn() }))
 
 /** ป้าย <button> ทั้งหมดใน HTML — ใช้ตรวจ disabled ต่อป้าย */
 function buttonTags(html: string): string[] {
@@ -84,7 +80,13 @@ const ROOMS: RoomDayAvailability[] = [
 ]
 
 function renderPicker(rooms: RoomDayAvailability[] = ROOMS) {
-  return renderToStaticMarkup(<SlotPicker date="2026-10-19" rooms={rooms} />)
+  return renderToStaticMarkup(
+    <SlotPicker
+      date="2026-10-19"
+      rooms={rooms}
+      bookRoomAction={bookRoomMock as unknown as BookRoomAction}
+    />,
+  )
 }
 
 describe('SlotPicker', () => {
