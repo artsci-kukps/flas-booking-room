@@ -154,6 +154,24 @@ describe('buildDaySlots', () => {
   it('คืนว่างเมื่อเวลาเปิดไม่ก่อนเวลาปิด', () => {
     expect(buildDaySlots('16:30', '08:30')).toEqual([])
   })
+
+  it('บล็อกยาวตามที่กำหนด: ห้อง G ใช้บล็อก 2 ชั่วโมง (08:30–16:30 → 4 บล็อก)', () => {
+    const slots = buildDaySlots('08:30', '16:30', 120)
+
+    expect(slots).toHaveLength(4)
+    expect(slots[0]).toEqual({ start: '08:30', end: '10:30' })
+    expect(slots.at(-1)).toEqual({ start: '14:30', end: '16:30' })
+  })
+
+  it('ทิ้งเศษที่เกินเวลาปิดเมื่อบล็อก 2 ชั่วโมง (08:30–15:30 → 3 บล็อก)', () => {
+    const slots = buildDaySlots('08:30', '15:30', 120)
+
+    expect(slots.map((slot) => `${slot.start}-${slot.end}`)).toEqual([
+      '08:30-10:30',
+      '10:30-12:30',
+      '12:30-14:30',
+    ])
+  })
 })
 
 describe('computeRoomSlots', () => {
@@ -344,9 +362,7 @@ describe('getDayAvailability', () => {
     expect(result.kind).toBe('NORMAL')
     expect(result.openTime).toBe('08:30')
     expect(result.closeTime).toBe('16:30')
-    // NORMAL 08:30–16:30 = 8 ช่อง (08:30–09:30 … 15:30–16:30)
-    expect(result.slots).toHaveLength(8)
-    expect(result.slots[0]).toEqual({ start: '08:30', end: '09:30' })
+    // บล็อกเวลาคำนวณแยกต่อห้องตามความยาวของประเภทห้อง (ตรวจด้านล่าง)
 
     expect(result.rooms.map((room) => room.name)).toEqual(['S-101', 'G-101'])
 
@@ -360,8 +376,55 @@ describe('getDayAvailability', () => {
     expect(roomS.slots[3]).toMatchObject({ start: '11:30', status: 'free', selectable: true })
 
     const roomG = result.rooms[1]!
-    expect(roomG.slots[0]).toMatchObject({ start: '08:30', status: 'blocked', selectable: false })
-    expect(roomG.slots[1]).toMatchObject({ start: '09:30', status: 'free', selectable: true })
+    expect(roomG.slots[0]).toMatchObject({ start: '08:30', end: '10:30', status: 'blocked', selectable: false })
+    expect(roomG.slots[1]).toMatchObject({ start: '10:30', end: '12:30', status: 'free', selectable: true })
+  })
+
+  it('บล็อกเวลาต่างกันตามประเภทห้อง: G (ขั้นต่ำ 120) บล็อกละ 2 ชม., S (60) บล็อกละ 1 ชม.', async () => {
+    setTableRows(servicePeriodTable, [makeServicePeriod({ id: 'sp-1' })])
+    setTableRows(holidayTable, [])
+    setTableRows(roomsTable, [
+      makeRoom({ id: 'room-s', name: 'S-101', bookingMode: 'CAPACITY', maxCapacity: 4 }),
+      makeRoom({
+        id: 'room-g',
+        name: 'G-101',
+        roomTypeCode: 'G',
+        roomTypeName: 'ห้องประชุมใหญ่',
+        bookingMode: 'EXCLUSIVE',
+        maxCapacity: null,
+        minDurationMinutes: 120,
+      }),
+    ])
+    setTableRows(reservationTable, [])
+    setTableRows(roomBlockTable, [])
+
+    const result = await getDayAvailability(MONDAY, NOW_0800)
+
+    expect(result.open).toBe(true)
+    if (!result.open) return
+
+    const roomS = result.rooms[0]!
+    const roomG = result.rooms[1]!
+
+    // S: 1 ชั่วโมง → 8 บล็อกตลอดวันทำการปกติ
+    expect(roomS.slots.map((slot) => `${slot.start}-${slot.end}`)).toEqual([
+      '08:30-09:30',
+      '09:30-10:30',
+      '10:30-11:30',
+      '11:30-12:30',
+      '12:30-13:30',
+      '13:30-14:30',
+      '14:30-15:30',
+      '15:30-16:30',
+    ])
+
+    // G: 2 ชั่วโมง → 4 บล็อก
+    expect(roomG.slots.map((slot) => `${slot.start}-${slot.end}`)).toEqual([
+      '08:30-10:30',
+      '10:30-12:30',
+      '12:30-14:30',
+      '14:30-16:30',
+    ])
   })
 
   it('วันหยุดคืนผลปิดพร้อมชื่อวันหยุด และไม่ดึงข้อมูลห้อง/การจอง/บล็อก', async () => {

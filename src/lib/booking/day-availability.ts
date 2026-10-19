@@ -43,14 +43,20 @@ export type SlotRange = {
 };
 
 /**
- * แตกช่องว่าง 1 ชั่วโมงเริ่มจากเวลาเปิดของวันนั้น (TOR ข้อ 5.3)
- * ตัวอย่าง (เปิด 08:30): 08:30–09:30, 09:30–10:30, …
- * ช่องที่จะเกินเวลาปิดจะไม่ถูกสร้าง — slot ต้องอยู่ครบในเวลาให้บริการ
+ * แตกช่องว่างเป็นบล็อกตามความยาวที่กำหนด (TOR ข้อ 5.3 — ticket #18)
+ * ตัวอย่าง (เปิด 08:30, บล็อก 60): 08:30–09:30, 09:30–10:30, …
+ * ตัวอย่าง (เปิด 08:30, บล็อก 120 สำหรับห้อง G): 08:30–10:30, 10:30–12:30, …
+ * บล็อกที่จะเกินเวลาปิดจะไม่ถูกสร้าง — ต้องอยู่ครบในเวลาให้บริการ
  * รับเวลาคอลัมน์ time ของ PG ได้ทั้ง 'HH:MM' และ 'HH:MM:SS'
  */
-export function buildDaySlots(openTime: string, closeTime: string): SlotRange[] {
+export function buildDaySlots(
+  openTime: string,
+  closeTime: string,
+  blockMinutes: number = SLOT_DURATION_MINUTES,
+): SlotRange[] {
   const open = timeToMinutes(openTime);
   const close = timeToMinutes(closeTime);
+  const block = Math.max(1, Math.trunc(blockMinutes));
 
   if (open === null || close === null || close <= open) {
     return [];
@@ -58,8 +64,8 @@ export function buildDaySlots(openTime: string, closeTime: string): SlotRange[] 
 
   const slots: SlotRange[] = [];
 
-  for (let start = open; start + SLOT_DURATION_MINUTES <= close; start += SLOT_DURATION_MINUTES) {
-    slots.push({ start: minutesToTime(start), end: minutesToTime(start + SLOT_DURATION_MINUTES) });
+  for (let start = open; start + block <= close; start += block) {
+    slots.push({ start: minutesToTime(start), end: minutesToTime(start + block) });
   }
 
   return slots;
@@ -182,7 +188,6 @@ export type DayAvailability =
       kind: ServicePeriodKind;
       openTime: string;
       closeTime: string;
-      slots: SlotRange[];
       rooms: RoomDayAvailability[];
     };
 
@@ -263,7 +268,6 @@ export async function getDayAvailability(
     };
   }
 
-  const slots = buildDaySlots(window.openTime, window.closeTime);
   const dayStart = bangkokInstant(date, "00:00");
   const dayEnd = bangkokInstant(shiftBookingDate(date, 1), "00:00");
 
@@ -282,7 +286,6 @@ export async function getDayAvailability(
     kind: window.kind,
     openTime: window.openTime,
     closeTime: window.closeTime,
-    slots,
     rooms: rooms.map((room) => ({
       id: room.id,
       name: room.name,
@@ -291,9 +294,10 @@ export async function getDayAvailability(
       bookingMode: room.bookingMode,
       maxCapacity: room.maxCapacity,
       minDurationMinutes: room.minDurationMinutes,
+      // บล็อกยาวตามประเภทห้อง: G (ขั้นต่ำ 120) = 2 ชม., S/P (60) = 1 ชม. (ticket #18)
       slots: computeRoomSlots({
         date,
-        slots,
+        slots: buildDaySlots(window.openTime, window.closeTime, room.minDurationMinutes),
         bookingMode: room.bookingMode,
         maxCapacity: room.maxCapacity,
         reservations: reservationsByRoom.get(room.id) ?? [],

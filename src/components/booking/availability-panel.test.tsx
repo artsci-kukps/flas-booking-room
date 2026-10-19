@@ -47,12 +47,6 @@ const OPEN_DAY: DayAvailability = {
   kind: 'NORMAL',
   openTime: '08:30',
   closeTime: '16:30',
-  slots: [
-    { start: '08:30', end: '09:30' },
-    { start: '09:30', end: '10:30' },
-    { start: '10:30', end: '11:30' },
-    { start: '11:30', end: '12:30' },
-  ],
   rooms: [
     {
       id: 'room-s',

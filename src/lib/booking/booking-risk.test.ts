@@ -113,7 +113,7 @@ describe('แย่งกันจองห้อง EXCLUSIVE (exclusion constr
     seedRoomType('rt-g', 'G', 'EXCLUSIVE', 120)
     seedRoom('room-g', 'rt-g', null)
 
-    const request = { roomId: 'room-g', date: MONDAY, startTime: '09:30', endTime: '11:30' }
+    const request = { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' }
 
     const [first, second] = await Promise.all([
       createReservation(request, 'u1', { now: BEFORE_MONDAY, generateCode: () => '111111' }),

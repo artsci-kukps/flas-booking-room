@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { RoomSlotView } from './day-availability'
 
-import { slotAriaLabel, slotChipClass, slotStatusLabel } from './slot-display'
+import { slotAriaLabel, slotChipClass, slotLengthLabel, slotStatusLabel } from './slot-display'
 
 /** ช่องว่างตัวอย่าง: ว่าง 09:00–10:00 */
 function makeSlot(overrides: Partial<RoomSlotView> = {}): RoomSlotView {
@@ -70,6 +70,17 @@ describe('slotChipClass', () => {
     expect(slotChipClass(makeSlot({ past: true, selectable: false }))).toBe(
       'bg-canvas text-ink-muted',
     )
+  })
+})
+
+describe('slotLengthLabel', () => {
+  it('แสดงความยาวบล็อกเป็นชั่วโมงเมื่อลงตัว', () => {
+    expect(slotLengthLabel(60)).toBe('1 ชั่วโมง')
+    expect(slotLengthLabel(120)).toBe('2 ชั่วโมง')
+  })
+
+  it('แสดงเป็นนาทีเมื่อไม่ลงตัวเป็นชั่วโมง', () => {
+    expect(slotLengthLabel(90)).toBe('90 นาที')
   })
 })
 

@@ -6,7 +6,7 @@ import Alert from "@/components/alert";
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
 import { meetsMinDuration, planBooking } from "@/lib/booking/booking-plan";
 import type { RoomDayAvailability } from "@/lib/booking/day-availability";
-import { slotAriaLabel, slotChipClass, slotStatusLabel } from "@/lib/booking/slot-display";
+import { slotAriaLabel, slotChipClass, slotLengthLabel, slotStatusLabel } from "@/lib/booking/slot-display";
 import { toggleSlotSelection, type SlotSelection } from "@/lib/booking/slot-selection";
 
 import type { BookRoomAction } from "@/lib/booking/booking-action";
@@ -59,6 +59,9 @@ export default function SlotPicker({ date, rooms, bookRoomAction }: SlotPickerPr
                   {room.name}
                 </h3>
                 <p className="mt-0.5 text-sm text-ink-muted">{room.roomTypeName}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  บล็อกละ {slotLengthLabel(room.minDurationMinutes)}
+                </p>
               </div>
             </div>
 

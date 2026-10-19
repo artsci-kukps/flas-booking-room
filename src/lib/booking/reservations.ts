@@ -33,11 +33,11 @@ import {
   parseBookingDate,
   resolveDayServiceWindow,
 } from "./day-availability";
-import { SLOT_DURATION_MINUTES } from "./time";
 
 /**
  * ชั้นข้อมูล/โดเมนของการจองห้องของผู้ใช้ (ไม่ใช่ "use server" — TOR ข้อ 6)
- * การจอง 1 บล็อก = ช่วงเวลาที่จับคู่กับ slot จริงของวันนั้นพอดี (บล็อกละ 1 ชั่วโมง)
+ * การจอง 1 บล็อก = ช่วงเวลาที่จับคู่กับ slot จริงของวันนั้นพอดี
+ * ความยาวบล็อกขึ้นกับประเภทห้อง (S/P: 1 ชั่วโมง, G: 2 ชั่วโมง)
  *
  * กติกาทุกข้อถูกตรวจ "ก่อน" บันทึก (TOR ข้อ 6.2):
  * วันทำการ/เวลาให้บริการ → ขอบเขต slot → ไม่ใช่ช่องที่ผ่านไปแล้ว → ห้องยังใช้งานอยู่ →
@@ -166,16 +166,7 @@ export async function createReservation(
     return { ok: false, message: NO_SERVICE_PERIOD_MESSAGE };
   }
 
-  // ช่วงเวลาที่ขอต้องจับคู่กับ slot จริงของวันนั้นพอดี — เริ่มที่ startTime จบลงที่ endTime
-  // (กันการพิมพ์เวลาเอง และกันช่วงที่คร่อมเวลาปิดของวัน)
-  const slots = buildDaySlots(window.openTime, window.closeTime);
-  const startIndex = slots.findIndex((slot) => slot.start === request.startTime);
-  const endIndex = slots.findIndex((slot) => slot.end === request.endTime);
-
-  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-    return { ok: false, message: SLOT_OUTSIDE_MESSAGE };
-  }
-
+  // ช่วงเวลาที่ขอต้องเริ่มไม่ก่อนเวลาปัจจุบัน (ตรวจก่อนดึงห้อง เพื่อไม่แตะ DB เกินจำเป็น)
   const startTime = bangkokInstant(request.date, request.startTime);
   const endTime = bangkokInstant(request.date, request.endTime);
 
@@ -196,7 +187,19 @@ export async function createReservation(
     return { ok: false, message: ROOM_NOT_FOUND_MESSAGE };
   }
 
-  const durationMinutes = (endIndex - startIndex + 1) * SLOT_DURATION_MINUTES;
+  // บล็อกยาวตามประเภทห้องจากระยะเวลาขั้นต่ำ: G (120) = 2 ชม., S/P (60) = 1 ชม. (ticket #18)
+  // ใช้ buildDaySlots ตัวเดียวกับ UI เพื่อให้ขอบเขตบล็อกตรงกันเสมอ — กันการพิมพ์เวลาเอง
+  const blockMinutes = room.minDurationMinutes;
+  const slots = buildDaySlots(window.openTime, window.closeTime, blockMinutes);
+  const startIndex = slots.findIndex((slot) => slot.start === request.startTime);
+  const endIndex = slots.findIndex((slot) => slot.end === request.endTime);
+
+  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+    return { ok: false, message: SLOT_OUTSIDE_MESSAGE };
+  }
+
+  // จำนวนบล็อก × ความยาวบล็อก = ระยะเวลาที่จอง (บล็อกต่อเนื่องกันตามลำดับ slot)
+  const durationMinutes = (endIndex - startIndex + 1) * blockMinutes;
 
   if (durationMinutes < room.minDurationMinutes) {
     return { ok: false, message: minDurationMessage(room.minDurationMinutes) };

@@ -108,6 +108,13 @@ describe('SlotPicker', () => {
     expect(html).toContain('08:30–09:30')
   })
 
+  it('แสดงความยาวบล็อกตามประเภทห้อง (S = 1 ชั่วโมง, G = 2 ชั่วโมง)', () => {
+    const html = renderPicker()
+
+    expect(html).toContain('บล็อกละ 1 ชั่วโมง')
+    expect(html).toContain('บล็อกละ 2 ชั่วโมง')
+  })
+
   it('โทนสีตามระบบ: ว่าง = เขียว KU, ไม่ว่าง = amber, ถูกบล็อก/ผ่านไปแล้ว = canvas เงียบ', () => {
     const html = renderPicker()
 
