@@ -1,10 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import * as bookingAdmin from "@/lib/admin/booking-admin";
 import type { BookingAdminResult } from "@/lib/admin/booking-admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import { revalidateAvailability } from "@/lib/booking/booking-action";
 import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /**
@@ -15,8 +14,6 @@ import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
 /** สถานะที่ useActionState ใช้แสดงข้อความ/ผลลัพธ์ inline */
 export type BookingKeyActionState = BookingAdminResult | null;
-
-const PATH = "/admin/booking-management";
 
 /** ยืนยันรับกุญแจ (PENDING → ACTIVE) — ผู้ยืนยันคือแอดมินที่ล็อกอินอยู่ */
 export async function confirmKeyPickupAction(
@@ -34,7 +31,7 @@ export async function confirmKeyPickupAction(
   const result = await bookingAdmin.confirmKeyPickup(id, admin.id);
 
   if (result.ok) {
-    revalidatePath(PATH);
+    revalidateAvailability();
   }
 
   return result;
@@ -56,7 +53,7 @@ export async function confirmKeyReturnAction(
   const result = await bookingAdmin.confirmKeyReturn(id, admin.id);
 
   if (result.ok) {
-    revalidatePath(PATH);
+    revalidateAvailability();
   }
 
   return result;

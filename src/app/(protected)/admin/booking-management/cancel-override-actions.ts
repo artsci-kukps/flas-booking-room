@@ -1,10 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import * as bookingAdmin from "@/lib/admin/booking-admin";
 import type { BookingAdminResult } from "@/lib/admin/booking-admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import { revalidateAvailability } from "@/lib/booking/booking-action";
 import { MISSING_ID_MESSAGE, readField } from "@/lib/form-data";
 
 /**
@@ -15,8 +14,6 @@ import { MISSING_ID_MESSAGE, readField } from "@/lib/form-data";
 
 /** ผลที่ useActionState ใช้แสดงข้อความ/สถานะใหม่ inline */
 export type BookingCancelOverrideActionState = BookingAdminResult | null;
-
-const PATH = "/admin/booking-management";
 
 /**
  * ยกเลิกการจองทุกสถานะพร้อมเหตุผล — ช่องว่างถูกปลดล็อกทันทีเมื่อสำเร็จ
@@ -41,7 +38,7 @@ export async function cancelReservationAction(
   );
 
   if (result.ok) {
-    revalidatePath(PATH);
+    revalidateAvailability();
   }
 
   return result;
@@ -71,7 +68,7 @@ export async function overrideReservationStatusAction(
   );
 
   if (result.ok) {
-    revalidatePath(PATH);
+    revalidateAvailability();
   }
 
   return result;

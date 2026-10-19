@@ -16,7 +16,6 @@ export async function bookRoom(
   return performBookingAction({
     formData,
     userId: user.id,
-    revalidate: "/user/booking",
     confirmationPath: "/user/booking/confirmation",
   });
 }

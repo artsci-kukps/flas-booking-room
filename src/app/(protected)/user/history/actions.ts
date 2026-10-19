@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/guards";
+import { revalidateAvailability } from "@/lib/booking/booking-action";
 import { cancelMyReservation } from "@/lib/booking/my-bookings";
 import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 
@@ -13,7 +14,6 @@ import { MISSING_ID_MESSAGE, readId } from "@/lib/form-data";
 export type CancelActionState = { ok: true } | { ok: false; message: string } | null;
 
 const HISTORY_PATH = "/user/history";
-const BOOKING_PATH = "/user/booking";
 
 /**
  * ยกเลิกการจองของตัวเอง (TOR ข้อ 6.4) — requireUser ในตัว เพราะ Server Action
@@ -38,9 +38,10 @@ export async function cancelBooking(
     return { ok: false, message: result.message };
   }
 
-  // รายการเปลี่ยนสถานะแล้ว — รีเฟรชทั้งหน้าประวัติและตารางว่างของหน้าจอง
+  // รายการเปลี่ยนสถานะแล้ว — รีเฟรชหน้าประวัติ และทุกหน้าที่แสดงความพร้อม
+  // (หน้าจอง, ตารางห้อง×เวลาของทั้งผู้ใช้และแอดมิน, หน้าจัดการการจอง) ให้เห็นช่องว่างทันที
   revalidatePath(HISTORY_PATH);
-  revalidatePath(BOOKING_PATH);
+  revalidateAvailability();
 
   return { ok: true };
 }

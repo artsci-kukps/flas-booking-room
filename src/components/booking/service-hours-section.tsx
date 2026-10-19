@@ -32,7 +32,8 @@ export default function ServiceHoursSection() {
         </div>
       </dl>
       <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-muted">
-        เวลาจองนับเป็นบล็อกละ 1 ชั่วโมง เช่น 08:30–09:30
+        เวลาจองนับเป็นบล็อกตามประเภทห้อง — ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง
+        ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง เช่น 08:30–10:30
       </p>
     </section>
   );

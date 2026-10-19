@@ -4,11 +4,13 @@ import { getTableColumns } from "drizzle-orm";
 
 import {
   holiday,
+  notificationOutbox,
   reservation,
   roomBlock,
   roomType,
   rooms,
   servicePeriod,
+  users,
 } from "@/db/schema";
 
 /**
@@ -39,7 +41,16 @@ const store = new Map<unknown, Row[]>();
 const columnKey = new WeakMap<object, string>();
 
 function cacheColumns(): void {
-  for (const table of [servicePeriod, holiday, rooms, roomType, roomBlock, reservation]) {
+  for (const table of [
+    servicePeriod,
+    holiday,
+    rooms,
+    roomType,
+    roomBlock,
+    reservation,
+    users,
+    notificationOutbox,
+  ]) {
     const columns = getTableColumns(table);
 
     for (const [key, column] of Object.entries(columns)) {
@@ -204,8 +215,15 @@ function evaluate(condition: unknown, env: Env): boolean {
 
     const operand = tokens[pos];
     pos++;
+
+    // ค่าขวามืออาจเป็น "คอลัมน์อีกตาราง" (เงื่อนไข join: eq(rooms.roomTypeId, roomType.id))
+    // ต้อง resolve จากแถวใน env ของ trial ก่อนเทียบ — ไม่ใช่อ่านเป็น parameter
     const value =
-      operand?.kind === "list" ? operand.values : (operand as { value: unknown }).value;
+      operand?.kind === "list"
+        ? operand.values
+        : operand?.kind === "column"
+          ? resolve(operand.column, env)
+          : (operand as { value: unknown } | undefined)?.value;
     const left = resolve(column, env);
 
     switch (operator) {
@@ -535,7 +553,7 @@ function update(table: unknown) {
     set(values: Row) {
       return {
         where(condition: unknown) {
-          return Promise.resolve().then(() => {
+          const run = (): Row[] => {
             const list = rows(table);
             const snapshot = list.map((row) => ({ ...row }));
             const targets = list.filter((row) =>
@@ -564,7 +582,28 @@ function update(table: unknown) {
               list.push(...snapshot);
               throw error;
             }
-          });
+
+            return targets;
+          };
+
+          // รอจน execute แล้วคืน "แถวที่ถูกแก้" (สำเนา) — ตรงกับ drizzle ที่คืนผลเมื่อ await
+          const affected = (): Promise<Row[]> =>
+            Promise.resolve()
+              .then(run)
+              .then((targets) => targets.map((row) => ({ ...row })));
+
+          return {
+            returning(projection?: Projection) {
+              return Promise.resolve()
+                .then(run)
+                .then((targets) =>
+                  targets.map((row) => project(projection, new Map([[table, row]]))),
+                );
+            },
+            then(resolve_: (value: Row[]) => unknown, reject?: (reason: unknown) => unknown) {
+              return affected().then(resolve_, reject);
+            },
+          };
         },
       };
     },
@@ -739,4 +778,13 @@ const db = {
 export const fakeDb = db;
 
 /** ตารางที่ใช้ seed จากเทสต์ */
-export const tables = { servicePeriod, holiday, rooms, roomType, roomBlock, reservation };
+export const tables = {
+  servicePeriod,
+  holiday,
+  rooms,
+  roomType,
+  roomBlock,
+  reservation,
+  users,
+  notificationOutbox,
+};

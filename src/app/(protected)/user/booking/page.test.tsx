@@ -89,4 +89,12 @@ describe('หน้าจองห้องของผู้ใช้ (/user/bo
     expect(html).toContain('สมชาย')
     expect(html).toContain('จองห้อง')
   })
+
+  it('ข้อความกติกาเวลาจองบอกบล็อกตามประเภทห้อง (ไม่คงข้อความบล็อกละ 1 ชั่วโมงเดิม)', async () => {
+    const html = await renderPage()
+
+    expect(html).not.toContain('เป็นบล็อกละ 1 ชั่วโมง')
+    expect(html).toContain('ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง')
+    expect(html).toContain('ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง')
+  })
 })

@@ -60,11 +60,30 @@ type BookingActionContext = {
   formData: FormData;
   /** ผู้จอง — มาจาก requireUser/requireAdmin ของแต่ละพื้นที่ */
   userId: string;
-  /** path ที่ต้อง revalidate หลังจองสำเร็จ */
-  revalidate: string;
   /** ปลายทางหน้ายืนยัน เช่น '/user/booking/confirmation' */
   confirmationPath: string;
 };
+
+/**
+ * เส้นทางทั้งหมดที่แสดง "ความพร้อมของการจอง" — popup จอง, ตารางห้อง×เวลา และหน้าจัดการ
+ * การจอง/ยกเลิก/เปลี่ยนสถานะ 1 ครั้งมีผลกับทุกหน้าเหล่านี้พร้อมกัน
+ * (เช่น ผู้ใช้จอง → ช่องว่างหายไปจากตารางของแอดมินด้วย)
+ * จึง revalidate ทุกเส้นทางเสมอ เพื่อให้สถานะอัปเดตทันทีทุกหน้า (ticket #22)
+ */
+export const AVAILABILITY_PATHS = [
+  "/user/booking",
+  "/user/table",
+  "/admin/booking",
+  "/admin/table",
+  "/admin/booking-management",
+] as const;
+
+/** revalidate ทุกหน้าที่แสดงความพร้อม — เรียกหลังข้อมูลการจอง/สถานะเปลี่ยนสำเร็จ */
+export function revalidateAvailability(): void {
+  for (const path of AVAILABILITY_PATHS) {
+    revalidatePath(path);
+  }
+}
 
 /**
  * เนื้อร่วมของการจองจากฟอร์ม — ใช้ทั้งหน้าผู้ใช้และแอดมิน
@@ -74,7 +93,6 @@ type BookingActionContext = {
 export async function performBookingAction({
   formData,
   userId,
-  revalidate,
   confirmationPath,
 }: BookingActionContext): Promise<BookingActionState> {
   const result = await submitBookingSelection(
@@ -90,7 +108,7 @@ export async function performBookingAction({
     return { ok: false, message: result.message };
   }
 
-  revalidatePath(revalidate);
+  revalidateAvailability();
 
   const params = new URLSearchParams();
 
