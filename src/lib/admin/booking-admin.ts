@@ -6,6 +6,7 @@ import {
   isReservationStatus,
   type ReservationStatus,
 } from "@/lib/booking/reservation-status";
+import { enqueueBookingCancellationForReservation } from "@/lib/notifications/cancellation";
 import type { Result } from "@/lib/result";
 
 import { exclusionViolationMessage, pgErrorCode } from "./pg-error";
@@ -319,6 +320,8 @@ async function applyStatusOverride(
 /**
  * ยกเลิกการจอง — ทำได้ทุกสถานะ (TOR ข้อ 6.4) ต้องระบุเหตุผล
  * ตั้งสถานะเป็น CANCELLED ซึ่งทำให้แถวไม่ครองช่วงเวลา ช่องว่างจึงถูกปลดล็อกทันที
+ * หลังยกเลิกสำเร็จจะเข้าคิวอีเมลแจ้งเตือนการยกเลิกไปยังผู้จอง (type BOOKING_CANCELLED)
+ * พร้อมเหตุผล — เป็นงานเสริม (best-effort) ไม่ทำให้การยกเลิกล้มเหลว
  */
 export async function cancelReservation(
   reservationId: string,
@@ -332,7 +335,13 @@ export async function cancelReservation(
     return { ok: false, message: invalid };
   }
 
-  return applyStatusOverride(reservationId, "CANCELLED", reason, actorId, now);
+  const result = await applyStatusOverride(reservationId, "CANCELLED", reason, actorId, now);
+
+  if (result.ok) {
+    await enqueueBookingCancellationForReservation(reservationId, reason.trim());
+  }
+
+  return result;
 }
 
 /**

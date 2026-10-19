@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { notificationOutbox } from '@/db/schema'
 
 import {
+  BOOKING_CANCELLED_EMAIL_TYPE,
   BOOKING_CODE_EMAIL_TYPE,
   MAX_OUTBOX_ATTEMPTS,
+  enqueueBookingCancellationEmail,
   enqueueBookingCodeEmail,
   nextRetryAt,
   processOutboxBatch,
@@ -112,6 +114,24 @@ function makeRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
+/** แถวคิวอีเมลยกเลิกตัวอย่าง (payload ถูกต้อง พร้อมเหตุผล) */
+function makeCancelledRow(overrides: Record<string, unknown> = {}) {
+  return makeRow({
+    id: 'c1',
+    type: BOOKING_CANCELLED_EMAIL_TYPE,
+    subject: 'ยกเลิกการจอง Creative Space: 123456',
+    payload: {
+      bookingCode: '123456',
+      roomName: 'S-101',
+      bookingDate: '2026-10-19',
+      startTime: '2026-10-19T02:30:00.000Z',
+      endTime: '2026-10-19T03:30:00.000Z',
+      reason: 'ผู้ใช้โทรขอยกเลิก',
+    },
+    ...overrides,
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   whereParams = []
@@ -176,6 +196,54 @@ describe('enqueueBookingCodeEmail', () => {
     expect(
       insertValuesMock.mock.calls.map((call) => (call[0] as { reservationId: string }).reservationId),
     ).toEqual(['res-1', 'res-2'])
+  })
+})
+
+describe('enqueueBookingCancellationEmail', () => {
+  const base = {
+    reservationId: 'res-1',
+    toEmail: 'booker@ku.th',
+    bookingCode: '123456',
+    roomName: 'S-101',
+    bookingDate: '2026-10-19',
+    startTime: new Date('2026-10-19T02:30:00Z'),
+    endTime: new Date('2026-10-19T03:30:00Z'),
+  }
+
+  it('สร้างรายการคิว BOOKING_CANCELLED พร้อม payload รหัส/ห้อง/ช่วงเวลา และเหตุผล', async () => {
+    await enqueueBookingCancellationEmail({ ...base, reason: 'ผู้ใช้โทรขอยกเลิก' })
+
+    expect(insertMock).toHaveBeenCalledWith(notificationOutbox)
+    expect(insertValuesMock).toHaveBeenCalledTimes(1)
+    expect(insertValuesMock.mock.calls[0][0]).toEqual({
+      reservationId: 'res-1',
+      type: BOOKING_CANCELLED_EMAIL_TYPE,
+      toEmail: 'booker@ku.th',
+      subject: 'ยกเลิกการจอง Creative Space: 123456',
+      payload: {
+        bookingCode: '123456',
+        roomName: 'S-101',
+        bookingDate: '2026-10-19',
+        startTime: '2026-10-19T02:30:00.000Z',
+        endTime: '2026-10-19T03:30:00.000Z',
+        reason: 'ผู้ใช้โทรขอยกเลิก',
+      },
+    })
+  })
+
+  it('ไม่มีเหตุผล (ผู้ใช้ยกเลิกเอง) → reason เป็น null', async () => {
+    await enqueueBookingCancellationEmail(base)
+
+    expect(insertValuesMock.mock.calls[0][0]).toMatchObject({
+      type: BOOKING_CANCELLED_EMAIL_TYPE,
+      payload: { reason: null },
+    })
+  })
+
+  it('เหตุผลเป็นช่องว่างล้วน → reason เป็น null', async () => {
+    await enqueueBookingCancellationEmail({ ...base, reason: '   ' })
+
+    expect(insertValuesMock.mock.calls[0][0]).toMatchObject({ payload: { reason: null } })
   })
 })
 
@@ -275,5 +343,63 @@ describe('processOutboxBatch', () => {
       lastError: 'boom',
       nextAttemptAt: new Date('2026-10-18T00:20:00Z'),
     })
+  })
+
+  it('ส่งอีเมลยกเลิก (BOOKING_CANCELLED) สำเร็จ → SENT พร้อมเนื้อหาการยกเลิก', async () => {
+    selectLimitMock.mockResolvedValue([makeCancelledRow()])
+    const sender = vi.fn<(message: SenderMessage) => Promise<void>>(async () => {})
+
+    const result = await processOutboxBatch({ now: NOW, sender })
+
+    expect(result).toEqual({ sent: 1, retried: 0, failed: 0 })
+    const message = sender.mock.calls[0][0] as { to: string; subject: string; html: string }
+    expect(message.to).toBe('booker@ku.th')
+    expect(message.subject).toContain('ยกเลิก')
+    expect(message.subject).toContain('123456')
+    expect(message.html).toContain('123456')
+    expect(message.html).toContain('ผู้ใช้โทรขอยกเลิก')
+    expect(updateSetMock).toHaveBeenCalledWith({ status: 'SENT', sentAt: NOW, lastError: null })
+  })
+
+  it('อีเมลยกเลิกที่ไม่มีเหตุผล (reason = null) → ส่งได้', async () => {
+    selectLimitMock.mockResolvedValue([
+      makeCancelledRow({
+        payload: {
+          bookingCode: '123456',
+          roomName: 'S-101',
+          bookingDate: '2026-10-19',
+          startTime: '2026-10-19T02:30:00.000Z',
+          endTime: '2026-10-19T03:30:00.000Z',
+          reason: null,
+        },
+      }),
+    ])
+    const sender = vi.fn<(message: SenderMessage) => Promise<void>>(async () => {})
+
+    const result = await processOutboxBatch({ now: NOW, sender })
+
+    expect(result).toEqual({ sent: 1, retried: 0, failed: 0 })
+    expect(sender).toHaveBeenCalledTimes(1)
+  })
+
+  it('payload ยกเลิกผิดรูปแบบ (reason ไม่ใช่ string) → FAILED ทันทีโดยไม่เรียกตัวส่ง', async () => {
+    selectLimitMock.mockResolvedValue([
+      makeCancelledRow({
+        payload: {
+          bookingCode: '123456',
+          roomName: 'S-101',
+          bookingDate: '2026-10-19',
+          startTime: '2026-10-19T02:30:00.000Z',
+          endTime: '2026-10-19T03:30:00.000Z',
+          reason: 123,
+        },
+      }),
+    ])
+    const sender = vi.fn<(message: SenderMessage) => Promise<void>>(async () => {})
+
+    const result = await processOutboxBatch({ now: NOW, sender })
+
+    expect(sender).not.toHaveBeenCalled()
+    expect(result).toEqual({ sent: 0, retried: 0, failed: 1 })
   })
 })

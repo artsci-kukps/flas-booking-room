@@ -8,6 +8,7 @@ import {
   servicePeriod as servicePeriodTable,
 } from '@/db/schema'
 import { makeRoom, makeServicePeriod } from '@/lib/admin/test-fixtures'
+import type { EnqueueBookingCancellationEmail } from '@/lib/notifications/outbox'
 
 import { getDayAvailability, OCCUPYING_STATUSES } from './day-availability'
 import { CANCEL_ACTIVE_MESSAGE, cancelMyReservation, cancelability, listMyBookings } from './my-bookings'
@@ -234,6 +235,71 @@ describe('cancelMyReservation', () => {
     ])
     // เงื่อนไขต้องล็อก id + เจ้าของ + สถานะ PENDING (กันยกเลิกการจองของคนอื่น/ที่เปลี่ยนสถานะแล้ว)
     expect(updateWhereParams).toEqual(expect.arrayContaining(['res-1', 'u1', 'PENDING']))
+  })
+
+  it('ยกเลิกสำเร็จ → เข้าคิวอีเมลแจ้งเตือนการยกเลิก (reason = null)', async () => {
+    updateRows = [{ id: 'res-1' }]
+    setTableRows(reservationTable, [
+      {
+        bookingCode: '123456',
+        roomName: 'S-101',
+        bookingDate: '2026-10-19',
+        startTime: START,
+        endTime: new Date('2026-10-19T03:30:00Z'),
+        toEmail: 'booker@ku.th',
+      },
+    ])
+    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+
+    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, enqueue })
+
+    expect(result).toEqual({ ok: true })
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(enqueue.mock.calls[0][0]).toEqual({
+      reservationId: 'res-1',
+      toEmail: 'booker@ku.th',
+      bookingCode: '123456',
+      roomName: 'S-101',
+      bookingDate: '2026-10-19',
+      startTime: START,
+      endTime: new Date('2026-10-19T03:30:00Z'),
+      reason: null,
+    })
+  })
+
+  it('ยกเลิกไม่สำเร็จ (ACTIVE) → ไม่เข้าคิวอีเมล', async () => {
+    updateRows = []
+    setTableRows(reservationTable, [{ status: 'ACTIVE', startTime: START }])
+    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+
+    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, enqueue })
+
+    expect(result).toEqual({ ok: false, message: CANCEL_ACTIVE_MESSAGE })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('เข้าคิวอีเมลล้มเหลว → การยกเลิกยังสำเร็จ (non-blocking)', async () => {
+    updateRows = [{ id: 'res-1' }]
+    setTableRows(reservationTable, [
+      {
+        bookingCode: '123456',
+        roomName: 'S-101',
+        bookingDate: '2026-10-19',
+        startTime: START,
+        endTime: new Date('2026-10-19T03:30:00Z'),
+        toEmail: 'booker@ku.th',
+      },
+    ])
+    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {
+      throw new Error('queue down')
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, enqueue })
+
+    expect(result).toEqual({ ok: true })
+    expect(errorSpy).toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 
   it('ไม่พบรายการ หรือไม่ใช่การจองของผู้ใช้คนนี้: ไม่แตะข้อมูล และแจ้งไม่พบ', async () => {
