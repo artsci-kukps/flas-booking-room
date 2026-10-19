@@ -24,24 +24,25 @@ export function slotLengthLabel(minutes: number): string {
  * ว่าง = เขียว KU (สีเน้นของ "สถานะว่าง"), ไม่ว่าง = amber,
  * ถูกบล็อก/ผ่านไปแล้ว = โทนเงียบ ink-muted บนพื้น canvas
  */
+export const SLOT_FREE_CLASS = "bg-ku-soft text-ku";
+export const SLOT_FREE_SELECTABLE_CLASS =
+  "bg-ku-soft text-ku cursor-pointer hover:bg-ku hover:text-white";
+export const SLOT_OCCUPIED_CLASS = "bg-amber-soft text-amber-ink";
+export const SLOT_OCCUPIED_SELECTABLE_CLASS = "bg-amber-soft text-amber-ink cursor-pointer";
+export const SLOT_MUTED_CLASS = "bg-canvas text-ink-muted";
+
 export function slotChipClass(
   slot: Pick<RoomSlotView, "status" | "past" | "selectable">,
 ): string {
   if (slot.past || slot.status === "blocked") {
-    return "bg-canvas text-ink-muted";
+    return SLOT_MUTED_CLASS;
   }
 
   if (slot.status === "occupied") {
-    // เลือกได้เฉพาะห้อง CAPACITY ที่ยังไม่เต็ม — ให้ feedback เบา ๆ ด้วย cursor เท่านั้น
-    return slot.selectable
-      ? "bg-amber-soft text-amber-ink cursor-pointer"
-      : "bg-amber-soft text-amber-ink";
+    return slot.selectable ? SLOT_OCCUPIED_SELECTABLE_CLASS : SLOT_OCCUPIED_CLASS;
   }
 
-  // ว่างและเลือกได้: hover เต็มสี KU เป็นรางวัลของการเจอช่องว่าง
-  return slot.selectable
-    ? "bg-ku-soft text-ku cursor-pointer hover:bg-ku hover:text-white"
-    : "bg-ku-soft text-ku";
+  return slot.selectable ? SLOT_FREE_SELECTABLE_CLASS : SLOT_FREE_CLASS;
 }
 
 /** ป้ายสถานะของช่องว่างสำหรับแสดงผล */

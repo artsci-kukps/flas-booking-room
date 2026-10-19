@@ -17,6 +17,9 @@ import {
   slotChipClass,
   slotLengthLabel,
   slotStatusLabel,
+  SLOT_FREE_CLASS,
+  SLOT_OCCUPIED_CLASS,
+  SLOT_MUTED_CLASS,
 } from "@/lib/booking/slot-display";
 import { formatThaiDate } from "@/lib/format";
 
@@ -49,10 +52,10 @@ type RoomTimeGridProps = {
 
 /** สัญลักษณ์สถานะบนหัวตาราง — สีเดียวกับที่ชิปในตารางใช้จริง */
 const LEGEND = [
-  { label: "ว่าง", chip: "bg-ku-soft text-ku" },
-  { label: "ไม่ว่าง", chip: "bg-amber-soft text-amber-ink" },
-  { label: "ถูกบล็อก", chip: "bg-canvas text-ink-muted" },
-  { label: "ผ่านไปแล้ว", chip: "bg-canvas text-ink-muted" },
+  { label: "ว่าง", chip: SLOT_FREE_CLASS },
+  { label: "ไม่ว่าง", chip: SLOT_OCCUPIED_CLASS },
+  { label: "ถูกบล็อก", chip: SLOT_MUTED_CLASS },
+  { label: "ผ่านไปแล้ว", chip: SLOT_MUTED_CLASS },
 ] as const;
 
 /** เป้าหมายการจองจากคลิก — ห้อง + บล็อกที่คลิก (dialog อ่านค่านี้ตอน mount) */
@@ -81,8 +84,8 @@ function SlotChip({
   const chip =
     slot.selectable && !clickable
       ? slot.status === "occupied"
-        ? "bg-amber-soft text-amber-ink"
-        : "bg-ku-soft text-ku"
+        ? SLOT_OCCUPIED_CLASS
+        : SLOT_FREE_CLASS
       : slotChipClass(slot);
 
   return (
