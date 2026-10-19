@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   BOOKING_WINDOW_DAYS,
   bookingDateOptions,
-  bookingDayHref,
-  bookingRoomHref,
   isBookableBookingDate,
   parseBookingDate,
   parseBookingRoomId,
@@ -90,16 +88,3 @@ describe('shiftBookingDate', () => {
   })
 })
 
-describe('href builders', () => {
-  it('สร้างลิงก์เลือกวันของห้องด้วย ?date= และ ?room=', () => {
-    expect(bookingRoomHref('/user/booking', 'room-s', '2026-10-20')).toBe(
-      '/user/booking?date=2026-10-20&room=room-s',
-    )
-  })
-
-  it('สร้างลิงก์สลับวันด้วย ?date= เดียว', () => {
-    expect(bookingDayHref('/admin/booking', '2026-10-20')).toBe(
-      '/admin/booking?date=2026-10-20',
-    )
-  })
-})

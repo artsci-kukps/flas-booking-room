@@ -117,14 +117,3 @@ export function isBookableBookingDate(date: string, today: string): boolean {
   return bookingDateOptions(today).some((option) => option.date === date);
 }
 
-/** ลิงก์เลือกวันของห้อง: {basePath}?date=YYYY-MM-DD&room=<id> */
-export function bookingRoomHref(basePath: string, roomId: string, date: string): string {
-  const params = new URLSearchParams({ date, room: roomId });
-
-  return `${basePath}?${params.toString()}`;
-}
-
-/** ลิงก์สลับวันของขั้นเลือกเวลา: {basePath}?date=YYYY-MM-DD */
-export function bookingDayHref(basePath: string, date: string): string {
-  return `${basePath}?date=${date}`;
-}
