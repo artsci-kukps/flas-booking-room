@@ -12,6 +12,9 @@ import type { RoomSlotView } from "./day-availability";
  * ความยาวของบล็อกของห้อง (นาที) เป็นข้อความไทย — '1 ชั่วโมง', '2 ชั่วโมง'
  * หรือ 'X นาที' เมื่อไม่ลงตัวเป็นชั่วโมง (บล็อกยาวเท่าระยะเวลาขั้นต่ำของประเภทห้อง)
  */
+export const BLOCK_LENGTH_COPY =
+  "ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง, ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง";
+
 export function slotLengthLabel(minutes: number): string {
   return minutes % 60 === 0 ? `${minutes / 60} ชั่วโมง` : `${minutes} นาที`;
 }
