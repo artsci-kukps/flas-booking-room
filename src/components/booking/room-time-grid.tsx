@@ -164,7 +164,11 @@ export default function RoomTimeGrid({
         ))}
       </ul>
 
-      <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+      <p className="mt-3 text-sm text-ink-muted">
+        เวลาให้บริการ {openTime}–{closeTime}
+      </p>
+
+      <p className="mt-2 text-sm leading-relaxed text-ink-muted">
         {bookable
           ? "คลิกช่องว่างในตารางเพื่อเปิด popup จองทันที — เลือกได้หลายบล็อกของห้องเดียวกัน แล้วยืนยันใน popup ได้เลย"
           : "หน้าต่างการจองคือวันนี้และวันพรุ่งนี้ — วันนี้ดูตารางได้อย่างเดียว ไม่รับจองผ่านตาราง"}
