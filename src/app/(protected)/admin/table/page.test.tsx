@@ -126,6 +126,13 @@ describe('หน้าตารางจองของแอดมิน (/admi
     expect(html).toContain('คลิกช่องว่างในตารางเพื่อเปิด popup จอง')
   })
 
+  it('ใช้ส่วนตารางสถานะห้องชุดเดียวกับทุกหน้า (หัวข้อ + คำอธิบาย + ตาราง)', async () => {
+    const html = await renderPage()
+
+    expect(html).toContain('ตารางสถานะห้องวันที่')
+    expect(html).toContain('สถานะช่วงเวลาของทุกห้องในวันเดียว')
+  })
+
   it('มีปุ่มจัดการการจองของแอดมิน', async () => {
     const html = await renderPage()
 

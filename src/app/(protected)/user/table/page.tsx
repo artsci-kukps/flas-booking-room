@@ -1,10 +1,9 @@
 import { requireUser } from "@/lib/auth/guards";
 import { todayInBangkok } from "@/lib/admin/service-periods";
 import BookingDayNav from "@/components/booking/booking-day-nav";
-import RoomTimeGrid from "@/components/booking/room-time-grid";
+import RoomStatusSection from "@/components/booking/room-status-section";
 import { parseBookingDate } from "@/lib/booking/booking-date";
 import { getDayAvailability } from "@/lib/booking/day-availability";
-import { formatThaiDate } from "@/lib/format";
 
 import { bookRoomFromTable } from "../booking/actions";
 
@@ -47,20 +46,12 @@ export default async function UserTablePage({
 
       <BookingDayNav path={PATH} date={date} today={today} />
 
-      <section className="mt-6" aria-labelledby="room-grid-heading">
-        <h2
-          id="room-grid-heading"
-          className="text-base font-semibold tracking-tight text-ink"
-        >
-          ตารางสถานะห้องวันที่ {formatThaiDate(date)}
-        </h2>
-        <RoomTimeGrid
-          date={date}
-          today={today}
-          availability={availability}
-          bookRoomAction={bookRoomFromTable}
-        />
-      </section>
+      <RoomStatusSection
+        date={date}
+        today={today}
+        availability={availability}
+        bookRoomAction={bookRoomFromTable}
+      />
     </main>
   );
 }

@@ -6,7 +6,7 @@ import {
 import { todayInBangkok } from "@/lib/admin/service-periods";
 import { requireAdmin } from "@/lib/auth/guards";
 import BookingDayNav from "@/components/booking/booking-day-nav";
-import RoomTimeGrid from "@/components/booking/room-time-grid";
+import RoomStatusSection from "@/components/booking/room-status-section";
 import { getDayAvailability } from "@/lib/booking/day-availability";
 import { parseBookingDate } from "@/lib/booking/booking-date";
 import { formatThaiDate } from "@/lib/format";
@@ -86,24 +86,12 @@ export default async function BookingManagementPage({
         today={today}
       />
 
-      <section className="mt-6" aria-labelledby="room-grid-heading">
-        <h2
-          id="room-grid-heading"
-          className="text-base font-semibold tracking-tight text-ink"
-        >
-          ตารางสถานะห้องวันที่ {formatThaiDate(date)}
-        </h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          สถานะทุกช่วงเวลาของทุกห้องในวันเดียว — คลิกช่องว่างเพื่อเปิด popup
-          จองให้เสร็จจากหน้านี้ได้เลย
-        </p>
-        <RoomTimeGrid
-          date={date}
-          today={today}
-          availability={availability}
-          bookRoomAction={bookRoomFromTable}
-        />
-      </section>
+      <RoomStatusSection
+        date={date}
+        today={today}
+        availability={availability}
+        bookRoomAction={bookRoomFromTable}
+      />
 
       <section className="mt-8" aria-labelledby="bookings-heading">
         <h2

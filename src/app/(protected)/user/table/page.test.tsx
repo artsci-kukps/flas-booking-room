@@ -126,6 +126,13 @@ describe('หน้าตารางจองของผู้ใช้ (/user
     expect(html).toContain('คลิกช่องว่างในตารางเพื่อเปิด popup จอง')
   })
 
+  it('ใช้ส่วนตารางสถานะห้องชุดเดียวกับทุกหน้า (หัวข้อ + คำอธิบาย + ตาราง)', async () => {
+    const html = await renderPage()
+
+    expect(html).toContain('ตารางสถานะห้องวันที่')
+    expect(html).toContain('สถานะช่วงเวลาของทุกห้องในวันเดียว')
+  })
+
   it('?date= เลือกวันของตารางได้ (และเป็นวันนอกหน้าต่างจอง → ดูอย่างเดียว)', async () => {
     const html = await renderPage({ date: '2026-10-21' })
 

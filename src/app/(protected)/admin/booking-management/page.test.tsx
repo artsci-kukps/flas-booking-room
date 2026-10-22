@@ -214,6 +214,13 @@ describe('admin booking-management page', () => {
     expect(html).toContain('ดูวันก่อนหน้า')
   })
 
+  it('ใช้ส่วนตารางสถานะห้องชุดเดียวกับทุกหน้า (หัวข้อ + คำอธิบาย + ตาราง)', async () => {
+    const html = await render()
+
+    expect(html).toContain('ตารางสถานะห้องวันที่')
+    expect(html).toContain('สถานะช่วงเวลาของทุกห้องในวันเดียว')
+  })
+
   it('ส่ง action ที่จองแล้วอยู่ในตาราง (ไม่พาไปหน้ายืนยัน) ให้ตาราง', async () => {
     await render()
 
