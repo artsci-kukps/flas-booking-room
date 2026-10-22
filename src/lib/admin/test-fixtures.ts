@@ -1,7 +1,9 @@
 import type { AuthUser } from '@/lib/auth/guards'
 
+import type { HolidayRow } from './holidays'
 import type { RoomWithDeletedRow } from './rooms'
 import type { RoomTypeWithDeletedRow } from './room-types'
+import type { ServicePeriodRow } from './service-periods'
 
 /**
  * ตัวช่วยร่วมของเทสต์หน้าจัดการห้องและประเภทห้อง
@@ -35,10 +37,40 @@ export function makeRoom(
     roomTypeName: 'ห้องทั่วไป',
     bookingMode: 'CAPACITY',
     maxCapacity: 4,
+    minDurationMinutes: 60,
     facilities: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     deletedAt: null,
     deletedBy: null,
+    ...overrides,
+  }
+}
+
+/** แถวช่วงเวลาให้บริการตัวอย่าง — ค่าเริ่มต้นเป็นช่วง NORMAL ปกติ */
+export function makeServicePeriod(
+  overrides: Partial<ServicePeriodRow> & Pick<ServicePeriodRow, 'id'>,
+): ServicePeriodRow {
+  return {
+    name: 'เวลาทำการปกติ',
+    kind: 'NORMAL',
+    openTime: '08:30',
+    closeTime: '16:30',
+    effectiveFrom: '2026-01-01',
+    effectiveTo: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    ...overrides,
+  }
+}
+
+/** แถววันหยุดตัวอย่าง — ค่าเริ่มต้นเป็นวันจักรี */
+export function makeHoliday(
+  overrides: Partial<HolidayRow> & Pick<HolidayRow, 'id'>,
+): HolidayRow {
+  return {
+    holidayDate: '2026-04-06',
+    name: 'วันจักรี',
+    note: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
     ...overrides,
   }
 }

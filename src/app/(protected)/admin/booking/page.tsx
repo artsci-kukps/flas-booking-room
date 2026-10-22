@@ -1,11 +1,16 @@
 import Link from "next/link";
 
-import { requireAdmin } from "@/lib/auth/guards";
-
+import BookingFlow from "@/components/booking/booking-flow";
 import MyBookingsSection from "@/components/booking/my-bookings-section";
 import RoomTypesSection from "@/components/booking/room-types-section";
 import ServiceHoursSection from "@/components/booking/service-hours-section";
 import BookingRulesSection from "@/components/booking/booking-rules-section";
+import { requireAdmin } from "@/lib/auth/guards";
+import { todayInBangkok } from "@/lib/admin/service-periods";
+import { parseBookingDate, parseBookingRoomId } from "@/lib/booking/booking-date";
+import { BLOCK_LENGTH_COPY } from "@/lib/booking/slot-display";
+
+import { bookRoom } from "./actions";
 
 /** ชื่อแสดงบนหัวหน้า: เอาชื่อจริง (โทเคนแรก) ถ้ามี ไม่งั้นใช้หน้าอีเมล */
 function displayName(fullName: string | null, email: string): string {
@@ -15,12 +20,21 @@ function displayName(fullName: string | null, email: string): string {
 }
 
 /**
- * หน้าจองห้องของแอดมิน — เนื้อหาและกติกาชุดเดียวกับหน้าผู้ใช้ทุกประการ
- * แต่เป็นคนละเส้นทาง พร้อมทางลัดไปส่วนจัดการจองของระบบ
+ * หน้าจองห้องของแอดมิน — ใช้ขั้นตอนการจองชุดเดียวกับผู้ใช้ (ผนังห้อง → popup จองครบวงจร:
+ * เลือกวัน วันนี้/วันพรุ่งนี้ → เลือกบล็อกเวลา → ยืนยัน) ต่างกันที่ server action ของพื้นที่ /admin
  */
-export default async function AdminBookingPage() {
+export default async function AdminBookingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const admin = await requireAdmin();
   const name = displayName(admin.fullName, admin.email);
+
+  const params = await searchParams;
+  const today = todayInBangkok();
+  const date = parseBookingDate(params.date);
+  const roomId = parseBookingRoomId(params.room);
 
   return (
     <main className="page py-8 sm:py-10">
@@ -29,9 +43,8 @@ export default async function AdminBookingPage() {
           จองห้อง
         </h1>
         <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-          สวัสดี, {name} — จองห้องให้ตัวเองแบบเดียวกับผู้ใช้ทั่วไป
-          เลือกช่วงเวลาเป็นบล็อกละ 1 ชั่วโมง แล้วยืนยันเพื่อรับรหัส 6
-          หลักทางอีเมล
+          สวัสดี, {name} — เลือกห้อง เลือกวันที่ (วันนี้หรือวันพรุ่งนี้) และช่วงเวลา{" "}
+          {BLOCK_LENGTH_COPY} แล้วยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
         </p>
       </div>
 
@@ -64,6 +77,13 @@ export default async function AdminBookingPage() {
           จัดการการจอง
         </Link>
       </div>
+
+      <BookingFlow
+        today={today}
+        date={date}
+        roomId={roomId}
+        bookRoomAction={bookRoom}
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
