@@ -13,6 +13,8 @@ let updateResults: (unknown[] | Error)[] = []
 let whereParams: string[] = []
 let updateWhereParams: string[] = []
 let setCalls: Record<string, unknown>[] = []
+// ค่าที่สั่ง set ไว้ล่าสุด — จะถูกบันทึกใน setCalls เฉพาะเมื่อมีแถวที่ตรงเงื่อนไข where จริง
+let pendingSet: Record<string, unknown> | null = null
 
 /** ไล่ SQL object ของ drizzle แล้วเก็บค่า parameter ที่เป็น string (Param) */
 function collectSqlParams(value: unknown, out: string[]): void {
@@ -120,22 +122,31 @@ beforeEach(() => {
   whereParams = []
   updateWhereParams = []
   setCalls = []
+  pendingSet = null
 
   fromMock.mockImplementation(() => chainQuery(selectResults.shift() ?? []))
   selectMock.mockImplementation(() => ({ from: fromMock }))
 
   const updateQuery = {
     set: (values: Record<string, unknown>) => {
-      setCalls.push(values)
+      pendingSet = values
       return {
         where: (arg: unknown) => {
           collectSqlParams(arg, updateWhereParams)
           return {
             returning: () => {
               const result = updateResults.shift() ?? []
-              return result instanceof Error
-                ? Promise.reject(result)
-                : Promise.resolve(result)
+              if (result instanceof Error) {
+                pendingSet = null
+                return Promise.reject(result)
+              }
+              // ค่าที่ set ถูกเขียนจริงเฉพาะแถวที่ตรงกับ where (เหมือน DB จริง)
+              // ถ้าไม่มีแถวตรงเงื่อนไข → ไม่มีอะไรถูกเขียนลงฐานข้อมูล
+              if (result.length > 0 && pendingSet) {
+                setCalls.push(pendingSet)
+              }
+              pendingSet = null
+              return Promise.resolve(result)
             },
           }
         },
@@ -378,6 +389,40 @@ describe('cancelReservation', () => {
     })
   })
 
+  it('เงื่อนไข UPDATE ผูกสถานะเดิมไว้ด้วย → กันยกเลิกซ้ำแบบ atomic', async () => {
+    updateResults = [[{ id: 'r-1' }]]
+
+    await cancelReservation('r-1', 'เหตุผล', 'a1', NOW)
+
+    expect(updateWhereParams).toContain('r-1')
+    expect(updateWhereParams).toContain('CANCELLED')
+  })
+
+  it('ยกเลิกแถวที่ยกเลิกไปแล้ว → ไม่เขียนทับร่องรอยเดิม และไม่ส่งอีเมลซ้ำ', async () => {
+    updateResults = [[]]
+    selectResults = [[{ id: 'r-1', status: 'CANCELLED' }]]
+
+    const result = await cancelReservation('r-1', 'เหตุผลที่ยกเลิกซ้ำ', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'CANCELLED' })
+    // ไม่เขียนทับ canceled_at/by/reason เดิมของแถวที่ยกเลิกไปแล้ว
+    expect(setCalls).toHaveLength(0)
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
+
+  it('สถานะเปลี่ยนไปแล้วระหว่างที่กด (แข่งกับผู้ดำเนินการอื่น) → ข้อความให้รีเฟรชหน้า', async () => {
+    updateResults = [[]]
+    selectResults = [[{ id: 'r-1', status: 'ACTIVE' }]]
+
+    const result = await cancelReservation('r-1', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'สถานะของรายการจองเปลี่ยนไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่',
+    })
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
+
   it('ยกเลิกสำเร็จ → เข้าคิวอีเมลแจ้งเตือนการยกเลิกพร้อมเหตุผล (ตัดช่องว่างหัวท้าย)', async () => {
     updateResults = [[{ id: 'r-1' }]]
 
@@ -480,17 +525,42 @@ describe('overrideReservationStatus', () => {
     expect(enqueueCancellationMock).not.toHaveBeenCalled()
   })
 
-  it('เข้าคิวอีเมลล้มเหลว → override ยังสำเร็จ (fail-open) พร้อมบันทึกข้อผิดพลาด', async () => {
+  it('override จาก CANCELLED ไปสถานะอื่นได้ (แก้สถานะที่ระบบตั้งผิด) — ไม่ถูกเงื่อนไขกันซ้ำบล็อก', async () => {
     updateResults = [[{ id: 'r-1' }]]
-    enqueueCancellationMock.mockRejectedValueOnce(new Error('queue down'))
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const result = await overrideReservationStatus('r-1', 'CANCELLED', 'เหตุผล', 'a1', NOW)
+    const result = await overrideReservationStatus(
+      'r-1',
+      'ACTIVE',
+      'ระบบตั้งผิด ผู้ใช้มาใช้งานจริง',
+      'a1',
+      NOW,
+    )
+
+    expect(result).toEqual({ ok: true, status: 'ACTIVE' })
+    expect(setCalls[0]).toMatchObject({ status: 'ACTIVE' })
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
+
+  it('override ไป CANCELLED บนแถวที่ยกเลิกไปแล้ว → ไม่เขียนทับร่องรอยเดิม ไม่ส่งอีเมลซ้ำ', async () => {
+    updateResults = [[]]
+    selectResults = [[{ id: 'r-1', status: 'CANCELLED' }]]
+
+    const result = await overrideReservationStatus('r-1', 'CANCELLED', 'เหตุผลที่ยกเลิกซ้ำ', 'a1', NOW)
 
     expect(result).toEqual({ ok: true, status: 'CANCELLED' })
-    expect(errorSpy).toHaveBeenCalled()
+    expect(setCalls).toHaveLength(0)
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+  })
 
-    errorSpy.mockRestore()
+  it('override ไปสถานะที่แถวมีอยู่แล้ว → ไม่แก้ข้อมูลซ้ำ ไม่ส่งอีเมล', async () => {
+    updateResults = [[]]
+    selectResults = [[{ id: 'r-1', status: 'ACTIVE' }]]
+
+    const result = await overrideReservationStatus('r-1', 'ACTIVE', 'เหตุผล', 'a1', NOW)
+
+    expect(result).toEqual({ ok: true, status: 'ACTIVE' })
+    expect(setCalls).toHaveLength(0)
+    expect(enqueueCancellationMock).not.toHaveBeenCalled()
   })
 })
 

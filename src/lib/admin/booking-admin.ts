@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 
 import db from "@/db";
 import { reservation, rooms, roomType, users } from "@/db/schema";
@@ -40,6 +40,8 @@ export type AdminBookingRow = {
 export type BookingAdminResult = Result<{ status: ReservationStatus }>;
 
 const NOT_FOUND_MESSAGE = "ไม่พบรายการจองนี้ กรุณารีเฟรชหน้าแล้วลองใหม่";
+const STATUS_CHANGED_MESSAGE =
+  "สถานะของรายการจองเปลี่ยนไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่";
 const PICKUP_NOT_PENDING_MESSAGE =
   "ยืนยันรับกุญแจได้เฉพาะรายการที่รอรับกุญแจ (PENDING) เท่านั้น";
 const RETURN_NOT_ACTIVE_MESSAGE =
@@ -281,14 +283,29 @@ function statusOverrideErrorMessage(error: unknown): string | null {
   return exclusionViolationMessage(error, EXCLUSION_MESSAGES);
 }
 
-/** เขียนสถานะใหม่ลงแถวการจอง แล้วแปลงข้อผิดพลาดที่รู้จักเป็นข้อความไทย */
+/**
+ * ผลภายในของการเขียนสถานะ — `changed` บอกว่าสถานะเปลี่ยนจริงหรือไม่
+ * ใช้ตัดสินว่าจะเข้าคิวอีเมลแจ้งเตือนการยกเลิกหรือไม่ (กันอีเมลซ้ำ)
+ */
+type StatusOverrideOutcome =
+  | { ok: true; status: ReservationStatus; changed: boolean }
+  | { ok: false; message: string };
+
+/**
+ * เขียนสถานะใหม่ลงแถวการจอง แล้วแปลงข้อผิดพลาดที่รู้จักเป็นข้อความไทย
+ *
+ * เงื่อนไข `status <> <สถานะใหม่>` ใน UPDATE ทำให้ "เขียนสถานะ" เกิดขึ้นเฉพาะตอนที่สถานะเปลี่ยนจริง
+ *   - ยกเลิกแถวที่ยกเลิกไปแล้ว → ไม่เขียนทับร่องรอยเดิม (canceled_at/by/reason) และไม่ต้องส่งอีเมลซ้ำ
+ *   - override จาก CANCELLED ไปสถานะอื่นยังทำได้ เพราะเงื่อนไขผูกกับ "สถานะใหม่" ไม่ใช่สถานะเดิม
+ * เมื่อไม่มีแถวถูกแก้ จะอ่านสถานะจริงมาแยกว่า "ไม่พบรายการ" หรือ "สถานะเป็นค่าเดิมอยู่แล้ว"
+ */
 async function applyStatusOverride(
   reservationId: string,
   status: ReservationStatus,
   reason: string,
   actorId: string,
   now: Date,
-): Promise<BookingAdminResult> {
+): Promise<StatusOverrideOutcome> {
   try {
     const updated = await db
       .update(reservation)
@@ -298,14 +315,30 @@ async function applyStatusOverride(
         canceledBy: actorId,
         canceledReason: reason.trim(),
       })
-      .where(eq(reservation.id, reservationId))
+      .where(and(eq(reservation.id, reservationId), ne(reservation.status, status)))
       .returning({ id: reservation.id });
 
-    if (updated.length === 0) {
+    if (updated.length > 0) {
+      return { ok: true, status, changed: true };
+    }
+
+    const [row] = await db
+      .select({ id: reservation.id, status: reservation.status })
+      .from(reservation)
+      .where(eq(reservation.id, reservationId))
+      .limit(1);
+
+    if (!row) {
       return { ok: false, message: NOT_FOUND_MESSAGE };
     }
 
-    return { ok: true, status };
+    if (row.status === status) {
+      // สถานะเป็นค่าที่ขออยู่แล้ว — ไม่เปลี่ยนอะไร ไม่เขียนทับร่องรอยเดิม ไม่ส่งอีเมลซ้ำ
+      return { ok: true, status, changed: false };
+    }
+
+    // สถานะเปลี่ยนไปโดยผู้ดำเนินการอื่นระหว่างที่กด — ให้รีเฟรชแล้วลองใหม่
+    return { ok: false, message: STATUS_CHANGED_MESSAGE };
   } catch (error) {
     const mapped = statusOverrideErrorMessage(error);
 
@@ -337,11 +370,12 @@ export async function cancelReservation(
 
   const result = await applyStatusOverride(reservationId, "CANCELLED", reason, actorId, now);
 
-  if (result.ok) {
+  // ส่งอีเมลเฉพาะตอนที่สถานะเปลี่ยนจริง — ยกเลิกแถวที่ยกเลิกไปแล้วไม่ต้องส่งซ้ำ
+  if (result.ok && result.changed) {
     await enqueueBookingCancellationForReservation(reservationId, reason.trim());
   }
 
-  return result;
+  return result.ok ? { ok: true, status: result.status } : result;
 }
 
 /**
@@ -368,15 +402,12 @@ export async function overrideReservationStatus(
 
   const result = await applyStatusOverride(reservationId, status, reason, actorId, now);
 
-  // ยกเลิกผ่านแอดมิน (override ไป CANCELLED) ต้องแจ้งทางอีเมลเช่นเดียวกับ cancelReservation (tor ข้อ 5.1)
-  // fail-open: คิวอีเมลล้มเหลวไม่ทำให้ override ที่อัปเดตสถานะสำเร็จแล้วล้มไปด้วย
-  if (result.ok && result.status === "CANCELLED") {
-    try {
-      await enqueueBookingCancellationForReservation(reservationId, reason.trim());
-    } catch (error) {
-      console.error("Failed to enqueue cancellation email for status override", error);
-    }
+  // ยกเลิกผ่านแอดมิน (override ไป CANCELLED) ต้องแจ้งทางอีเมลเช่นเดียวกับ cancelReservation (TOR ข้อ 6.4/7, 11)
+  // ตัวช่วยเข้าคิวเป็นงานเสริม (best-effort) และกลืนข้อผิดพลาดเองอยู่แล้ว
+  // (src/lib/notifications/cancellation.ts) จึงไม่ต้อง try/catch ซ้ำ และไม่ส่งซ้ำเมื่อสถานะไม่เปลี่ยน
+  if (result.ok && result.changed && result.status === "CANCELLED") {
+    await enqueueBookingCancellationForReservation(reservationId, reason.trim());
   }
 
-  return result;
+  return result.ok ? { ok: true, status: result.status } : result;
 }

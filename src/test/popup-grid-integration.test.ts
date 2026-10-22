@@ -404,6 +404,42 @@ describe('แอดมินยกเลิกการจองปลดล็�
     expect(revalidatePathMock).toHaveBeenCalledWith('/admin/table')
     expect(revalidatePathMock).toHaveBeenCalledWith('/user/table')
   })
+
+  it('แอดมินยกเลิกซ้ำ: ร่องรอยการยกเลิกเดิมไม่ถูกเขียนทับ และไม่มีอีเมลยกเลิกซ้ำ', async () => {
+    await adminBookRoom(null, bookForm('room-g', [{ start: '08:30', end: '10:30' }]))
+    const [booking] = reservations()
+
+    const first = await adminCancelAction(
+      null,
+      form({ id: String(booking!.id), reason: 'เหตุผลแรก' }),
+    )
+
+    expect(first).toMatchObject({ ok: true, status: 'CANCELLED' })
+
+    const afterFirst = reservations()[0]!
+    const trace = {
+      canceledAt: afterFirst.canceledAt,
+      canceledBy: afterFirst.canceledBy,
+      canceledReason: afterFirst.canceledReason,
+    }
+
+    const second = await adminCancelAction(
+      null,
+      form({ id: String(booking!.id), reason: 'เหตุผลที่สอง' }),
+    )
+
+    expect(second).toMatchObject({ ok: true, status: 'CANCELLED' })
+
+    const afterSecond = reservations()[0]!
+    expect(afterSecond.status).toBe('CANCELLED')
+    expect(afterSecond.canceledAt).toEqual(trace.canceledAt)
+    expect(afterSecond.canceledBy).toEqual(trace.canceledBy)
+    expect(afterSecond.canceledReason).toEqual(trace.canceledReason)
+
+    const cancelled = outboxRows().filter((row) => row.type === BOOKING_CANCELLED_EMAIL_TYPE)
+    expect(cancelled).toHaveLength(1)
+    expect(cancelled[0]).toMatchObject({ payload: { reason: 'เหตุผลแรก' } })
+  })
 })
 
 // ============================================================
