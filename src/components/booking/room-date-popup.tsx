@@ -89,15 +89,16 @@ export default function RoomDatePopup({
   const day = days.find((item) => item.option.date === date) ?? null;
   const availability = day?.availability ?? null;
   /** หน้าต่างเวลาทำการของวันที่เลือกเมื่อวันเปิด (ใช้แสดงเวลาเปิด–ปิด + ช่องว่าง) */
-  const openDay = room !== null && availability !== null && availability.open
-    ? availability
-    : null;
+  const openAvailability =
+    room !== null && availability !== null && availability.open
+      ? availability
+      : null;
   const dayRoom: RoomDayAvailability | null =
-    openDay !== null && room !== null
-      ? (openDay.rooms.find((item) => item.id === room.id) ?? null)
+    openAvailability !== null && room !== null
+      ? (openAvailability.rooms.find((item) => item.id === room.id) ?? null)
       : null;
   /** แสดงตารางช่องว่าง + ฟอร์มยืนยันใน popup หรือแสดงข้อความวันปิด/ไม่พบห้องแทน */
-  const showPicker = room !== null && openDay !== null && dayRoom !== null;
+  const showPicker = room !== null && openAvailability !== null && dayRoom !== null;
 
   const cancelButton = (
     <button type="button" onClick={close} className="btn btn-outline">
@@ -195,13 +196,13 @@ export default function RoomDatePopup({
             </div>
           </fieldset>
 
-          {room && openDay && dayRoom ? (
+          {room && openAvailability && dayRoom ? (
             <div className="mt-5">
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs font-semibold text-ink-muted">
                 <span>
                   เวลาเปิด–ปิด:{" "}
                   <span className="tabular-nums">
-                    {openDay.openTime}–{openDay.closeTime}
+                    {openAvailability.openTime}–{openAvailability.closeTime}
                   </span>
                 </span>
                 <span>บล็อกละ {slotLengthLabel(room.minDurationMinutes)}</span>

@@ -16,8 +16,7 @@ import {
   exclusionViolationMessage,
   pgErrorCode,
 } from "@/lib/admin/pg-error";
-import { listServicePeriods } from "@/lib/admin/service-periods";
-import { todayInBangkok } from "@/lib/admin/service-periods";
+import { listServicePeriods, todayInBangkok } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
 import {
   enqueueBookingCodeEmail,
@@ -456,7 +455,7 @@ export async function createReservations(
   }
 
   // pre-assign กันรหัสชนกันเองในชุดแล้ว แต่ยังมีโอกาสถูกคำขออื่น "แย่ง" รหัสไปหลัง pre-assign
-  // ทำให้ 23505 กลาง transaction (abort ทั้งชุด) — เริ่มใหม่ทั้งชุดด้วยรหัสชุดใหม่จานครบจำนวนครั้ง
+  // ทำให้ 23505 กลาง transaction (abort ทั้งชุด) — เริ่มใหม่ทั้งชุดด้วยรหัสชุดใหม่จำนวนครั้ง
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
     const codes = await assignUniqueCodes(requests.length, first.date, generateCode);
 

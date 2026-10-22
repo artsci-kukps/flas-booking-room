@@ -11,7 +11,7 @@ import { formatThaiDate } from "@/lib/format";
 /** รูปแบบวันที่ที่รับ: 'YYYY-MM-DD' จากคอลัมน์ date ของ PG */
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** หน้าต่างวันที่จองได้นับจากวันนี้: วันนี้ + วันพรุ่งนี้ */
+/** หน้าต่างวันที่จองได้นับจากวันนี้: วันนี้ + วันพรุ่งนี้ — ค่านี้คือแกนเดียวที่กำหนดจำนวนวัน */
 export const BOOKING_WINDOW_DAYS = 2;
 
 /** ตัวเลือกวันที่ใน popup เริ่มจอง */
@@ -26,7 +26,7 @@ export type BookingDateOption = {
   formatted: string;
 };
 
-/** ป้ายของตัวเลือกตามลำดับ offset จากวันนี้ */
+/** ป้ายของตัวเลือกตามลำดับ offset จากวันนี้ — จำนวนรายการเดินตาม BOOKING_WINDOW_DAYS */
 const DATE_LABELS = ["วันนี้", "วันพรุ่งนี้"] as const;
 
 /** ตรวจวันที่ 'YYYY-MM-DD' ว่ารูปแบบถูกและเป็นวันที่มีจริงบนปฏิทิน (กัน 2026-02-30) */
@@ -82,6 +82,7 @@ function thaiWeekday(date: string): string {
 
 /**
  * ตัวเลือกวันที่ของ popup — วันนี้และวันพรุ่งนี้เท่านั้น เรียงตามลำดับเวลา
+ * จำนวนรายการยึดที่ BOOKING_WINDOW_DAYS เสมอ ค่าคงที่จึงไม่หลุดจากพฤติกรรมจริง
  * คืนรายการว่างเมื่อวันนี้ผิดรูปแบบ เพื่อให้ผู้เรียกจัดการต่อได้โดยไม่พัง
  */
 export function bookingDateOptions(today: string): BookingDateOption[] {
@@ -89,8 +90,9 @@ export function bookingDateOptions(today: string): BookingDateOption[] {
     return [];
   }
 
-  return DATE_LABELS.map((label, offset) => {
+  return Array.from({ length: BOOKING_WINDOW_DAYS }, (_, offset) => {
     const date = shiftBookingDate(today, offset);
+    const label = DATE_LABELS[offset] ?? `วันถัดไป ${offset} วัน`;
 
     return { date, label, weekday: thaiWeekday(date), formatted: formatThaiDate(date) };
   });

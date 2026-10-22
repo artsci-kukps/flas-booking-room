@@ -13,6 +13,10 @@ describe('booking date window', () => {
   it('มีหน้าต่างเลือกวันเพียง 2 วัน: วันนี้และวันพรุ่งนี้', () => {
     expect(BOOKING_WINDOW_DAYS).toBe(2)
   })
+
+  it('จำนวนตัวเลือกวันที่เดินตามหน้าต่างจองเสมอ (ค่าคงที่ไม่หลุดจากพฤติกรรม)', () => {
+    expect(bookingDateOptions('2026-10-19')).toHaveLength(BOOKING_WINDOW_DAYS)
+  })
 })
 
 describe('bookingDateOptions', () => {
