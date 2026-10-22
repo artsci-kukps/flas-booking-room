@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
+import { BLOCK_LENGTH_COPY } from '@/lib/booking/slot-display'
+
 import CreativeSpaceRules from './creative-space-rules'
 
 describe('ผนังกติกาการใช้ห้องของหน้าเข้าสู่ระบบ', () => {
@@ -36,6 +38,10 @@ describe('ผนังกติกาการใช้ห้องของห�
     expect(html).not.toContain('เลือกเป็นบล็อกละ 1 ชั่วโมง')
     expect(html).toContain('ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง')
     expect(html).toContain('ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง')
+  })
+
+  it('ข้อความความยาวบล็อกมาจากชุดข้อความกลางของระบบ (ไม่คัดลอกข้อความไว้เอง)', () => {
+    expect(html).toContain(BLOCK_LENGTH_COPY)
   })
 
   it('สรุปการป้องกันการจองซ้อนจาก TOR ข้อ 6.2', () => {

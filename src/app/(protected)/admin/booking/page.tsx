@@ -8,6 +8,7 @@ import BookingRulesSection from "@/components/booking/booking-rules-section";
 import { requireAdmin } from "@/lib/auth/guards";
 import { todayInBangkok } from "@/lib/admin/service-periods";
 import { parseBookingDate, parseBookingRoomId } from "@/lib/booking/booking-date";
+import { BLOCK_LENGTH_COPY } from "@/lib/booking/slot-display";
 
 import { bookRoom } from "./actions";
 
@@ -42,9 +43,8 @@ export default async function AdminBookingPage({
           จองห้อง
         </h1>
         <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-          สวัสดี, {name} — เลือกห้อง เลือกวันที่ (วันนี้หรือวันพรุ่งนี้) และช่วงเวลา
-          (ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง, ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง)
-          แล้วยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
+          สวัสดี, {name} — เลือกห้อง เลือกวันที่ (วันนี้หรือวันพรุ่งนี้) และช่วงเวลา{" "}
+          {BLOCK_LENGTH_COPY} แล้วยืนยันเพื่อรับรหัส 6 หลักทางอีเมล
         </p>
       </div>
 

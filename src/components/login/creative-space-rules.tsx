@@ -2,6 +2,7 @@ import BookingRulesSection from "@/components/booking/booking-rules-section";
 import RoomTypesSection from "@/components/booking/room-types-section";
 import ServiceHoursSection from "@/components/booking/service-hours-section";
 import StatusLegendSection from "@/components/booking/status-legend-section";
+import { BLOCK_LENGTH_COPY } from "@/lib/booking/slot-display";
 
 /**
  * ผนังกติกาฝั่งซ้ายของหน้าเข้าสู่ระบบ — สรุปจาก TOR.md ข้อ 4–8
@@ -12,7 +13,7 @@ import StatusLegendSection from "@/components/booking/status-legend-section";
 const SLOT_RULES = [
   {
     title: "เลือกเป็นบล็อกตามประเภทห้อง",
-    body: "บล็อกเริ่มนับจากเวลาเปิดของวัน — ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง, ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง เช่น 08:30–10:30 — เลือกเป็นบล็อกจากระบบเท่านั้น พิมพ์เวลาเองไม่ได้",
+    body: `บล็อกเริ่มนับจากเวลาเปิดของวัน — ${BLOCK_LENGTH_COPY} เช่น 08:30–10:30 — เลือกเป็นบล็อกจากระบบเท่านั้น พิมพ์เวลาเองไม่ได้`,
   },
   {
     title: "ไม่จำกัดจำนวนครั้งและความยาว",

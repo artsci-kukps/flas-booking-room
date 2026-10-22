@@ -2,6 +2,8 @@
  * เวลาทำการ — ทั้งวันปกติและช่วงสอบ ดึงจากค่าบริการเดียวกับที่ระบบใช้จอง
  * ใช้ร่วมกันระหว่างหน้าจองห้องของผู้ใช้และของแอดมิน
  */
+import { BLOCK_LENGTH_COPY } from "@/lib/booking/slot-display";
+
 export default function ServiceHoursSection() {
   return (
     <section aria-labelledby="service-hours">
@@ -32,8 +34,7 @@ export default function ServiceHoursSection() {
         </div>
       </dl>
       <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-muted">
-        เวลาจองนับเป็นบล็อกตามประเภทห้อง — ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง,
-        ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง เช่น 08:30–10:30
+        เวลาจองนับเป็นบล็อกตามประเภทห้อง — {BLOCK_LENGTH_COPY} เช่น 08:30–10:30
       </p>
     </section>
   );

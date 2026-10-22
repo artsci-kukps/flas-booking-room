@@ -33,6 +33,8 @@ vi.mock('@/lib/admin/service-periods', async (importOriginal) => ({
   todayInBangkok: () => '2026-10-19',
 }))
 
+import { BLOCK_LENGTH_COPY } from '@/lib/booking/slot-display'
+
 import BookingPage from './page'
 
 async function renderPage(
@@ -96,5 +98,11 @@ describe('หน้าจองห้องของผู้ใช้ (/user/bo
     expect(html).not.toContain('เป็นบล็อกละ 1 ชั่วโมง')
     expect(html).toContain('ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง')
     expect(html).toContain('ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง')
+  })
+
+  it('ข้อความความยาวบล็อกมาจากชุดข้อความกลางของระบบ (ไม่คัดลอกข้อความไว้เอง)', async () => {
+    const html = await renderPage()
+
+    expect(html).toContain(BLOCK_LENGTH_COPY)
   })
 })
