@@ -78,6 +78,21 @@ describe('parseBookingDate', () => {
   })
 })
 
+describe('parseBookingRoomId', () => {
+  it('ตัดช่องว่าง รับค่าแรกเมื่อซ้ำ และคืน null เมื่อไม่มี/ว่าง', () => {
+    expect(parseBookingRoomId('  room-s  ')).toBe('room-s')
+    expect(parseBookingRoomId(['room-g', 'room-s'])).toBe('room-g')
+    expect(parseBookingRoomId(undefined)).toBeNull()
+    expect(parseBookingRoomId('   ')).toBeNull()
+  })
+
+  it('คืน null เมื่อค่าว่างเปล่าหรือไม่มีค่าเลย', () => {
+    expect(parseBookingRoomId(null)).toBeNull()
+    expect(parseBookingRoomId('')).toBeNull()
+    expect(parseBookingRoomId([])).toBeNull()
+  })
+})
+
 describe('shiftBookingDate', () => {
   it('เลื่อนวันไปข้างหน้า/ถอยหลังข้ามเดือนได้', () => {
     expect(shiftBookingDate('2026-10-19', 1)).toBe('2026-10-20')
