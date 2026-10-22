@@ -9,6 +9,27 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'node',
+    projects: [
+      {
+        // เดิม: ทดสอบฝั่ง node ทั้งหมด (environment: node) — ไม่แตะไฟล์ *.dom.test.tsx
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          include: ['src/**/*.test.{ts,tsx}'],
+          exclude: ['src/**/*.dom.test.{ts,tsx}'],
+        },
+      },
+      {
+        // ใหม่: ทดสอบ DOM (environment: jsdom) — คลิก/พิมพ์/ส่งฟอร์มได้จริง
+        extends: true,
+        test: {
+          name: 'dom',
+          environment: 'jsdom',
+          include: ['src/**/*.dom.test.{ts,tsx}'],
+          setupFiles: ['./src/test/dom-setup.ts'],
+        },
+      },
+    ],
   },
 })

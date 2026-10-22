@@ -61,6 +61,19 @@ npm run dev
 | `npm test` | รันเทสต์ทั้งหมดด้วย Vitest |
 | `npm run lint` | ตรวจ code style ด้วย ESLint |
 
+## การทดสอบ (Vitest)
+
+Vitest แบ่งเป็น 2 โปรเจกต์ (ดู `vitest.config.mts`)
+
+| โปรเจกต์ | environment | ไฟล์ที่รับ | ใช้ทำอะไร |
+| --- | --- | --- | --- |
+| `node` (ค่าเริ่มต้น) | `node` | `src/**/*.test.{ts,tsx}` (ยกเว้น `*.dom.test.tsx`) | ทดสอบตรรกะ/ฟังก์ชันฝั่ง server |
+| `dom` | `jsdom` | `src/**/*.dom.test.tsx` | ทดสอบ client component แบบโต้ตอบได้ (คลิก/พิมพ์/ส่งฟอร์ม) ด้วย `@testing-library/react` |
+
+- ไฟล์ทดสอบ DOM ต้องตั้งชื่อลงท้ายด้วย `.dom.test.tsx` เท่านั้น เช่น `src/components/booking/room-time-grid.dom.test.tsx`
+- โปรเจกต์ `dom` มี setup file ที่ `src/test/dom-setup.ts` (cleanup ของ RTL + matcher ของ `@testing-library/jest-dom` + แผ่นข้างต้น `HTMLDialogElement.showModal()` ที่ jsdom ยังไม่ทำ)
+- ถ้าต้องการสภาพแวดล้อมอื่นในไฟล์เดียว ใส่ docblock `// @vitest-environment jsdom` (หรือ `node`) ไว้บนสุดไฟล์ได้
+
 ## การควบคุมการเข้าถึง (Auth guards)
 
 - `src/lib/auth/guards.ts` — helper กลางสำหรับทุกเส้นทาง
