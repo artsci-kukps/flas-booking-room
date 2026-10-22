@@ -38,10 +38,11 @@ vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }))
 vi.mock('next/navigation', () => ({ redirect: redirectMock }))
 
 import { notificationOutbox, reservation as reservationTable, users as usersTable } from '@/db/schema'
-import { bookRoom as userBookRoom } from '@/app/(protected)/user/booking/actions'
-import { bookRoom as adminBookRoom } from '@/app/(protected)/admin/booking/actions'
+import { bookRoom as userBookRoom, bookRoomFromTable as userBookRoomFromTable } from '@/app/(protected)/user/booking/actions'
+import { bookRoom as adminBookRoom, bookRoomFromTable as adminBookRoomFromTable } from '@/app/(protected)/admin/booking/actions'
 import { cancelBooking as userCancelBooking } from '@/app/(protected)/user/history/actions'
 import { cancelReservationAction as adminCancelAction } from '@/app/(protected)/admin/booking-management/cancel-override-actions'
+import { performBookingAction } from '@/lib/booking/booking-action'
 import { getDayAvailability } from '@/lib/booking/day-availability'
 import {
   BOOKING_CANCELLED_EMAIL_TYPE,
@@ -249,6 +250,86 @@ describe('จองผ่าน popup ของหน้าแอดมิน (/
 // AC: เมื่อคลิกช่องว่างในตารางแล้วจองสำเร็จ ช่องว่างนั้นถูกอัพเดตเป็นไม่ว่างทันที
 //     และเมื่อยกเลิก ช่องว่างกลับมาจองได้ใหม่ (ปลดล็อกทันที)
 // ============================================================
+
+describe('จองจากคลิกช่องว่างในตาราง (bookRoomFromTable — ไม่พาไปหน้ายืนยัน)', () => {
+  it('ผู้ใช้จองจากตาราง: ได้รหัสการจองกลับมา ไม่พาไปหน้ายืนยัน', async () => {
+    const state = await userBookRoomFromTable(
+      null,
+      bookForm('room-s', [{ start: '09:30', end: '10:30' }]),
+    )
+
+    expect(state).toEqual({ ok: true, bookingCodes: [expect.stringMatching(/^\d{6}$/)] })
+    expect(redirectMock).not.toHaveBeenCalled()
+  })
+
+  it('ช่องที่จองในตารางเปลี่ยนเป็นไม่ว่างทันที โดยไม่ต้องออกจากหน้าตาราง', async () => {
+    await userBookRoomFromTable(
+      null,
+      bookForm('room-s', [{ start: '09:30', end: '10:30' }]),
+    )
+
+    const { room } = await slotsOf('room-s')
+
+    expect(slotOf(room, '09:30')).toMatchObject({ status: 'occupied', usedCount: 1 })
+    expect(slotOf(room, '08:30')).toMatchObject({ status: 'free', usedCount: 0 })
+  })
+
+  it('แอดมินจองจากตาราง: ได้รหัสการจองกลับมา ไม่พาไปหน้ายืนยัน และห้อง G ถูกจองทันที', async () => {
+    const state = await adminBookRoomFromTable(
+      null,
+      bookForm('room-g', [{ start: '08:30', end: '10:30' }]),
+    )
+
+    expect(state).toEqual({ ok: true, bookingCodes: [expect.stringMatching(/^\d{6}$/)] })
+    expect(redirectMock).not.toHaveBeenCalled()
+
+    const { room } = await slotsOf('room-g')
+    expect(slotOf(room, '08:30')).toMatchObject({ status: 'occupied', selectable: false })
+  })
+
+  it('performBookingAction (redirectOnSuccess: false) คืนรหัสการจองและไม่ redirect', async () => {
+    const state = await performBookingAction({
+      formData: bookForm('room-s', [{ start: '09:30', end: '10:30' }]),
+      userId: USER.id,
+      confirmationPath: '/user/booking/confirmation',
+      redirectOnSuccess: false,
+    })
+
+    expect(state).toEqual({ ok: true, bookingCodes: [expect.stringMatching(/^\d{6}$/)] })
+    expect(redirectMock).not.toHaveBeenCalled()
+  })
+
+  it('จองไม่สำเร็จ: คืนข้อความและรีเฟรชหน้าที่แสดงความพร้อมทั้งหมด (ช่องว่างไม่ค้าง)', async () => {
+    // เต็มความจุของห้อง S (2 คน) — คนที่สามจองไม่ได้
+    await userBookRoomFromTable(
+      null,
+      bookForm('room-s', [{ start: '09:30', end: '10:30' }]),
+    )
+    requireUserMock.mockResolvedValue(OTHER_USER)
+    await userBookRoomFromTable(
+      null,
+      bookForm('room-s', [{ start: '09:30', end: '10:30' }]),
+    )
+
+    const state = await adminBookRoomFromTable(
+      null,
+      bookForm('room-s', [{ start: '09:30', end: '10:30' }]),
+    )
+
+    expect(state).toEqual({
+      ok: false,
+      message: 'ห้องเต็มความจุในช่วงเวลานี้แล้ว กรุณาเลือกช่วงเวลาอื่น',
+    })
+    expect(redirectMock).not.toHaveBeenCalled()
+
+    // หน้าที่แสดงความพร้อมถูกรีเฟรชทั้งหมด เพื่อให้ช่องที่เพิ่งถูกจองไม่ค้างเป็น "ว่าง"
+    expect(revalidatePathMock).toHaveBeenCalledWith('/user/table')
+    expect(revalidatePathMock).toHaveBeenCalledWith('/admin/table')
+    expect(revalidatePathMock).toHaveBeenCalledWith('/user/booking')
+    expect(revalidatePathMock).toHaveBeenCalledWith('/admin/booking')
+  })
+})
+
 
 describe('ยกเลิกการจองปลดล็อกช่องว่างทันที (ผู้ใช้ยกเลิกเอง)', () => {
   it('จองเต็มความจุ → ผู้ใช้ยกเลิกของตัวเอง → ช่องกลับมาจองต่อได้ และมีคิวอีเมลยกเลิก', async () => {

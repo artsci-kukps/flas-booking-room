@@ -9,6 +9,35 @@ import SlotPicker from './slot-picker'
 // server action ถูกส่งเข้ามาเป็น prop จากหน้าผู้ใช้/แอดมิน — เทสต์นี้ไม่เรียกจริง
 const { bookRoomMock } = vi.hoisted(() => ({ bookRoomMock: vi.fn() }))
 
+/**
+ * สถานะของ useActionState + action ที่ picker ส่งเข้าไป
+ * ยังไม่มี DOM ให้กดฟอร์ม (ตั๋วแยกจัดการ env) จึงจำลอง hook ให้คืน "ผลที่ action ตกลงแล้ว"
+ * และเก็บ action ไว้ให้เทสต์เรียกเอง — ที่เหลือคือโค้ดจริงของ picker ทั้งหมด
+ */
+const { bookingState, capturedAction } = vi.hoisted(() => ({
+  bookingState: {
+    current: null as null | { ok: false; message: string } | { ok: true; bookingCodes: string[] },
+  },
+  capturedAction: {
+    current: null as null | ((prev: unknown, formData: FormData) => Promise<unknown>),
+  },
+}))
+
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>()
+
+  return {
+    ...actual,
+    useActionState: (
+      action: (prev: unknown, formData: FormData) => Promise<unknown>,
+    ) => {
+      capturedAction.current = action
+
+      return [bookingState.current, action, false]
+    },
+  }
+})
+
 /** ป้าย <button> ทั้งหมดใน HTML — ใช้ตรวจ disabled ต่อป้าย */
 function buttonTags(html: string): string[] {
   return [...html.matchAll(/<button[^>]*>/g)].map((match) => match[0]!)
@@ -79,12 +108,16 @@ const ROOM_EXCLUSIVE: RoomDayAvailability = {
   ],
 }
 
-function renderPicker(room: RoomDayAvailability = ROOM_CAPACITY) {
+function renderPicker(
+  room: RoomDayAvailability = ROOM_CAPACITY,
+  overrides: Partial<Parameters<typeof SlotPicker>[0]> = {},
+) {
   return renderToStaticMarkup(
     <SlotPicker
       date="2026-10-19"
       room={room}
       bookRoomAction={bookRoomMock as unknown as BookRoomAction}
+      {...overrides}
     />,
   )
 }
@@ -93,6 +126,7 @@ describe('SlotPicker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     bookRoomMock.mockResolvedValue(null)
+    bookingState.current = null
   })
 
   it('แสดงช่องว่างทุกช่องพร้อมป้ายสถานะภาษาไทยและเวลาของบล็อก', () => {
@@ -199,5 +233,75 @@ describe('SlotPicker', () => {
 
     expect(html).not.toContain('name="blocks"')
     expect(hasDisabledAttr(html.match(/<button[^>]*type="submit"[^>]*>/)?.[0])).toBe(true)
+  })
+})
+
+describe('SlotPicker — ผลลัพธ์การจอง (ticket #22)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    bookRoomMock.mockResolvedValue(null)
+    bookingState.current = null
+  })
+
+  it('จองสำเร็จ: แสดงรหัสการจองและยืนยันว่าส่งอีเมลแล้ว พร้อมปิดปุ่มยืนยัน/ช่องเลือก', () => {
+    bookingState.current = { ok: true, bookingCodes: ['123456'] }
+
+    const html = renderPicker()
+
+    expect(html).toContain('จองสำเร็จ')
+    expect(html).toContain('123456')
+    expect(html).toContain('ส่งอีเมลแจ้งเตือน')
+    expect(html).toContain('bg-ku-soft') // โทนเขียว KU แบน (ไม่มีเงา)
+    expect(html).not.toContain('จองไม่สำเร็จ')
+
+    // กันจองบล็อกเดิมซ้ำใน popup เดิม
+    expect(hasDisabledAttr(html.match(/<button[^>]*type="submit"[^>]*>/)?.[0])).toBe(true)
+    expect(html).toContain('จองแล้ว')
+    expect(hasDisabledAttr(buttonWithAriaLabel(html, '08:30–09:30 น. ว่าง'))).toBe(true)
+  })
+
+  it('เรียก onResult ครั้งเดียวพร้อมรหัสการจอง เมื่อจองสำเร็จ', async () => {
+    const onResult = vi.fn()
+    bookRoomMock.mockResolvedValue({ ok: true, bookingCodes: ['654321'] })
+
+    renderPicker(ROOM_CAPACITY, { onResult })
+    await capturedAction.current?.(null, new FormData())
+
+    expect(onResult).toHaveBeenCalledTimes(1)
+    expect(onResult).toHaveBeenCalledWith({ ok: true, bookingCodes: ['654321'] })
+  })
+
+  it('เรียก onResult ครั้งเดียวพร้อมข้อความ เมื่อจองไม่สำเร็จ', async () => {
+    const onResult = vi.fn()
+    bookRoomMock.mockResolvedValue({ ok: false, message: 'ห้องเต็มความจุในช่วงเวลานี้แล้ว กรุณาเลือกช่วงเวลาอื่น' })
+
+    renderPicker(ROOM_CAPACITY, { onResult })
+    await capturedAction.current?.(null, new FormData())
+
+    expect(onResult).toHaveBeenCalledTimes(1)
+    expect(onResult).toHaveBeenCalledWith({
+      ok: false,
+      message: 'ห้องเต็มความจุในช่วงเวลานี้แล้ว กรุณาเลือกช่วงเวลาอื่น',
+    })
+  })
+
+  it('จองไม่สำเร็จ: แสดงข้อความแจ้งเตือนในฟอร์ม และไม่แสดงแผงสำเร็จ', () => {
+    bookingState.current = { ok: false, message: 'ช่วงเวลานี้มีผู้ใช้จองห้องนี้แล้ว กรุณาเลือกช่วงเวลาอื่น' }
+
+    const html = renderPicker()
+
+    expect(html).toContain('จองไม่สำเร็จ')
+    expect(html).toContain('ช่วงเวลานี้มีผู้ใช้จองห้องนี้แล้ว')
+    expect(html).not.toContain('จองสำเร็จ')
+  })
+
+  it('ไม่ส่ง onResult (หน้าจองที่ redirect) → ยังทำงานได้ตามปกติ', async () => {
+    bookRoomMock.mockResolvedValue({ ok: true, bookingCodes: ['111111'] })
+
+    const html = renderPicker()
+    await capturedAction.current?.(null, new FormData())
+
+    expect(html).toContain('ยืนยันการจอง')
+    expect(bookRoomMock).toHaveBeenCalledTimes(1)
   })
 })

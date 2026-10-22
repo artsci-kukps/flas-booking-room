@@ -7,7 +7,7 @@ import { parseBookingDate } from "@/lib/booking/booking-date";
 import { getDayAvailability } from "@/lib/booking/day-availability";
 import { formatThaiDate } from "@/lib/format";
 
-import { bookRoom } from "../booking/actions";
+import { bookRoomFromTable } from "../booking/actions";
 
 export const metadata: Metadata = {
   title: "ตารางจอง",
@@ -21,6 +21,9 @@ const BOOKING_MANAGEMENT_PATH = "/admin/booking-management";
  * แต่ตรวจสิทธิ์แอดมิน และเพิ่มทางเข้า "จัดการการจอง" เพราะดูได้ทั้งวันจากหน้านี้
  * ความพร้อมของวันดึงด้วย getDayAvailability() ชุดเดียวกับหน้าจอง
  * (CAPACITY/EXCLUSIVE ไม่คำนวณซ้ำที่ client)
+ *
+ * ใช้ bookRoomFromTable (ไม่ redirect) เพราะแอดมินต้องอยู่ที่หน้าตาราง
+ * เพื่อเห็นช่องที่เพิ่งจองเปลี่ยนเป็น "ไม่ว่าง" ทันที (ticket #22)
  */
 export default async function AdminTablePage({
   searchParams,
@@ -67,7 +70,7 @@ export default async function AdminTablePage({
           date={date}
           today={today}
           availability={availability}
-          bookRoomAction={bookRoom}
+          bookRoomAction={bookRoomFromTable}
         />
       </section>
     </main>

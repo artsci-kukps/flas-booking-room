@@ -11,8 +11,22 @@ import { submitBookingSelection } from "./reservations";
  * โมดูลนี้บริสุทธิ์ (ไม่ใช่ "use server") เพื่อให้ฝั่ง UI import เฉพาะชนิดข้อมูลได้
  */
 
-/** สถานะที่ useActionState ใช้แสดงข้อความ inline: null = ยังไม่ส่ง, ok:false = จองไม่สำเร็จ */
-export type BookingActionState = { ok: false; message: string } | null;
+/**
+ * สถานะที่ useActionState ใช้แสดงผลการจอง:
+ * - null = ยังไม่ส่ง
+ * - ok:false = จองไม่สำเร็จ (มีข้อความอธิบาย)
+ * - ok:true = จองสำเร็จ (มีรหัสการจอง — หน้าตารางใช้รหัสนี้แสดงผลใน popup โดยไม่ redirect)
+ */
+export type BookingActionState =
+  | { ok: false; message: string }
+  | { ok: true; bookingCodes: string[] }
+  | null;
+
+/**
+ * ผลการจองที่ "ตกลงแล้ว" (ตัดกรณียังไม่ส่งออก) — ใช้เป็นชนิดของ onResult ที่ popup ส่งกลับมา
+ * ตอนจองจากตารางเสร็จ หน้าตารางจะใช้ผลนี้รีเฟรชให้ช่องที่เพิ่งจองเปลี่ยนเป็น "ไม่ว่าง" (ticket #22)
+ */
+export type SettledBookingState = Exclude<BookingActionState, null>;
 
 /** รูปร่างของ server action ที่ปุ่มยืนยันการจองเรียกผ่าน useActionState */
 export type BookRoomAction = (
@@ -62,6 +76,12 @@ type BookingActionContext = {
   userId: string;
   /** ปลายทางหน้ายืนยัน เช่น '/user/booking/confirmation' */
   confirmationPath: string;
+  /**
+   * จะพาไปหน้ายืนยันหลังจองสำเร็จหรือไม่ (ค่าเริ่มต้น: พาไป)
+   * หน้าจองต้องการหน้ายืนยัน (ticket #19) แต่หน้าตารางต้องการอยู่ที่ตาราง
+   * เพื่อเห็นช่องที่จองเปลี่ยนเป็น "ไม่ว่าง" ทันที (ticket #22) → ตั้งเป็น false
+   */
+  redirectOnSuccess?: boolean;
 };
 
 /**
@@ -94,6 +114,7 @@ export async function performBookingAction({
   formData,
   userId,
   confirmationPath,
+  redirectOnSuccess = true,
 }: BookingActionContext): Promise<BookingActionState> {
   const result = await submitBookingSelection(
     {
@@ -105,10 +126,19 @@ export async function performBookingAction({
   );
 
   if (!result.ok) {
+    // จองไม่สำเร็จก็ต้องรีเฟรชด้วย เพราะสาเหตุมักคือ "มีคนจองไปก่อนแล้ว"
+    // ถ้าไม่รีเฟรช ตารางจะยังแสดงช่องนั้นเป็น "ว่าง" ทั้งที่จองไม่ได้ (ticket #22)
+    revalidateAvailability();
+
     return { ok: false, message: result.message };
   }
 
   revalidateAvailability();
+
+  // หน้าตารางขอแค่รหัสการจองกลับไปแสดงผลใน popup (ไม่พาออกจากหน้าตาราง)
+  if (redirectOnSuccess === false) {
+    return { ok: true, bookingCodes: result.bookingCodes };
+  }
 
   const params = new URLSearchParams();
 

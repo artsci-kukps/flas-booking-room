@@ -11,7 +11,7 @@ import { getDayAvailability } from "@/lib/booking/day-availability";
 import { parseBookingDate } from "@/lib/booking/booking-date";
 import { formatThaiDate } from "@/lib/format";
 
-import { bookRoom } from "../booking/actions";
+import { bookRoomFromTable } from "../booking/actions";
 import BookingCodeSearch, { type CodeSearchState } from "./booking-code-search";
 import BookingsTable from "./bookings-table";
 
@@ -31,6 +31,9 @@ function readParam(value: string | string[] | undefined): string | null {
  * - ตารางรายการจอง พร้อมปุ่มยืนยันรับ–คืนกุญแจ
  * - ค้นรหัส 6 หลัก จำกัดขอบเขตที่วันปัจจุบันเท่านั้น (TOR ข้อ 6.3)
  * (?date= เลือกวันของตาราง ส่วน ?code= ค้นของ "วันนี้" เสมอ)
+ *
+ * ตารางใช้ bookRoomFromTable (ไม่พาไปหน้ายืนยัน) เพราะแอดมินต้องอยู่ที่หน้านี้
+ * เพื่อเห็นช่องที่เพิ่งจองเปลี่ยนเป็น "ไม่ว่าง" ทันที (ticket #22)
  */
 export default async function BookingManagementPage({
   searchParams,
@@ -98,7 +101,7 @@ export default async function BookingManagementPage({
           date={date}
           today={today}
           availability={availability}
-          bookRoomAction={bookRoom}
+          bookRoomAction={bookRoomFromTable}
         />
       </section>
 

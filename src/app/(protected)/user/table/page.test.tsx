@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-const { requireUserMock, getDayAvailabilityMock, bookRoomMock } = vi.hoisted(() => ({
-  requireUserMock: vi.fn(),
-  getDayAvailabilityMock: vi.fn(),
-  bookRoomMock: vi.fn(),
-}))
+const { requireUserMock, getDayAvailabilityMock, bookRoomMock, bookRoomFromTableMock, gridProps } =
+  vi.hoisted(() => ({
+    requireUserMock: vi.fn(),
+    getDayAvailabilityMock: vi.fn(),
+    bookRoomMock: vi.fn(),
+    bookRoomFromTableMock: vi.fn(),
+    gridProps: { bookRoomAction: undefined as unknown },
+  }))
 
 vi.mock('@/lib/auth/guards', () => ({ requireUser: requireUserMock }))
 // ตารางดึงความพร้อมของวัน — stub การดึง DB คงตรรกะวันที่/เวลาทำการไว้
@@ -14,7 +17,23 @@ vi.mock('@/lib/booking/day-availability', async (importOriginal) => ({
   getDayAvailability: getDayAvailabilityMock,
 }))
 // server action จองของผู้ใช้ — ส่งเป็น props เทสต์นี้ไม่เรียกจริง
-vi.mock('@/app/(protected)/user/booking/actions', () => ({ bookRoom: bookRoomMock }))
+vi.mock('@/app/(protected)/user/booking/actions', () => ({
+  bookRoom: bookRoomMock,
+  bookRoomFromTable: bookRoomFromTableMock,
+}))
+// บันทึก action ที่หน้าส่งให้ตาราง (แล้วยังวาดตารางจริงเหมือนเดิม)
+vi.mock('@/components/booking/room-time-grid', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/booking/room-time-grid')>()
+  const { createElement } = await import('react')
+
+  return {
+    default: (props: Parameters<typeof actual.default>[0]) => {
+      gridProps.bookRoomAction = props.bookRoomAction
+
+      return createElement(actual.default, props)
+    },
+  }
+})
 // ล็อกวันนี้ให้คงที่เพื่อให้หน้าต่างจอง (วันนี้/วันพรุ่งนี้) ตรวจได้คงที่
 vi.mock('@/lib/admin/service-periods', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/admin/service-periods')>()),
@@ -121,5 +140,13 @@ describe('หน้าตารางจองของผู้ใช้ (/user
     expect(html).toContain('/user/table?date=2026-10-18')
     expect(html).toContain('/user/table?date=2026-10-20')
     expect(html).toContain('ดูวันก่อนหน้า')
+  })
+
+  it('ส่ง action ที่จองแล้วอยู่ในตาราง (ไม่พาไปหน้ายืนยัน) ให้ตาราง', async () => {
+    await renderPage()
+
+    // ตารางต้องจองแบบไม่ redirect เพื่อให้ช่องที่จองเปลี่ยนเป็น "ไม่ว่าง" ทันที (ticket #22)
+    expect(gridProps.bookRoomAction).toBe(bookRoomFromTableMock)
+    expect(gridProps.bookRoomAction).not.toBe(bookRoomMock)
   })
 })

@@ -92,7 +92,9 @@ describe('bookRoom action', () => {
       ok: false,
       message: 'ช่วงเวลานี้มีผู้ใช้จองห้องนี้แล้ว กรุณาเลือกช่วงเวลาอื่น',
     })
-    expect(revalidatePathMock).not.toHaveBeenCalled()
+    // จองไม่สำเร็จก็ต้องรีเฟรชหน้าที่แสดงความพร้อม เพราะสาเหตุมักคือ "มีคนจองไปก่อนแล้ว"
+    // ถ้าไม่รีเฟรช ช่องนั้นจะค้างเป็น "ว่าง" ทั้งที่จองไม่ได้ (ticket #22)
+    expect(revalidatePathMock).toHaveBeenCalledWith('/user/table')
     expect(redirectMock).not.toHaveBeenCalled()
   })
 

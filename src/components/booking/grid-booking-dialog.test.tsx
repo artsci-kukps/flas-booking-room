@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import type { BookRoomAction } from '@/lib/booking/booking-action'
@@ -7,6 +7,45 @@ import type { RoomDayAvailability, RoomSlotView } from '@/lib/booking/day-availa
 import GridBookingDialog from './grid-booking-dialog'
 
 const bookRoomMock = vi.fn()
+
+/**
+ * router ปลอมของ Next — ใช้เช็คว่า popup สั่ง refresh หลังจองจบ (ticket #22)
+ * และใช้จำลองกรณี "ไม่มี App Router context" ที่ useRouter ของ Next จะโยน error
+ */
+const { useRouterMock, refreshMock } = vi.hoisted(() => ({
+  useRouterMock: vi.fn(),
+  refreshMock: vi.fn(),
+}))
+
+vi.mock('next/navigation', () => ({ useRouter: useRouterMock }))
+
+/**
+ * จำลอง useActionState ให้คืน "ผลที่ action ตกลงแล้ว" และเก็บ action ไว้ให้เทสต์เรียกเอง
+ * (ไม่มี DOM ให้กดฟอร์มในเทสต์ — ตั๋วแยกจัดการ env)
+ */
+const { bookingState, capturedAction } = vi.hoisted(() => ({
+  bookingState: {
+    current: null as null | { ok: false; message: string } | { ok: true; bookingCodes: string[] },
+  },
+  capturedAction: {
+    current: null as null | ((prev: unknown, formData: FormData) => Promise<unknown>),
+  },
+}))
+
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>()
+
+  return {
+    ...actual,
+    useActionState: (
+      action: (prev: unknown, formData: FormData) => Promise<unknown>,
+    ) => {
+      capturedAction.current = action
+
+      return [bookingState.current, action, false]
+    },
+  }
+})
 
 function makeSlot(overrides: Partial<RoomSlotView> = {}): RoomSlotView {
   return {
@@ -77,6 +116,13 @@ function renderDialog(
 }
 
 describe('GridBookingDialog — popup จองจากคลิกช่องว่างในตาราง (ticket #20)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    bookingState.current = null
+    bookRoomMock.mockResolvedValue(null)
+    useRouterMock.mockReturnValue({ refresh: refreshMock })
+  })
+
   it('เปิดพร้อมข้อมูลห้อง ประเภท และวันที่ที่เลือกไว้ล่วงหน้า', () => {
     const html = renderDialog()
 
@@ -122,5 +168,52 @@ describe('GridBookingDialog — popup จองจากคลิกช่อง
     expect(html).toContain('ยืนยันการจอง')
     expect(html).toContain('S-101')
     expect(html).toContain('08:30–09:30')
+  })
+})
+
+describe('GridBookingDialog — อัปเดตตารางหลังจอง (ticket #22)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    bookingState.current = null
+    bookRoomMock.mockResolvedValue(null)
+    useRouterMock.mockReturnValue({ refresh: refreshMock })
+  })
+
+  it('จองสำเร็จ: รีเฟรชหน้า เพื่อให้ช่องที่เพิ่งจองเปลี่ยนเป็น "ไม่ว่าง" ทันที', async () => {
+    bookRoomMock.mockResolvedValue({ ok: true, bookingCodes: ['123456'] })
+
+    renderDialog()
+    await capturedAction.current?.(null, new FormData())
+
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('จองไม่สำเร็จ: ก็รีเฟรช เพราะมักแปลว่ามีคนจองไปแล้ว ช่องต้องเปลี่ยนเป็น "ไม่ว่าง"', async () => {
+    bookRoomMock.mockResolvedValue({ ok: false, message: 'ช่วงเวลานี้มีผู้ใช้จองห้องนี้แล้ว กรุณาเลือกช่วงเวลาอื่น' })
+
+    renderDialog()
+    await capturedAction.current?.(null, new FormData())
+
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('จองสำเร็จ: แสดงรหัสการจองใน popup ให้ผู้ใช้เห็น (ไม่พาออกจากหน้าตาราง)', () => {
+    bookingState.current = { ok: true, bookingCodes: ['123456'] }
+
+    const html = renderDialog()
+
+    expect(html).toContain('จองสำเร็จ')
+    expect(html).toContain('123456')
+  })
+
+  it('ไม่มี App Router context (เช่น render ฝั่ง server/เทสต์) → ยังเปิด popup ได้ ไม่พัง', () => {
+    useRouterMock.mockImplementation(() => {
+      throw new Error('invariant expected app router to be mounted')
+    })
+
+    const html = renderDialog()
+
+    expect(html).toContain('<dialog')
+    expect(html).toContain('S-101')
   })
 })

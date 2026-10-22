@@ -6,7 +6,7 @@ import { parseBookingDate } from "@/lib/booking/booking-date";
 import { getDayAvailability } from "@/lib/booking/day-availability";
 import { formatThaiDate } from "@/lib/format";
 
-import { bookRoom } from "../booking/actions";
+import { bookRoomFromTable } from "../booking/actions";
 
 const PATH = "/user/table";
 
@@ -17,6 +17,9 @@ const PATH = "/user/table";
  *
  * ความพร้อมของวันดึงฝั่ง server ด้วย getDayAvailability() — ตรรกะว่าง/เต็ม/บล็อก
  * และ CAPACITY/EXCLUSIVE จึงเป็นชุดเดียวกับหน้าจอง ไม่มีการคำนวณซ้ำที่ client
+ *
+ * ใช้ bookRoomFromTable (ไม่ redirect) เพราะผู้ใช้ต้องอยู่ที่หน้าตาราง
+ * เพื่อเห็นช่องที่เพิ่งจองเปลี่ยนเป็น "ไม่ว่าง" ทันที (ticket #22)
  */
 export default async function UserTablePage({
   searchParams,
@@ -55,7 +58,7 @@ export default async function UserTablePage({
           date={date}
           today={today}
           availability={availability}
-          bookRoomAction={bookRoom}
+          bookRoomAction={bookRoomFromTable}
         />
       </section>
     </main>

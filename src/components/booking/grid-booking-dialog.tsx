@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 import RoomTypeCodeBadge from "@/components/room-type-code-badge";
 import type { BookRoomAction } from "@/lib/booking/booking-action";
@@ -20,7 +21,23 @@ import SlotPicker from "./slot-picker";
  *
  * เป็น <dialog> แบบ modal: ได้โฟกัส/Esc จากเบราว์เซอร์ และ mount ครั้งเดียวต่อการคลิกหนึ่งครั้ง
  * (ผู้ปกครอง key ด้วย ห้อง+ช่อง ทำให้ initialSlot ถูกอ่านแค่ตอนเปิด)
+ *
+ * หลังจองจบ (สำเร็จหรือไม่สำเร็จ) จะสั่ง router.refresh() ให้ตารางห้อง×เวลาดึงข้อมูลล่าสุด
+ * ช่องที่เพิ่งจองจึงเปลี่ยนเป็น "ไม่ว่าง" ทันทีโดยผู้ใช้ยังอยู่ที่หน้าตาราง (ticket #22)
  */
+
+/**
+ * useRouter ของ Next จะโยน error ถ้าไม่มี App Router context (เช่นตอน render ฝั่ง server
+ * ที่ไม่ได้ mount ในเครื่อง และในเทสต์) — จึงห่อไว้ให้คืน null แทนการพังทั้ง popup
+ * ลำดับ hook ยังคงเดิมเพราะ useContext ถูกเรียกก่อน throw ทุกครั้ง
+ */
+function useOptionalRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
+}
 
 type GridBookingDialogProps = {
   /** 'YYYY-MM-DD' — วันของตารางที่ผู้ใช้คลิก */
@@ -48,6 +65,7 @@ export default function GridBookingDialog({
   onClose,
 }: GridBookingDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const router = useOptionalRouter();
 
   // เปิดเป็น modal ทันทีที่ mount (ได้ focus trap + ปิดด้วย Esc ครบ)
   useEffect(() => {
@@ -59,6 +77,12 @@ export default function GridBookingDialog({
   }, []);
 
   const close = () => dialogRef.current?.close();
+
+  // รีเฟรชหลังจองจบ — ไม่ว่าสำเร็จหรือไม่สำเร็จ ตารางต้องเห็นสถานะล่าสุดของช่องที่เพิ่งแตะ
+  // (กรณีไม่สำเร็จมักคือ "มีคนจองไปแล้ว" ตารางจะได้เปลี่ยนช่องนั้นเป็น "ไม่ว่าง" ด้วย)
+  const handleResult = useCallback(() => {
+    router?.refresh();
+  }, [router]);
 
   return (
     <dialog
@@ -98,6 +122,7 @@ export default function GridBookingDialog({
             room={room}
             bookRoomAction={bookRoomAction}
             initialSlot={slot.start}
+            onResult={handleResult}
             secondaryAction={
               <button type="button" onClick={close} className="btn btn-outline">
                 ยกเลิก

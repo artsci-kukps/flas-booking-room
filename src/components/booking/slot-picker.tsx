@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useCallback, useState, type ReactNode } from "react";
 
 import Alert from "@/components/alert";
 import { meetsMinDuration, planBooking } from "@/lib/booking/booking-plan";
@@ -13,7 +13,11 @@ import {
 } from "@/lib/booking/slot-selection";
 import { formatThaiDate } from "@/lib/format";
 
-import type { BookRoomAction } from "@/lib/booking/booking-action";
+import type {
+  BookRoomAction,
+  BookingActionState,
+  SettledBookingState,
+} from "@/lib/booking/booking-action";
 
 import BookingSummary from "./booking-summary";
 
@@ -25,6 +29,9 @@ import BookingSummary from "./booking-summary";
  *
  * แสดงผล "ห้องเดียว" ต่อหนึ่ง popup (header ห้อง/ป้ายประเภทอยู่ที่หัว popup เอง)
  * ข้อมูลห้องทั้งหมดมาจาก DayAvailability ที่หน้าจองดึงไว้แล้ว — ไม่คำนวณซ้ำที่ client
+ *
+ * จองสำเร็จ → แสดงแผงสำเร็จ (รหัสการจอง + ยืนยันว่าส่งอีเมลแล้ว) และปิดปุ่มยืนยัน/ช่องเลือก
+ * พร้อมแจ้งผลกลับผ่าน onResult (หน้าตารางใช้รีเฟรชให้ช่องที่เพิ่งจองเป็น "ไม่ว่าง" ทันที — ticket #22)
  */
 
 type SlotPickerProps = {
@@ -41,6 +48,12 @@ type SlotPickerProps = {
    * ให้ popup เปิดพร้อมเลือกบล็อกนั้นทันที (ticket #20) ช่องที่เลือกไม่ได้จะไม่ถูกเลือก
    */
   initialSlot?: string | null;
+  /**
+   * เรียกเมื่อการจอง "จบลง" (สำเร็จหรือไม่สำเร็จ) — ครั้งละหนึ่งครั้งต่อการจอง
+   * หน้าตารางใช้ผลนี้รีเฟรชให้ช่องที่เพิ่งจองเปลี่ยนเป็น "ไม่ว่าง" ทันทีโดยไม่ต้องออกจากหน้า (ticket #22)
+   * ถ้าไม่ส่งมา (หน้าจองที่ redirect ไปหน้ายืนยัน) ผลจะอยู่ใน popup ตามปกติ
+   */
+  onResult?: (result: SettledBookingState) => void;
 };
 
 export default function SlotPicker({
@@ -49,19 +62,48 @@ export default function SlotPicker({
   bookRoomAction,
   secondaryAction,
   initialSlot = null,
+  onResult,
 }: SlotPickerProps) {
   // ค่าเริ่มต้นจากตาราง — mount ครั้งเดียวต่อ popup (component ถูก key ด้วย ห้อง+วัน ทุกครั้งที่เปิด)
   const [selected, setSelected] = useState<SlotSelection | null>(() =>
     preselectSlot(room, initialSlot),
   );
-  const [state, formAction, pending] = useActionState(bookRoomAction, null);
+
+  // onResult ถูกเรียก "ภายใน" action ที่ส่งเข้า useActionState ไม่ใช่ใน useEffect
+  // เพราะ useEffect จะยิงซ้ำทุกครั้งที่ re-render แต่ action ยิงครั้งเดียวต่อการจองที่จบลง
+  const reportResult = useCallback(
+    (result: SettledBookingState) => {
+      onResult?.(result);
+    },
+    [onResult],
+  );
+
+  const [state, formAction, pending] = useActionState<
+    BookingActionState,
+    FormData
+  >(
+    async (prevState, formData) => {
+      const settled = await bookRoomAction(prevState, formData);
+
+      // null = ยังไม่มีผล (เช่น action ที่ยังไม่จบ) — ไม่ต้องรายงาน
+      if (settled) {
+        reportResult(settled);
+      }
+
+      return settled;
+    },
+    null,
+  );
 
   const isSelected = (start: string): boolean =>
     selected?.roomId === room.id && selected.blocks.some((block) => block.start === start);
 
   const plan = planBooking(selected?.blocks ?? []);
   const durationOk = meetsMinDuration(plan, room.minDurationMinutes);
-  const canSubmit = Boolean(selected) && plan.records.length > 0 && durationOk && !pending;
+  // จองสำเร็จแล้ว = ปิดปุ่มยืนยันและช่องเลือก กันจองซ้ำบล็อกเดิมใน popup เดิม
+  const booked = state?.ok === true;
+  const canSubmit =
+    Boolean(selected) && plan.records.length > 0 && durationOk && !pending && !booked;
 
   return (
     <div className="space-y-4">
@@ -83,7 +125,7 @@ export default function SlotPicker({
                 className={`flex flex-col items-center justify-center rounded-[12px] border px-3 py-3 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${chip}`}
                 aria-label={aria}
                 aria-pressed={active}
-                disabled={!slot.selectable}
+                disabled={!slot.selectable || booked}
                 onClick={() =>
                   setSelected(toggleSlotSelection(selected, room, slot))
                 }
@@ -125,13 +167,24 @@ export default function SlotPicker({
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-              {pending ? "กำลังจอง…" : "ยืนยันการจอง"}
+              {booked ? "จองแล้ว" : pending ? "กำลังจอง…" : "ยืนยันการจอง"}
             </button>
             {secondaryAction}
           </div>
         </form>
 
-        {state ? (
+        {state?.ok === true ? (
+          // สำเร็จ: โทนเขียว KU แบน (ไม่มีเงา) ตาม DESIGN.md — รหัสการจอง + ยืนยันว่าส่งอีเมลแล้ว
+          <Alert tone="success" heading="จองสำเร็จ" className="mt-4">
+            <p>
+              รหัสการจอง:{" "}
+              <span className="font-semibold tabular-nums">
+                {state.bookingCodes.join(", ")}
+              </span>
+            </p>
+            <p className="mt-1">ส่งอีเมลแจ้งเตือนพร้อมรหัสการจองไปที่อีเมลของคุณแล้ว</p>
+          </Alert>
+        ) : state?.ok === false ? (
           <Alert tone="danger" heading="จองไม่สำเร็จ" body={state.message} className="mt-4" />
         ) : null}
       </div>
