@@ -10,7 +10,7 @@ const bookRoomMock = vi.fn()
 
 /**
  * router ปลอมของ Next — ใช้เช็คว่า popup สั่ง refresh หลังจองจบ (ticket #22)
- * และใช้จำลองกรณี "ไม่มี App Router context" ที่ useRouter ของ Next จะโยน error
+ * และใช้ยืนยันว่า popup ต้องอยู่ใน App Router context (ถ้าไม่มี จะแจ้ง error ชัดเจน)
  */
 const { useRouterMock, refreshMock } = vi.hoisted(() => ({
   useRouterMock: vi.fn(),
@@ -206,14 +206,11 @@ describe('GridBookingDialog — อัปเดตตารางหลังจ
     expect(html).toContain('123456')
   })
 
-  it('ไม่มี App Router context (เช่น render ฝั่ง server/เทสต์) → ยังเปิด popup ได้ ไม่พัง', () => {
+  it('ไม่มี App Router context → แจ้ง error ชัดเจน ไม่กลืน error เงียบ ๆ (popup เปิดจากตารางเสมอ)', () => {
     useRouterMock.mockImplementation(() => {
       throw new Error('invariant expected app router to be mounted')
     })
 
-    const html = renderDialog()
-
-    expect(html).toContain('<dialog')
-    expect(html).toContain('S-101')
+    expect(() => renderDialog()).toThrow('invariant expected app router to be mounted')
   })
 })

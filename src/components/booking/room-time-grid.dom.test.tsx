@@ -18,6 +18,11 @@ import RoomTimeGrid from './room-time-grid'
 
 const bookRoomMock = vi.fn()
 
+// popup ที่เปิดจากการคลิกช่องว่างเรียก useRouter() ของ Next ต้องมี App Router context
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}))
+
 const TODAY = '2026-10-19'
 
 function makeSlot(start: string, end: string, overrides: Partial<RoomSlotView> = {}): RoomSlotView {

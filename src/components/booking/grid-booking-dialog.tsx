@@ -26,19 +26,6 @@ import SlotPicker from "./slot-picker";
  * ช่องที่เพิ่งจองจึงเปลี่ยนเป็น "ไม่ว่าง" ทันทีโดยผู้ใช้ยังอยู่ที่หน้าตาราง (ticket #22)
  */
 
-/**
- * useRouter ของ Next จะโยน error ถ้าไม่มี App Router context (เช่นตอน render ฝั่ง server
- * ที่ไม่ได้ mount ในเครื่อง และในเทสต์) — จึงห่อไว้ให้คืน null แทนการพังทั้ง popup
- * ลำดับ hook ยังคงเดิมเพราะ useContext ถูกเรียกก่อน throw ทุกครั้ง
- */
-function useOptionalRouter() {
-  try {
-    return useRouter();
-  } catch {
-    return null;
-  }
-}
-
 type GridBookingDialogProps = {
   /** 'YYYY-MM-DD' — วันของตารางที่ผู้ใช้คลิก */
   date: string;
@@ -65,7 +52,7 @@ export default function GridBookingDialog({
   onClose,
 }: GridBookingDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const router = useOptionalRouter();
+  const router = useRouter();
 
   // เปิดเป็น modal ทันทีที่ mount (ได้ focus trap + ปิดด้วย Esc ครบ)
   useEffect(() => {
@@ -81,7 +68,7 @@ export default function GridBookingDialog({
   // รีเฟรชหลังจองจบ — ไม่ว่าสำเร็จหรือไม่สำเร็จ ตารางต้องเห็นสถานะล่าสุดของช่องที่เพิ่งแตะ
   // (กรณีไม่สำเร็จมักคือ "มีคนจองไปแล้ว" ตารางจะได้เปลี่ยนช่องนั้นเป็น "ไม่ว่าง" ด้วย)
   const handleResult = useCallback(() => {
-    router?.refresh();
+    router.refresh();
   }, [router]);
 
   return (
