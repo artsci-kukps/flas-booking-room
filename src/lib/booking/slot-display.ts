@@ -12,12 +12,16 @@ import type { RoomSlotView } from "./day-availability";
  * ความยาวของบล็อกของห้อง (นาที) เป็นข้อความไทย — '1 ชั่วโมง', '2 ชั่วโมง'
  * หรือ 'X นาที' เมื่อไม่ลงตัวเป็นชั่วโมง (บล็อกยาวเท่าระยะเวลาขั้นต่ำของประเภทห้อง)
  */
-export const BLOCK_LENGTH_COPY =
-  "ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง, ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง";
-
 export function slotLengthLabel(minutes: number): string {
   return minutes % 60 === 0 ? `${minutes / 60} ชั่วโมง` : `${minutes} นาที`;
 }
+
+/**
+ * ข้อความความยาวบล็อกชุดเดียวของทั้งระบบ — ใช้ซ้ำทุกที่ที่อธิบายกติกาความยาวบล็อก
+ * เพื่อไม่ให้คัดลอกข้อความแล้วคลาดเคลื่อนจากกัน (หน้าจองห้อง, เวลาทำการ, ผนังกติกา)
+ */
+export const BLOCK_LENGTH_COPY =
+  "ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง, ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง (ตามระยะเวลาขั้นต่ำของแต่ละประเภทห้อง)";
 
 /**
  * คลาสป้ายสถานะช่องเวลาตามโทนสีระบบ (flat, ไม่มีเงา):
@@ -31,18 +35,32 @@ export const SLOT_OCCUPIED_CLASS = "bg-amber-soft text-amber-ink";
 export const SLOT_OCCUPIED_SELECTABLE_CLASS = "bg-amber-soft text-amber-ink cursor-pointer";
 export const SLOT_MUTED_CLASS = "bg-canvas text-ink-muted";
 
+/**
+ * ตัวเลือกของ slotChipClass — `clickable` คือ "กดได้จริงไหม" ไม่ใช่แค่ "กติกาอนุญาตไหม"
+ * ตารางห้องใช้ค่านี้เพื่อบอกว่าวันนั้นอยู่นอกหน้าต่างการจอง (ดูอย่างเดียว) — ชิปยังต้องกดไม่ได้
+ * แต่ยังคงสีสถานะตามจริง ไม่มี hover/cursor แบบปุ่ม
+ */
+export type SlotChipOptions = {
+  /** true = เป็นปุ่มกดได้ (มี cursor-pointer/hover), false = ป้ายสถานะล้วน */
+  clickable?: boolean;
+};
+
 export function slotChipClass(
   slot: Pick<RoomSlotView, "status" | "past" | "selectable">,
+  options: SlotChipOptions = {},
 ): string {
+  // ไม่ส่ง clickable = ใช้ selectable ของช่องเป็นค่าเริ่มต้น (พฤติกรรมเดิมของ slot picker)
+  const clickable = options.clickable ?? slot.selectable;
+
   if (slot.past || slot.status === "blocked") {
     return SLOT_MUTED_CLASS;
   }
 
   if (slot.status === "occupied") {
-    return slot.selectable ? SLOT_OCCUPIED_SELECTABLE_CLASS : SLOT_OCCUPIED_CLASS;
+    return clickable ? SLOT_OCCUPIED_SELECTABLE_CLASS : SLOT_OCCUPIED_CLASS;
   }
 
-  return slot.selectable ? SLOT_FREE_SELECTABLE_CLASS : SLOT_FREE_CLASS;
+  return clickable ? SLOT_FREE_SELECTABLE_CLASS : SLOT_FREE_CLASS;
 }
 
 /** ป้ายสถานะของช่องว่างสำหรับแสดงผล */

@@ -81,12 +81,7 @@ function SlotChip({
   const aria = slotAriaLabel(slot, room.bookingMode, room.maxCapacity);
   const status = slotStatusLabel(slot, room.bookingMode, room.maxCapacity);
   // ช่องที่ปกติกดได้แต่ถูกกันเพราะอยู่นอกหน้าต่างจอง — คงสีสถานะแต่ตัด hover/cursor ของปุ่ม
-  const chip =
-    slot.selectable && !clickable
-      ? slot.status === "occupied"
-        ? SLOT_OCCUPIED_CLASS
-        : SLOT_FREE_CLASS
-      : slotChipClass(slot);
+  const chip = slotChipClass(slot, { clickable });
 
   return (
     <button

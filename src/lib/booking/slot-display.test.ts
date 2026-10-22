@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import type { RoomSlotView } from './day-availability'
 
-import { slotAriaLabel, slotChipClass, slotLengthLabel, slotStatusLabel } from './slot-display'
+import {
+  BLOCK_LENGTH_COPY,
+  slotAriaLabel,
+  slotChipClass,
+  slotLengthLabel,
+  slotStatusLabel,
+} from './slot-display'
 
 /** ช่องว่างตัวอย่าง: ว่าง 09:00–10:00 */
 function makeSlot(overrides: Partial<RoomSlotView> = {}): RoomSlotView {
@@ -70,6 +76,43 @@ describe('slotChipClass', () => {
     expect(slotChipClass(makeSlot({ past: true, selectable: false }))).toBe(
       'bg-canvas text-ink-muted',
     )
+  })
+
+  it('ไม่ส่งตัวเลือก clickable = ใช้ selectable ของช่องเป็นค่าเริ่มต้น', () => {
+    expect(slotChipClass(makeSlot())).toBe(
+      'bg-ku-soft text-ku cursor-pointer hover:bg-ku hover:text-white',
+    )
+    expect(slotChipClass(makeSlot({ selectable: false }))).toBe('bg-ku-soft text-ku')
+  })
+
+  it('ส่ง clickable: false = ตัด hover/cursor ของปุ่มออก แม้ช่องยัง selectable', () => {
+    expect(slotChipClass(makeSlot(), { clickable: false })).toBe('bg-ku-soft text-ku')
+    expect(
+      slotChipClass(makeSlot({ status: 'occupied', usedCount: 2 }), { clickable: false }),
+    ).toBe('bg-amber-soft text-amber-ink')
+  })
+
+  it('ส่ง clickable: true = ใช้คลาสแบบกดได้ แม้ช่องจะไม่ selectable', () => {
+    expect(slotChipClass(makeSlot({ selectable: false }), { clickable: true })).toBe(
+      'bg-ku-soft text-ku cursor-pointer hover:bg-ku hover:text-white',
+    )
+  })
+
+  it('ช่องที่ผ่านไปแล้วหรือถูกบล็อกยังเงียบเสมอ ไม่ว่าจะส่ง clickable แบบไหน', () => {
+    expect(slotChipClass(makeSlot({ status: 'blocked' }), { clickable: true })).toBe(
+      'bg-canvas text-ink-muted',
+    )
+    expect(slotChipClass(makeSlot({ past: true }), { clickable: true })).toBe(
+      'bg-canvas text-ink-muted',
+    )
+  })
+})
+
+describe('BLOCK_LENGTH_COPY', () => {
+  it('บอกความยาวบล็อกตามประเภทห้อง และชี้ว่ายึดระยะเวลาขั้นต่ำของแต่ละประเภทห้อง', () => {
+    expect(BLOCK_LENGTH_COPY).toContain('ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง')
+    expect(BLOCK_LENGTH_COPY).toContain('ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง')
+    expect(BLOCK_LENGTH_COPY).toContain('ระยะเวลาขั้นต่ำของแต่ละประเภทห้อง')
   })
 })
 

@@ -152,6 +152,31 @@ describe('RoomTimeGrid — ตารางห้อง × เวลา (ticket #
     expect(buttonTags(html).every((tag) => hasDisabledAttr(tag))).toBe(true)
   })
 
+  it('ช่องที่อยู่นอกหน้าต่างการจอง = คงสีสถานะ แต่ตัด hover/cursor ของปุ่มออก', () => {
+    const html = renderGrid('2026-10-21')
+
+    // ช่องว่าง — เขียว KU แบบไม่มี cursor-pointer/hover
+    const freeTag = buttonWithAriaLabel(html, '08:30–09:30 น. ว่าง')
+    expect(freeTag).toContain('bg-ku-soft')
+    expect(freeTag).toContain('text-ku')
+    expect(freeTag).not.toContain('cursor-pointer')
+    expect(freeTag).not.toContain('hover:bg-ku')
+
+    // ช่องไม่ว่าง (CAPACITY ยังไม่เต็ม) — amber แบบไม่มี cursor-pointer
+    const occupiedTag = buttonWithAriaLabel(html, '09:30–10:30 น. ไม่ว่าง 2/4')
+    expect(occupiedTag).toContain('bg-amber-soft')
+    expect(occupiedTag).toContain('text-amber-ink')
+    expect(occupiedTag).not.toContain('cursor-pointer')
+  })
+
+  it('ช่องที่อยู่ในหน้าต่างการจอง = กดได้ พร้อม hover/cursor ของปุ่ม', () => {
+    const html = renderGrid()
+
+    const freeTag = buttonWithAriaLabel(html, '08:30–09:30 น. ว่าง')
+    expect(freeTag).toContain('cursor-pointer')
+    expect(freeTag).toContain('hover:bg-ku')
+  })
+
   it('popup ยังไม่ถูกเรนเดอร์จนกว่าจะคลิกช่องว่าง (เปิดพร้อมข้อมูลที่เลือก)', () => {
     const html = renderGrid()
 
