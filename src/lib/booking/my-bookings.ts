@@ -4,8 +4,8 @@ import db from "@/db";
 import { reservation, roomType, rooms } from "@/db/schema";
 import type { ReservationStatus } from "@/lib/booking/reservation-status";
 import {
-  enqueueBookingCancellationForReservation,
-  type EnqueueCancellationDeps,
+  sendBookingCancellationForReservation,
+  type SendCancellationDeps,
 } from "@/lib/notifications/cancellation";
 import type { Result } from "@/lib/result";
 
@@ -121,8 +121,8 @@ export async function listMyBookings(
 /** ผลของการยกเลิกการจอง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline */
 export type CancelResult = Result;
 
-/** ค่าที่ฉีดได้สำหรับเทสต์ (เวลาปัจจุบัน/การเข้าคิวอีเมลยกเลิก) */
-export type CancelDeps = EnqueueCancellationDeps & {
+/** ค่าที่ฉีดได้สำหรับเทสต์ (เวลาปัจจุบัน/การส่งอีเมลยกเลิก) */
+export type CancelDeps = SendCancellationDeps & {
   now?: Date;
 };
 
@@ -140,8 +140,8 @@ const CANCEL_CONFLICT_MESSAGE = "สถานะการจองเปลี�
  * เมื่อสถานะเป็น CANCELLED แล้ว exclusion constraint/การนับความจุ (เฉพาะ PENDING/ACTIVE)
  * จะมองข้ามทันที ช่องว่างจึงกลับมาจองได้ทันที
  *
- * หลังยกเลิกสำเร็จจะเข้าคิวอีเมลแจ้งเตือนการยกเลิก (type BOOKING_CANCELLED) แบบ best-effort
- * — ล้มเหลวก็ไม่ทำให้การยกเลิกล้มเหลว (เหมือนการเข้าคิวรหัสการจอง)
+ * หลังยกเลิกสำเร็จจะส่งอีเมลแจ้งเตือนการยกเลิกทันทีแบบ best-effort
+ * — ล้มเหลวก็ไม่ทำให้การยกเลิกล้มเหลว (เหมือนการส่งรหัสการจอง)
  */
 export async function cancelMyReservation(
   reservationId: string,
@@ -170,8 +170,8 @@ export async function cancelMyReservation(
 
   if (updated.length > 0) {
     // ผู้ใช้ยกเลิกเองไม่ต้องระบุเหตุผล → reason เป็น null
-    await enqueueBookingCancellationForReservation(reservationId, null, {
-      enqueue: deps.enqueue,
+    await sendBookingCancellationForReservation(reservationId, null, {
+      send: deps.send,
     });
 
     return { ok: true };

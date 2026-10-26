@@ -1,8 +1,10 @@
 import { createTransport, type Transporter } from "nodemailer";
 
 /**
- * บริการส่งอีเมลผ่าน SMTP (nodemailer)
- * สร้าง transporter แบบ lazy และใช้ซ้ำ — ค่าเชื่อมต่ออ่านจาก env ตอนส่งจริงเท่านั้น
+ * บริการส่งอีเมลผ่าน SMTP (nodemailer) — ตัวส่งเดียวของแอป
+ * - ใช้ทั้งอีเมล OTP, รหัสการจอง และแจ้งเตือนการยกเลิก (ส่งทันทีใน request path)
+ * - สร้าง transporter แบบ lazy และใช้ซ้ำ — ค่าเชื่อมต่ออ่านจาก env ตอนส่งจริงเท่านั้น
+ * - โยน error ออกไปให้ผู้เรียกจัดการ (ผู้เรียกที่เป็นงานเสริมจะ catch + log เอง)
  */
 
 export type EmailMessage = {
@@ -11,6 +13,8 @@ export type EmailMessage = {
   html: string;
   text: string;
 };
+
+export type EmailSender = (message: EmailMessage) => Promise<void>;
 
 let transporter: Transporter | null = null;
 
@@ -33,7 +37,8 @@ function getTransporter(): Transporter {
 
 /** ส่งอีเมลหนึ่งฉบับ — โยน error ออกไปให้ผู้เรียกจัดการ (เช่น แสดง Alert) */
 export async function sendEmail(message: EmailMessage): Promise<void> {
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER;
+  const from =
+    process.env.SMTP_FROM ?? process.env.EMAIL_FROM ?? process.env.SMTP_USER;
 
   if (!from) {
     throw new Error("ไม่พบ SMTP_FROM / SMTP_USER สำหรับส่งอีเมล");

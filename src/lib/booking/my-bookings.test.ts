@@ -8,10 +8,15 @@ import {
   servicePeriod as servicePeriodTable,
 } from '@/db/schema'
 import { makeRoom, makeServicePeriod } from '@/lib/admin/test-fixtures'
-import type { EnqueueBookingCancellationEmail } from '@/lib/notifications/outbox'
+import type { BookingCancellationEmailInput } from '@/lib/notifications/email'
 
 import { getDayAvailability, OCCUPYING_STATUSES } from './day-availability'
 import { CANCEL_ACTIVE_MESSAGE, cancelMyReservation, cancelability, listMyBookings } from './my-bookings'
+
+// ไม่ยิง SMTP จริงจากเทสต์ (ผู้ยกเลิกบางเคสไม่ได้ฉีด sender)
+vi.mock('@/services/email.service', () => ({
+  sendEmail: vi.fn(async () => {}),
+}))
 
 /**
  * เทสต์ของการจองของฉันและการยกเลิกโดยผู้ใช้ (TOR ข้อ 6.4)
@@ -237,7 +242,7 @@ describe('cancelMyReservation', () => {
     expect(updateWhereParams).toEqual(expect.arrayContaining(['res-1', 'u1', 'PENDING']))
   })
 
-  it('ยกเลิกสำเร็จ → เข้าคิวอีเมลแจ้งเตือนการยกเลิก (reason = null)', async () => {
+  it('ยกเลิกสำเร็จ → ส่งอีเมลแจ้งเตือนการยกเลิกทันที (reason = null)', async () => {
     updateRows = [{ id: 'res-1' }]
     setTableRows(reservationTable, [
       {
@@ -249,14 +254,13 @@ describe('cancelMyReservation', () => {
         toEmail: 'booker@ku.th',
       },
     ])
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
 
-    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, enqueue })
+    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, send })
 
     expect(result).toEqual({ ok: true })
-    expect(enqueue).toHaveBeenCalledTimes(1)
-    expect(enqueue.mock.calls[0][0]).toEqual({
-      reservationId: 'res-1',
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toEqual({
       toEmail: 'booker@ku.th',
       bookingCode: '123456',
       roomName: 'S-101',
@@ -267,18 +271,18 @@ describe('cancelMyReservation', () => {
     })
   })
 
-  it('ยกเลิกไม่สำเร็จ (ACTIVE) → ไม่เข้าคิวอีเมล', async () => {
+  it('ยกเลิกไม่สำเร็จ (ACTIVE) → ไม่ส่งอีเมล', async () => {
     updateRows = []
     setTableRows(reservationTable, [{ status: 'ACTIVE', startTime: START }])
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
 
-    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, enqueue })
+    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, send })
 
     expect(result).toEqual({ ok: false, message: CANCEL_ACTIVE_MESSAGE })
-    expect(enqueue).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
-  it('เข้าคิวอีเมลล้มเหลว → การยกเลิกยังสำเร็จ (non-blocking)', async () => {
+  it('ส่งอีเมลล้มเหลว → การยกเลิกยังสำเร็จ (non-blocking)', async () => {
     updateRows = [{ id: 'res-1' }]
     setTableRows(reservationTable, [
       {
@@ -290,12 +294,12 @@ describe('cancelMyReservation', () => {
         toEmail: 'booker@ku.th',
       },
     ])
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {
       throw new Error('queue down')
     })
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, enqueue })
+    const result = await cancelMyReservation('res-1', 'u1', { now: BEFORE_START, send })
 
     expect(result).toEqual({ ok: true })
     expect(errorSpy).toHaveBeenCalled()

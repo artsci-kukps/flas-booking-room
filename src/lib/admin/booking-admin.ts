@@ -6,7 +6,7 @@ import {
   isReservationStatus,
   type ReservationStatus,
 } from "@/lib/booking/reservation-status";
-import { enqueueBookingCancellationForReservation } from "@/lib/notifications/cancellation";
+import { sendBookingCancellationForReservation } from "@/lib/notifications/cancellation";
 import type { Result } from "@/lib/result";
 
 import { exclusionViolationMessage, pgErrorCode } from "./pg-error";
@@ -285,7 +285,7 @@ function statusOverrideErrorMessage(error: unknown): string | null {
 
 /**
  * ผลภายในของการเขียนสถานะ — `changed` บอกว่าสถานะเปลี่ยนจริงหรือไม่
- * ใช้ตัดสินว่าจะเข้าคิวอีเมลแจ้งเตือนการยกเลิกหรือไม่ (กันอีเมลซ้ำ)
+ * ใช้ตัดสินว่าจะส่งอีเมลแจ้งเตือนการยกเลิกหรือไม่ (กันอีเมลซ้ำ)
  */
 type StatusOverrideOutcome =
   | { ok: true; status: ReservationStatus; changed: boolean }
@@ -353,7 +353,7 @@ async function applyStatusOverride(
 /**
  * ยกเลิกการจอง — ทำได้ทุกสถานะ (TOR ข้อ 6.4) ต้องระบุเหตุผล
  * ตั้งสถานะเป็น CANCELLED ซึ่งทำให้แถวไม่ครองช่วงเวลา ช่องว่างจึงถูกปลดล็อกทันที
- * หลังยกเลิกสำเร็จจะเข้าคิวอีเมลแจ้งเตือนการยกเลิกไปยังผู้จอง (type BOOKING_CANCELLED)
+ * หลังยกเลิกสำเร็จจะส่งอีเมลแจ้งเตือนการยกเลิกไปยังผู้จองทันที
  * พร้อมเหตุผล — เป็นงานเสริม (best-effort) ไม่ทำให้การยกเลิกล้มเหลว
  */
 export async function cancelReservation(
@@ -372,7 +372,7 @@ export async function cancelReservation(
 
   // ส่งอีเมลเฉพาะตอนที่สถานะเปลี่ยนจริง — ยกเลิกแถวที่ยกเลิกไปแล้วไม่ต้องส่งซ้ำ
   if (result.ok && result.changed) {
-    await enqueueBookingCancellationForReservation(reservationId, reason.trim());
+    await sendBookingCancellationForReservation(reservationId, reason.trim());
   }
 
   return result.ok ? { ok: true, status: result.status } : result;
@@ -381,7 +381,7 @@ export async function cancelReservation(
 /**
  * แก้ไขสถานะการจอง (override) — ทำได้เสมอเมื่อระบบตั้งสถานะผิด (TOR ข้อ 7)
  * เช่นแก้ NO_SHOW ที่ระบบตั้งผิดกลับเป็น ACTIVE พร้อมบันทึกผู้ดำเนินการและเหตุผล
- * หาก override ไป CANCELLED จะเข้าคิวอีเมลแจ้งเตือนการยกเลิกให้ผู้จอง (เหมือน cancelReservation)
+ * หาก override ไป CANCELLED จะส่งอีเมลแจ้งเตือนการยกเลิกให้ผู้จอง (เหมือน cancelReservation)
  */
 export async function overrideReservationStatus(
   reservationId: string,
@@ -403,10 +403,10 @@ export async function overrideReservationStatus(
   const result = await applyStatusOverride(reservationId, status, reason, actorId, now);
 
   // ยกเลิกผ่านแอดมิน (override ไป CANCELLED) ต้องแจ้งทางอีเมลเช่นเดียวกับ cancelReservation (TOR ข้อ 6.4/7, 11)
-  // ตัวช่วยเข้าคิวเป็นงานเสริม (best-effort) และกลืนข้อผิดพลาดเองอยู่แล้ว
+  // ตัวช่วยส่งอีเมลเป็นงานเสริม (best-effort) และกลืนข้อผิดพลาดเองอยู่แล้ว
   // (src/lib/notifications/cancellation.ts) จึงไม่ต้อง try/catch ซ้ำ และไม่ส่งซ้ำเมื่อสถานะไม่เปลี่ยน
   if (result.ok && result.changed && result.status === "CANCELLED") {
-    await enqueueBookingCancellationForReservation(reservationId, reason.trim());
+    await sendBookingCancellationForReservation(reservationId, reason.trim());
   }
 
   return result.ok ? { ok: true, status: result.status } : result;

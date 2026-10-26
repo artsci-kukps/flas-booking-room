@@ -29,6 +29,13 @@
       "when": 1792312200000,
       "tag": "0003_notification_outbox_cron",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792996419751,
+      "tag": "0004_drop_notification_outbox",
+      "breakpoints": true
     }
   ]
 }

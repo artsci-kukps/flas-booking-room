@@ -63,15 +63,15 @@ const { selectMock, fromMock, updateMock, setMock } = vi.hoisted(() => ({
   setMock: vi.fn(),
 }))
 
-const { enqueueCancellationMock } = vi.hoisted(() => ({
-  enqueueCancellationMock: vi.fn<(reservationId: string, reason: string | null) => Promise<void>>(
+const { sendCancellationMock } = vi.hoisted(() => ({
+  sendCancellationMock: vi.fn<(reservationId: string, reason: string | null) => Promise<void>>(
     async () => {},
   ),
 }))
 
 vi.mock('@/lib/notifications/cancellation', () => ({
-  enqueueBookingCancellationForReservation: (...args: [string, string | null]) =>
-    enqueueCancellationMock(...args),
+  sendBookingCancellationForReservation: (...args: [string, string | null]) =>
+    sendCancellationMock(...args),
 }))
 
 vi.mock('@/db', () => ({
@@ -407,7 +407,7 @@ describe('cancelReservation', () => {
     expect(result).toEqual({ ok: true, status: 'CANCELLED' })
     // ไม่เขียนทับ canceled_at/by/reason เดิมของแถวที่ยกเลิกไปแล้ว
     expect(setCalls).toHaveLength(0)
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('สถานะเปลี่ยนไปแล้วระหว่างที่กด (แข่งกับผู้ดำเนินการอื่น) → ข้อความให้รีเฟรชหน้า', async () => {
@@ -420,7 +420,7 @@ describe('cancelReservation', () => {
       ok: false,
       message: 'สถานะของรายการจองเปลี่ยนไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่',
     })
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('ยกเลิกสำเร็จ → เข้าคิวอีเมลแจ้งเตือนการยกเลิกพร้อมเหตุผล (ตัดช่องว่างหัวท้าย)', async () => {
@@ -429,8 +429,8 @@ describe('cancelReservation', () => {
     const result = await cancelReservation('r-1', '  ผู้ใช้โทรขอยกเลิก  ', 'a1', NOW)
 
     expect(result).toEqual({ ok: true, status: 'CANCELLED' })
-    expect(enqueueCancellationMock).toHaveBeenCalledTimes(1)
-    expect(enqueueCancellationMock).toHaveBeenCalledWith('r-1', 'ผู้ใช้โทรขอยกเลิก')
+    expect(sendCancellationMock).toHaveBeenCalledTimes(1)
+    expect(sendCancellationMock).toHaveBeenCalledWith('r-1', 'ผู้ใช้โทรขอยกเลิก')
   })
 
   it('ยกเลิกไม่สำเร็จ (ไม่พบรายการ) → ไม่เข้าคิวอีเมล', async () => {
@@ -438,14 +438,14 @@ describe('cancelReservation', () => {
 
     await cancelReservation('r-missing', 'เหตุผล', 'a1', NOW)
 
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('บังคับเหตุผลไม่ผ่าน → ไม่เข้าคิวอีเมล', async () => {
     const result = await cancelReservation('r-1', '   ', 'a1', NOW)
 
     expect(result.ok).toBe(false)
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 })
 
@@ -471,7 +471,7 @@ describe('overrideReservationStatus', () => {
       },
     ])
     // ไม่ใช่การยกเลิก → ไม่มีอีเมลยกเลิก
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('override ไปสถานะอื่นได้เสมอ (เช่น COMPLETED)', async () => {
@@ -514,7 +514,7 @@ describe('overrideReservationStatus', () => {
     const result = await overrideReservationStatus('r-1', 'CANCELLED', '  เหตุผล  ', 'a1', NOW)
 
     expect(result).toEqual({ ok: true, status: 'CANCELLED' })
-    expect(enqueueCancellationMock).toHaveBeenCalledWith('r-1', 'เหตุผล')
+    expect(sendCancellationMock).toHaveBeenCalledWith('r-1', 'เหตุผล')
   })
 
   it('override ไม่พบรายการ → ไม่เข้าคิวอีเมล', async () => {
@@ -522,7 +522,7 @@ describe('overrideReservationStatus', () => {
 
     await overrideReservationStatus('r-missing', 'CANCELLED', 'เหตุผล', 'a1', NOW)
 
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('override จาก CANCELLED ไปสถานะอื่นได้ (แก้สถานะที่ระบบตั้งผิด) — ไม่ถูกเงื่อนไขกันซ้ำบล็อก', async () => {
@@ -538,7 +538,7 @@ describe('overrideReservationStatus', () => {
 
     expect(result).toEqual({ ok: true, status: 'ACTIVE' })
     expect(setCalls[0]).toMatchObject({ status: 'ACTIVE' })
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('override ไป CANCELLED บนแถวที่ยกเลิกไปแล้ว → ไม่เขียนทับร่องรอยเดิม ไม่ส่งอีเมลซ้ำ', async () => {
@@ -549,7 +549,7 @@ describe('overrideReservationStatus', () => {
 
     expect(result).toEqual({ ok: true, status: 'CANCELLED' })
     expect(setCalls).toHaveLength(0)
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 
   it('override ไปสถานะที่แถวมีอยู่แล้ว → ไม่แก้ข้อมูลซ้ำ ไม่ส่งอีเมล', async () => {
@@ -560,7 +560,7 @@ describe('overrideReservationStatus', () => {
 
     expect(result).toEqual({ ok: true, status: 'ACTIVE' })
     expect(setCalls).toHaveLength(0)
-    expect(enqueueCancellationMock).not.toHaveBeenCalled()
+    expect(sendCancellationMock).not.toHaveBeenCalled()
   })
 })
 

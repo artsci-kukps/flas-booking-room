@@ -4,22 +4,22 @@ import db from "@/db";
 import { reservation, rooms, users } from "@/db/schema";
 
 import {
-  enqueueBookingCancellationEmail,
-  type EnqueueBookingCancellationEmailFn,
-} from "./outbox";
+  sendBookingCancellationEmail,
+  type SendBookingCancellationEmailFn,
+} from "./email";
 
 /**
- * ทางเข้าร่วมของการเข้าคิวอีเมลยกเลิกการจอง (ticket #21)
+ * ทางเข้าร่วมของอีเมลแจ้งเตือนการยกเลิกการจอง (ticket #21)
  * ใช้ทั้งเมื่อผู้ใช้ยกเลิกเองและเมื่อแอดมินยกเลิก — ดึงรหัสการจอง/ห้อง/วันเวลา/อีเมลผู้จอง
- * จากฐานข้อมูลแล้วเข้าคิวเป็น type BOOKING_CANCELLED
+ * จากฐานข้อมูลแล้วส่งอีเมลทันทีผ่าน SMTP
  *
  * อีเมลเป็นการแจ้งเตือน "แบบเสริม": งานนี้กลืนข้อผิดพลาดทั้งหมด (log แล้วจบ)
- * เพื่อให้การยกเลิกล้มเหลวไม่ได้เพราะคิว/อีเมลขัดข้อง — เหมือนการเข้าคิวรหัสการจอง
+ * เพื่อให้การยกเลิกล้มเหลวไม่ได้เพราะอีเมลขัดข้อง — เหมือนการส่งรหัสการจอง
  */
 
-export type EnqueueCancellationDeps = {
-  /** ฉีดได้เพื่อเทสต์ — ค่าเริ่มต้นเขียนลง notification_outbox จริง */
-  enqueue?: EnqueueBookingCancellationEmailFn;
+export type SendCancellationDeps = {
+  /** ฉีดได้เพื่อเทสต์ — ค่าเริ่มต้นส่งผ่าน SMTP จริง */
+  send?: SendBookingCancellationEmailFn;
 };
 
 type CancellationDetails = {
@@ -32,15 +32,15 @@ type CancellationDetails = {
 };
 
 /**
- * ดึงข้อมูลการจองตาม id แล้วเข้าคิวอีเมลแจ้งเตือนการยกเลิก (best-effort)
+ * ดึงข้อมูลการจองตาม id แล้วส่งอีเมลแจ้งเตือนการยกเลิก (best-effort)
  * reason เป็น null ได้เมื่อผู้ใช้ยกเลิกเอง (ไม่ต้องระบุเหตุผล)
  */
-export async function enqueueBookingCancellationForReservation(
+export async function sendBookingCancellationForReservation(
   reservationId: string,
   reason: string | null,
-  deps: EnqueueCancellationDeps = {},
+  deps: SendCancellationDeps = {},
 ): Promise<void> {
-  const enqueue = deps.enqueue ?? enqueueBookingCancellationEmail;
+  const send = deps.send ?? sendBookingCancellationEmail;
 
   try {
     const [details]: CancellationDetails[] = await db
@@ -62,17 +62,16 @@ export async function enqueueBookingCancellationForReservation(
       return;
     }
 
-    await enqueue({
-      reservationId,
+    await send({
       toEmail: details.toEmail,
       bookingCode: details.bookingCode,
       roomName: details.roomName,
       bookingDate: details.bookingDate,
       startTime: details.startTime,
       endTime: details.endTime,
-      reason,
+      reason: reason?.trim() || null,
     });
   } catch (error) {
-    console.error("เข้าคิวแจ้งเตือนการยกเลิกการจองไม่สำเร็จ", error);
+    console.error("ส่งอีเมลแจ้งเตือนการยกเลิกการจองไม่สำเร็จ", error);
   }
 }

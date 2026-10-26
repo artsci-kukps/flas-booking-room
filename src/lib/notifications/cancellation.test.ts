@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { EnqueueBookingCancellationEmail } from './outbox'
+import type { BookingCancellationEmailInput } from './email'
 
 /**
- * เทสต์ตัวช่วยเข้าคิวอีเมลยกเลิกการจอง (ticket #21)
+ * เทสต์ตัวช่วยส่งอีเมลยกเลิกการจอง (ticket #21)
  * จำลอง query ของ drizzle (select ต่อ join หลายชั้นตามแบบฉบับของเทสต์เดิม)
- * และฉีดตัว enqueue เพื่อไม่แตะ Resend/ฐานข้อมูลจริง
+ * และฉีดตัวส่งเพื่อไม่แตะ SMTP/ฐานข้อมูลจริง
  */
 
 let detailRows: unknown[] = []
@@ -36,7 +36,7 @@ vi.mock('@/db', () => ({
 fromMock.mockImplementation(() => chain())
 selectMock.mockImplementation(() => ({ from: fromMock }))
 
-import { enqueueBookingCancellationForReservation } from './cancellation'
+import { sendBookingCancellationForReservation } from './cancellation'
 
 const DETAILS = {
   bookingCode: '123456',
@@ -55,15 +55,14 @@ beforeEach(() => {
   selectMock.mockImplementation(() => ({ from: fromMock }))
 })
 
-describe('enqueueBookingCancellationForReservation', () => {
-  it('ดึงข้อมูลการจองแล้วเข้าคิวอีเมลยกเลิกพร้อมเหตุผล', async () => {
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+describe('sendBookingCancellationForReservation', () => {
+  it('ดึงข้อมูลการจองแล้วส่งอีเมลยกเลิกพร้อมเหตุผล', async () => {
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
 
-    await enqueueBookingCancellationForReservation('res-1', 'ผู้ใช้โทรขอยกเลิก', { enqueue })
+    await sendBookingCancellationForReservation('res-1', 'ผู้ใช้โทรขอยกเลิก', { send })
 
-    expect(enqueue).toHaveBeenCalledTimes(1)
-    expect(enqueue.mock.calls[0][0]).toEqual({
-      reservationId: 'res-1',
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toEqual({
       toEmail: 'booker@ku.th',
       bookingCode: '123456',
       roomName: 'S-101',
@@ -75,39 +74,39 @@ describe('enqueueBookingCancellationForReservation', () => {
   })
 
   it('ไม่มีเหตุผล (ผู้ใช้ยกเลิกเอง) → ส่ง reason เป็น null', async () => {
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
 
-    await enqueueBookingCancellationForReservation('res-1', null, { enqueue })
+    await sendBookingCancellationForReservation('res-1', null, { send })
 
-    expect(enqueue.mock.calls[0][0]).toMatchObject({ reason: null })
+    expect(send.mock.calls[0][0]).toMatchObject({ reason: null })
   })
 
-  it('หาไม่พบการจอง → ไม่เข้าคิว', async () => {
+  it('หาไม่พบการจอง → ไม่ส่งอีเมล', async () => {
     detailRows = []
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
 
-    await enqueueBookingCancellationForReservation('res-missing', null, { enqueue })
+    await sendBookingCancellationForReservation('res-missing', null, { send })
 
-    expect(enqueue).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
-  it('ไม่มีอีเมลผู้จอง → ไม่เข้าคิว (ไม่โยน error)', async () => {
+  it('ไม่มีอีเมลผู้จอง → ไม่ส่งอีเมล (ไม่โยน error)', async () => {
     detailRows = [{ ...DETAILS, toEmail: null }]
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
 
-    await enqueueBookingCancellationForReservation('res-1', null, { enqueue })
+    await sendBookingCancellationForReservation('res-1', null, { send })
 
-    expect(enqueue).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
   })
 
-  it('เข้าคิวไม่สำเร็จ → ไม่โยนออก (การยกเลิกต้องไม่ล้มเหลวเพราะอีเมล)', async () => {
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {
-      throw new Error('queue down')
+  it('ส่งไม่สำเร็จ → ไม่โยนออก (การยกเลิกต้องไม่ล้มเหลวเพราะอีเมล)', async () => {
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {
+      throw new Error('smtp down')
     })
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await expect(
-      enqueueBookingCancellationForReservation('res-1', null, { enqueue }),
+      sendBookingCancellationForReservation('res-1', null, { send }),
     ).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalled()
 
@@ -116,13 +115,13 @@ describe('enqueueBookingCancellationForReservation', () => {
 
   it('อ่านข้อมูลการจองไม่สำเร็จ → ไม่โยนออก (best-effort)', async () => {
     selectError = new Error('db down')
-    const enqueue = vi.fn<(input: EnqueueBookingCancellationEmail) => Promise<void>>(async () => {})
+    const send = vi.fn<(input: BookingCancellationEmailInput) => Promise<void>>(async () => {})
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await expect(
-      enqueueBookingCancellationForReservation('res-1', null, { enqueue }),
+      sendBookingCancellationForReservation('res-1', null, { send }),
     ).resolves.toBeUndefined()
-    expect(enqueue).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalled()
 
     errorSpy.mockRestore()

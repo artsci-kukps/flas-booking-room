@@ -10,7 +10,6 @@ import {
     boolean,
     date,
     time,
-    jsonb,
     uniqueIndex,
     index,
     check,
@@ -57,12 +56,6 @@ export const bookingModeEnum = pgEnum("booking_mode", [
 // ต้องใช้ค่านี้ใน index expression ได้ แต่การ cast enum -> text ไม่ IMMUTABLE
 export const servicePeriodKindValues = ["NORMAL", "EXAM"] as const;
 export type ServicePeriodKind = (typeof servicePeriodKindValues)[number];
-
-export const outboxStatusEnum = pgEnum("outbox_status", [
-    "PENDING",
-    "SENT",
-    "FAILED",
-]);
 
 // ============================================
 // 2. Users
@@ -476,64 +469,7 @@ export const roomBlock = pgTable(
 );
 
 // ============================================
-// 9. Notification Outbox (คิวส่งอีเมลผ่าน Resend)
-// ============================================
-
-export const notificationOutbox = pgTable(
-    "notification_outbox",
-    {
-        id: uuid("id")
-            .primaryKey()
-            .default(sql`gen_random_uuid()`),
-
-        reservationId: uuid("reservation_id")
-            .references(() => reservation.id),
-
-        type: varchar("type", { length: 50 })
-            .notNull()
-            .default("BOOKING_CODE"),
-
-        toEmail: varchar("to_email", { length: 255 })
-            .notNull(),
-
-        subject: text("subject"),
-        payload: jsonb("payload").notNull(),
-
-        status: outboxStatusEnum("status")
-            .notNull()
-            .default("PENDING"),
-
-        attempts: integer("attempts")
-            .notNull()
-            .default(0),
-        lastError: text("last_error"),
-        nextAttemptAt: timestamp("next_attempt_at", {
-            withTimezone: true,
-            mode: "date",
-        })
-            .notNull()
-            .defaultNow(),
-        sentAt: timestamp("sent_at", {
-            withTimezone: true,
-            mode: "date",
-        }),
-
-        createdAt: timestamp("created_at", {
-            withTimezone: true,
-            mode: "date",
-        })
-            .notNull()
-            .defaultNow(),
-    },
-    (table) => [
-        // ให้ pg_cron หยิบงานที่ยังไม่ส่ง / ถึงเวลา retry
-        index("outbox_pending_idx")
-            .on(table.status, table.nextAttemptAt),
-    ],
-);
-
-// ============================================
-// 10. Inferred TypeScript Types
+// 9. Inferred TypeScript Types
 // ============================================
 
 export type User = typeof users.$inferSelect;
@@ -556,6 +492,3 @@ export type NewHoliday = typeof holiday.$inferInsert;
 
 export type RoomBlock = typeof roomBlock.$inferSelect;
 export type NewRoomBlock = typeof roomBlock.$inferInsert;
-
-export type NotificationOutbox = typeof notificationOutbox.$inferSelect;
-export type NewNotificationOutbox = typeof notificationOutbox.$inferInsert;

@@ -9,10 +9,7 @@ import {
   users as usersTable,
 } from '@/db/schema'
 import { makeHoliday, makeServicePeriod } from '@/lib/admin/test-fixtures'
-import type {
-  EnqueueBookingCodeEmail,
-  EnqueueBookingCodeEmailFn,
-} from '@/lib/notifications/outbox'
+import type { SendBookingCodeEmailFn } from '@/lib/notifications/email'
 
 import {
   createReservation,
@@ -532,22 +529,21 @@ describe('createReservation', () => {
     ).rejects.toThrow('Failed query')
   })
 
-  // ---- คิวส่งรหัสทางอีเมล (#14): หนึ่งรายการต่อการจองหนึ่งระเบียน ----
+  // ---- ส่งอีเมลรหัสทางอีเมล (#14): หนึ่งฉบับต่อการจองหนึ่งระเบียน ----
 
-  it('จองสำเร็จ → เข้าคิวส่งรหัสหนึ่งรายการ พร้อมอีเมลผู้จองและข้อมูลห้อง/ช่วงเวลา', async () => {
+  it('จองสำเร็จ → ส่งอีเมลรหัสหนึ่งฉบับ พร้อมอีเมลผู้จองและข้อมูลห้อง/ช่วงเวลา', async () => {
     setTableRows(usersTable, [{ email: 'booker@ku.th' }])
-    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {})
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {})
 
     const result = await createReservation(REQUEST, 'u1', {
       now: BEFORE_OPEN,
       generateCode: () => '123456',
-      enqueue,
+      sendEmail,
     })
 
     expect(result).toEqual({ ok: true, bookingCode: '123456' })
-    expect(enqueue).toHaveBeenCalledTimes(1)
-    expect(enqueue.mock.calls[0][0]).toEqual({
-      reservationId: 'res-1',
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(sendEmail.mock.calls[0][0]).toEqual({
       toEmail: 'booker@ku.th',
       bookingCode: '123456',
       roomName: 'S-101',
@@ -557,49 +553,63 @@ describe('createReservation', () => {
     })
   })
 
-  it('จองห้อง EXCLUSIVE สำเร็จ → เข้าคิวเช่นกัน (หนึ่งครั้งต่อระเบียน)', async () => {
+  it('จองห้อง EXCLUSIVE สำเร็จ → ส่งอีเมลเช่นกัน (หนึ่งครั้งต่อระเบียน)', async () => {
     setTableRows(roomsTable, [
       { roomId: 'room-g', roomName: 'G-101', maxCapacity: null, bookingMode: 'EXCLUSIVE', minDurationMinutes: 120 },
     ])
     setTableRows(usersTable, [{ email: 'booker@ku.th' }])
-    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {})
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {})
 
     const result = await createReservation(
       { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
       'u1',
-      { now: BEFORE_OPEN, generateCode: () => '654321', enqueue },
+      { now: BEFORE_OPEN, generateCode: () => '654321', sendEmail },
     )
 
     expect(result).toEqual({ ok: true, bookingCode: '654321' })
-    expect(enqueue).toHaveBeenCalledTimes(1)
-    expect(enqueue.mock.calls[0][0]).toMatchObject({ roomName: 'G-101', bookingCode: '654321' })
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(sendEmail.mock.calls[0][0]).toMatchObject({ roomName: 'G-101', bookingCode: '654321' })
   })
 
-  it('จองไม่สำเร็จ (ห้องเต็ม) → ไม่เข้าคิว', async () => {
+  it('ไม่พบอีเมลผู้จอง → จองสำเร็จแต่ไม่ส่งอีเมล', async () => {
+    setTableRows(usersTable, [])
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {})
+
+    const result = await createReservation(REQUEST, 'u1', {
+      now: BEFORE_OPEN,
+      generateCode: () => '123456',
+      sendEmail,
+    })
+
+    expect(result).toEqual({ ok: true, bookingCode: '123456' })
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('จองไม่สำเร็จ (ห้องเต็ม) → ไม่ส่งอีเมล', async () => {
     setTableRows(
       reservationTable,
       Array.from({ length: 4 }, (_, i) => ({ id: `r-${i}` })),
     )
     setTableRows(usersTable, [{ email: 'booker@ku.th' }])
-    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {})
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {})
 
-    const result = await createReservation(REQUEST, 'u1', { now: BEFORE_OPEN, enqueue })
+    const result = await createReservation(REQUEST, 'u1', { now: BEFORE_OPEN, sendEmail })
 
     expect(result).toMatchObject({ ok: false })
-    expect(enqueue).not.toHaveBeenCalled()
+    expect(sendEmail).not.toHaveBeenCalled()
   })
 
-  it('เข้าคิวอีเมลล้มเหลว → การจองยังสำเร็จ (หน้ายืนยันยังแสดงรหัสเสมอ)', async () => {
+  it('ส่งอีเมลล้มเหลว → การจองยังสำเร็จ (หน้ายืนยันยังแสดงรหัสเสมอ)', async () => {
     setTableRows(usersTable, [{ email: 'booker@ku.th' }])
-    const enqueue = vi.fn<(input: EnqueueBookingCodeEmail) => Promise<void>>(async () => {
-      throw new Error('queue down')
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {
+      throw new Error('smtp down')
     })
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const result = await createReservation(REQUEST, 'u1', {
       now: BEFORE_OPEN,
       generateCode: () => '123456',
-      enqueue,
+      sendEmail,
     })
 
     expect(result).toEqual({ ok: true, bookingCode: '123456' })
@@ -703,9 +713,18 @@ describe('createReservations (จองหลาย record)', () => {
     expect(transactionMock).toHaveBeenCalledTimes(1)
   })
 
-  it('สอง record → เข้าคิวส่งรหัสหนึ่งรายการต่อระเบียน ผ่านทรานแซกชันของผู้เรียก (#14)', async () => {
+  it('สอง record → ส่งรหัสหนึ่งฉบับต่อระเบียน หลัง transaction commit (#14)', async () => {
     setTableRows(usersTable, [{ email: 'booker@ku.th' }])
-    const enqueue = vi.fn<EnqueueBookingCodeEmailFn>(async () => {})
+    let committed = false
+    transactionMock.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const result = await fn(txMock)
+      committed = true
+      return result
+    })
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {
+      // ต้องไม่ส่งอีเมลก่อน transaction commit
+      expect(committed).toBe(true)
+    })
 
     const result = await createReservations(
       [
@@ -713,15 +732,32 @@ describe('createReservations (จองหลาย record)', () => {
         { roomId: 'room-s', date: MONDAY, startTime: '10:30', endTime: '11:30' },
       ],
       'u1',
-      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']), enqueue },
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']), sendEmail },
     )
 
     expect(result).toEqual({ ok: true, bookingCodes: ['111111', '222222'] })
-    // หนึ่งระเบียน = หนึ่งคิว (ไม่ใช่หนึ่งครั้งต่อการจองทั้งชุด)
-    expect(enqueue).toHaveBeenCalledTimes(2)
-    expect(enqueue.mock.calls.map((call) => call[0].bookingCode)).toEqual(['111111', '222222'])
-    // เข้าคิวในทรานแซกชันเดียวกับ insert เพื่อให้ rollback ไปด้วยกัน
-    expect(enqueue.mock.calls.map((call) => call[1])).toEqual([txMock, txMock])
+    // หนึ่งระเบียน = หนึ่งอีเมล (ไม่ใช่หนึ่งฉบับต่อการจองทั้งชุด)
+    expect(sendEmail).toHaveBeenCalledTimes(2)
+    expect(sendEmail.mock.calls.map((call) => call[0].bookingCode)).toEqual(['111111', '222222'])
+  })
+
+  it('record ใดล้มเหลวกลางทาง → ไม่ส่งอีเมลเลย (ส่งหลัง commit เท่านั้น)', async () => {
+    setRoomG()
+    setTableRows(usersTable, [{ email: 'booker@ku.th' }])
+    insertErrors = [undefined, wrappedPgError('23P01', G_EXCLUSIVE_VIOLATION)]
+    const sendEmail = vi.fn<SendBookingCodeEmailFn>(async () => {})
+
+    const result = await createReservations(
+      [
+        { roomId: 'room-g', date: MONDAY, startTime: '08:30', endTime: '10:30' },
+        { roomId: 'room-g', date: MONDAY, startTime: '12:30', endTime: '14:30' },
+      ],
+      'u1',
+      { now: BEFORE_OPEN, generateCode: codeSequence(['111111', '222222']), sendEmail },
+    )
+
+    expect(result).toEqual({ ok: false, message: ROOM_TAKEN_MESSAGE })
+    expect(sendEmail).not.toHaveBeenCalled()
   })
 
   it('ไม่มี record เลย: ปฏิเสธก่อนแตะ DB', async () => {

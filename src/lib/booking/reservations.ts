@@ -19,10 +19,11 @@ import {
 import { listServicePeriods, todayInBangkok } from "@/lib/admin/service-periods";
 import type { BookingMode } from "@/lib/admin/room-types";
 import {
-  enqueueBookingCodeEmail,
-  type EnqueueBookingCodeEmailFn,
-  type OutboxExecutor,
-} from "@/lib/notifications/outbox";
+  sendAllBestEffort,
+  sendBookingCodeEmail,
+  type BookingCodeEmailInput,
+  type SendBookingCodeEmailFn,
+} from "@/lib/notifications/email";
 import type { Result } from "@/lib/result";
 
 import { planBooking, type BookingBlock } from "./booking-plan";
@@ -62,12 +63,17 @@ export type BookingRequest = {
 /** ผลของการจอง — คืนรูปเดียวกันให้ UI แสดงข้อความ inline ได้ */
 export type BookingResult = Result<{ bookingCode: string }>;
 
-/** ค่าที่ injecting ได้สำหรับเทสต์ (เวลาปัจจุบัน/ตัวสร้างรหัส/การเข้าคิวอีเมล) */
+/** ค่าที่ injecting ได้สำหรับเทสต์ (เวลาปัจจุบัน/ตัวสร้างรหัส/การส่งอีเมล) */
 export type BookingDeps = {
   now?: Date;
   generateCode?: () => string;
-  /** สร้างรายการคิวส่งรหัสทางอีเมล — ค่าเริ่มต้นเขียนลง notification_outbox จริง */
-  enqueue?: EnqueueBookingCodeEmailFn;
+  /** ส่งอีเมลรหัสทางอีเมล — ค่าเริ่มต้นส่งผ่าน SMTP จริง */
+  sendEmail?: SendBookingCodeEmailFn;
+  /**
+   * เก็บอีเมลไว้ให้ผู้เรียกส่งหลัง transaction commit (ใช้ภายใน createReservations)
+   * — ห้ามส่งอีเมลระหว่าง transaction เพราะการจองอาจ rollback
+   */
+  deferEmail?: (input: BookingCodeEmailInput) => void;
   /**
    * ทรานแซกชันของผู้เรียก — ใช้เมื่อจองหลาย record พร้อมกันแบบ atomic
    * (ผู้เรียกเปิด transaction ไว้แล้ว createReservation จะ insert ผ่าน executor นี้)
@@ -239,7 +245,7 @@ export async function createReservation(
     status: "PENDING" as const,
   };
 
-  // อีเมลผู้จองสำหรับคิวแจ้งเตือน (users.email NOT NULL — ถ้าไม่พบถือว่าผิดปกติและข้ามการเข้าคิว)
+  // อีเมลผู้จองสำหรับแจ้งรหัสการจอง (users.email NOT NULL — ถ้าไม่พบถือว่าผิดปกติและข้ามการส่ง)
   // อ่านผ่าน executor เดียวกัน เพื่อให้อยู่ทรานแซกชันของผู้เรียกเมื่อจองหลาย record
   const [booker] = await executor
     .select({ email: users.email })
@@ -247,35 +253,51 @@ export async function createReservation(
     .where(eq(users.id, userId))
     .limit(1);
 
-  const enqueue = deps.enqueue ?? enqueueBookingCodeEmail;
+  const sendEmail = deps.sendEmail ?? sendBookingCodeEmail;
+
+  /** สร้างข้อความอีเมลรหัสการจองของแถวที่เพิ่ง insert — null เมื่อไม่พบอีเมลผู้จอง */
+  function buildBookingEmail(row: { bookingCode: string }): BookingCodeEmailInput | null {
+    if (!booker?.email) {
+      return null;
+    }
+
+    return {
+      toEmail: booker.email,
+      bookingCode: row.bookingCode,
+      roomName: room.roomName,
+      bookingDate: request.date,
+      startTime,
+      endTime,
+    };
+  }
 
   /**
-   * เข้าคิวส่งรหัสทางอีเมล "หนึ่งครั้งต่อการจองหนึ่งระเบียน" (TOR ข้อ 11, #14)
-   * อีเมลเป็นส่วนเสริม: หน้ายืนยันแสดงรหัสบนจอเสมอ (#8) การเข้าคิวล้มเหลวจึงไม่ทำให้การจองล้มเหลว
+   * ส่งรหัสทางอีเมล "หนึ่งครั้งต่อการจองหนึ่งระเบียน" (TOR ข้อ 11, #14)
+   * - มี deferEmail (จองหลาย record) → เก็บไว้ให้ผู้เรียกส่งหลัง transaction commit
+   * - เส้นทางจองเดี่ยว → ส่งทันทีหลัง insert/transaction จบ
+   * อีเมลเป็นส่วนเสริม: หน้ายืนยันแสดงรหัสบนจอเสมอ (#8) จึงกลืน error ไม่ให้การจองล้มเหลว
    */
-  async function enqueueBookingCode(
-    row: { id: string; bookingCode: string },
-    executor?: OutboxExecutor,
-  ): Promise<void> {
-    if (!booker?.email) {
+  async function deliverBookingEmail(row: { bookingCode: string }): Promise<void> {
+    const message = buildBookingEmail(row);
+
+    if (!message) {
+      return;
+    }
+
+    if (deps.deferEmail) {
+      deps.deferEmail(message);
+      return;
+    }
+
+    if (deps.tx) {
+      // อยู่ใน transaction ของผู้เรียก: ผู้เรียกต้องส่งเองหลัง commit (createReservations จัดให้)
       return;
     }
 
     try {
-      await enqueue(
-        {
-          reservationId: row.id,
-          toEmail: booker.email,
-          bookingCode: row.bookingCode,
-          roomName: room.roomName,
-          bookingDate: request.date,
-          startTime,
-          endTime,
-        },
-        executor,
-      );
+      await sendEmail(message);
     } catch (error) {
-      console.error("เข้าคิวส่งรหัสการจองไม่สำเร็จ", error);
+      console.error("ส่งอีเมลรหัสการจองไม่สำเร็จ", error);
     }
   }
 
@@ -285,7 +307,11 @@ export async function createReservation(
     try {
       if (room.bookingMode === "CAPACITY") {
         // ล็อกต่อห้องก่อนนับ แล้วจึง insert (สูตร A.5) — advisory xact lock ปล่อยเมื่อจบ transaction
-        const runCapacity = async (tx: BookingExecutor): Promise<BookingResult> => {
+        type CapacityOutcome =
+          | { ok: true; row: { id: string; bookingCode: string } }
+          | { ok: false; message: string };
+
+        const runCapacity = async (tx: BookingExecutor): Promise<CapacityOutcome> => {
           await tx.execute(
             sql`SELECT pg_advisory_xact_lock(hashtextextended(${room.roomId}::text, 0))`,
           );
@@ -311,14 +337,21 @@ export async function createReservation(
             .values({ ...baseValues, bookingCode })
             .returning({ id: reservation.id, bookingCode: reservation.bookingCode });
 
-          // เข้าคิวในทรานแซกชันเดียวกับการจอง — สำเร็จ/ล้มเหลวไปด้วยกัน
-          await enqueueBookingCode(row!, tx);
-
-          return { ok: true, bookingCode: row!.bookingCode };
+          return { ok: true, row: row! };
         };
 
         // ถ้าผู้เรียกเปิด transaction ไว้แล้ว (จองหลาย record) ให้ใช้ต่อ ไม่เปิดซ้อน
-        return deps.tx ? await runCapacity(deps.tx) : await db.transaction(runCapacity);
+        const outcome = deps.tx
+          ? await runCapacity(deps.tx)
+          : await db.transaction(runCapacity);
+
+        if (!outcome.ok) {
+          return outcome;
+        }
+
+        // ส่งหลัง commit เท่านั้น — ถ้า transaction rollback จะไม่มีอีเมลออกไป
+        await deliverBookingEmail(outcome.row);
+        return { ok: true, bookingCode: outcome.row.bookingCode };
       }
 
       // ห้อง EXCLUSIVE: ปล่อยให้ exclusion constraint `reservation_room_exclusive` กันการจองทับ
@@ -327,7 +360,7 @@ export async function createReservation(
         .values({ ...baseValues, bookingCode })
         .returning({ id: reservation.id, bookingCode: reservation.bookingCode });
 
-      await enqueueBookingCode(row!, deps.tx);
+      await deliverBookingEmail(row!);
       return { ok: true, bookingCode: row!.bookingCode };
     } catch (error) {
       // รหัสซ้ำกับการจองวันเดียวกัน (unique index reservation_code_per_day)
@@ -464,8 +497,9 @@ export async function createReservations(
     }
 
     try {
-      return await db.transaction(async (tx) => {
+      const { bookingCodes, pendingEmails } = await db.transaction(async (tx) => {
         const bookingCodes: string[] = [];
+        const pendingEmails: BookingCodeEmailInput[] = [];
 
         for (let i = 0; i < requests.length; i++) {
           const code = codes[i]!;
@@ -473,6 +507,7 @@ export async function createReservations(
             ...deps,
             tx,
             generateCode: () => code,
+            deferEmail: (message) => pendingEmails.push(message),
           });
 
           if (!result.ok) {
@@ -482,8 +517,17 @@ export async function createReservations(
           bookingCodes.push(result.bookingCode);
         }
 
-        return { ok: true, bookingCodes };
+        return { bookingCodes, pendingEmails };
       });
+
+      // ส่งหลัง commit เท่านั้น — ทั้งชุด rollback = ไม่มีอีเมลออกไปเลย
+      await sendAllBestEffort(
+        pendingEmails,
+        deps.sendEmail ?? sendBookingCodeEmail,
+        "ส่งอีเมลรหัสการจองไม่สำเร็จ",
+      );
+
+      return { ok: true, bookingCodes };
     } catch (error) {
       if (error instanceof BookingAbort) {
         return { ok: false, message: error.message };

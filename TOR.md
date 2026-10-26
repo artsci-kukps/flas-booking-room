@@ -20,7 +20,7 @@
   - ตรวจเงื่อนไขทางธุรกิจทั้งหมดฝั่ง server
   - **ไม่เปิด RLS** ให้ client เข้าถึงตารางโดยตรง
 - **Authentication:** Supabase Auth (OAuth) จำกัดโดเมน `@ku.th`
-- **อีเมล:** Resend (ส่งผ่านคิว `notification_outbox`)
+- **อีเมล:** SMTP ผ่าน nodemailer (ส่งทันที: OTP, รหัสการจอง, แจ้งยกเลิก)
 - **ตัวจัดตารางงาน:** `pg_cron` (ตั้งสถานะ `NO_SHOW`, ยิงส่งอีเมลจากคิว)
 - **ไดรเวอร์/UUID:** ใช้ `gen_random_uuid()` (built-in) แทน `uuid_generate_v4()`
 
@@ -175,10 +175,17 @@
 
 ## 11. การแจ้งเตือน
 
-- ใช้ตาราง `notification_outbox` เป็นคิว
-- เมื่อจองสำเร็จ → สร้างรายการในคิวเพื่อส่งรหัสการจองทางอีเมล (Resend)
-- รองรับ `status` (`PENDING`/`SENT`/`FAILED`), `attempts`, `next_attempt_at`, `last_error`, `sent_at`
-- `pg_cron` เป็นตัวหยิบรายการในคิวไปส่งและ retry
+> **ปรับปรุง: 2026-10-26 (#24)** — เลิกใช้คิว `notification_outbox` + pg_cron/Resend
+> เปลี่ยนเป็นส่งอีเมล **ทันทีผ่าน SMTP (nodemailer)** ใน request path
+
+- ส่งอีเมลทันที **หลัง DB commit เท่านั้น** — ไม่ส่งภายใน transaction (กันกรณี rollback แล้วอีเมลออกไป)
+- เมื่อจองสำเร็จ → ส่งรหัสการจองทางอีเมล **หนึ่งฉบับต่อการจองหนึ่งระเบียน**
+- จองหลายบล็อกพร้อมกัน → ส่งหลัง outer transaction commit ครบแล้ว ส่งขนานด้วย `Promise.allSettled`
+- เมื่อยกเลิก (ผู้ใช้ยกเลิกเองหรือแอดมินยกเลิก) → ส่งอีเมลแจ้งเตือนพร้อมเหตุผล
+  (ผู้ใช้ยกเลิกเองไม่ต้องระบุเหตุผล)
+- อีเมลเป็นงานเสริม (**best-effort**): ส่งไม่สำเร็จเพียงบันทึก log — การจอง/ยกเลิกต้องสำเร็จเสมอ
+  และหน้ายืนยันยังแสดงรหัสบนจอ
+- ไม่มี retry อัตโนมัติ/ตารางคิว: ผู้ใช้เห็นรหัสบนหน้าจอและสามารถติดต่อแอดมินได้หากอีเมลไม่ถึง
 
 ---
 
@@ -217,7 +224,6 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;   -- รองรับ EXCLUDE ... U
 CREATE TYPE user_role           AS ENUM ('user','admin');
 CREATE TYPE reservation_status  AS ENUM ('PENDING','ACTIVE','COMPLETED','LATE_RETURN','CANCELLED','NO_SHOW');
 CREATE TYPE booking_mode        AS ENUM ('EXCLUSIVE','CAPACITY');
-CREATE TYPE outbox_status       AS ENUM ('PENDING','SENT','FAILED');
 -- หมายเหตุ: service_period.kind เก็บเป็น varchar + CHECK แทน enum
 -- เพราะ exclusion constraint ต้องใช้ค่าใน index expression และ enum -> text ไม่ IMMUTABLE
 ```
@@ -412,24 +418,10 @@ CREATE TABLE room_block (
 );
 ```
 
-### A.9 notification_outbox
-```sql
-CREATE TABLE notification_outbox (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  reservation_id  uuid REFERENCES reservation(id),
-  type            varchar(50) NOT NULL DEFAULT 'BOOKING_CODE',
-  to_email        varchar(255) NOT NULL,
-  subject         text,
-  payload         jsonb NOT NULL,
-  status          outbox_status NOT NULL DEFAULT 'PENDING',
-  attempts        integer NOT NULL DEFAULT 0,
-  last_error      text,
-  next_attempt_at timestamptz NOT NULL DEFAULT now(),
-  sent_at         timestamptz,
-  created_at      timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX outbox_pending_idx ON notification_outbox (status, next_attempt_at);
-```
+### A.9 notification_outbox — ยกเลิกแล้ว
+**ปรับปรุง: 2026-10-26 (#24)** — ตาราง `notification_outbox`, enum `outbox_status`
+และ index `outbox_pending_idx` ถูก **ลบ** ด้วย migration `drizzle/0004_drop_notification_outbox.sql`
+(พร้อม unschedule job `notification-outbox-dispatch`) ระบบส่งอีเมลทันทีผ่าน SMTP แทน — ดูข้อ 11
 
 ### A.10 Audit Log — เลื่อนไปเฟสถัดไป
 เวอร์ชันแรก **ไม่สร้างตาราง `audit_log`** เพื่อประหยัดพื้นที่ ใช้คอลัมน์ร่องรอยบนแถวข้อมูลแทน (ดูข้อ 12)
@@ -455,14 +447,17 @@ INSERT INTO room_type (code, type_name, booking_mode, min_duration_minutes) VALU
 ## ภาคผนวก B — ประเด็นที่ยังต้องตัดสินก่อน/ระหว่างพัฒนา
 
 1. ค่าเริ่มต้น `service_period` (NORMAL 08:30–16:30) ต้อง seed หลังสร้างแอดมินคนแรก และแนวทางนำเข้าข้อมูล `holiday`
-2. ✅ ตัดสินแล้วใน #14 — รูปแบบ/ภาษา/หัวข้ออีเมลรหัสการจอง + นโยบาย retry ของ outbox (สูงสุด 5 ครั้ง, 1/5/15/60 นาที) ดู `docs/notifications/outbox.md`
+2. ✅ ตัดสินแล้วใน #14 และ **ปรับปรุงใน #24** — รูปแบบ/ภาษา/หัวข้ออีเมลรหัสการจองและแจ้งยกเลิก
+   ใช้การส่งทันทีแบบ best-effort; **ยกเลิกนโยบาย retry ของ outbox** (ไม่มีคิว/ตาราง outbox แล้ว)
 3. ตารางเวลา `pg_cron` ที่แน่นอน (NO_SHOW, การส่งอีเมล)
    - **✅ NO_SHOW (ตั๋ว #13):** job `reservation-no-show` รัน **ทุกนาที** (`* * * * *`)
      เรียก `mark_no_show_reservations()` ตั้งเฉพาะ `PENDING` ที่ `start_time + 30 นาที <= now()`
      เป็น `NO_SHOW`
-   - **✅ การส่งอีเมล (ตั๋ว #14):** job `notification-outbox-dispatch` รัน **ทุกนาที** (`* * * * *`)
-     ใช้ `pg_net` ยิง `POST /api/cron/outbox` ของแอป เพื่อส่งผ่าน Resend และ retry ตามนโยบาย
-   - รายละเอียด/เหตุผล/การตรวจสอบของทั้งสอง job อยู่ที่ [`docs/pg-cron-schedules.md`](docs/pg-cron-schedules.md)
+   - **✅ การส่งอีเมล (ตั๋ว #14, ปรับปรุง #24):** **ไม่มี pg_cron job สำหรับอีเมลแล้ว**
+     ระบบส่งทันทีผ่าน SMTP ใน request path หลัง DB commit; job `notification-outbox-dispatch`
+     ถูก unschedule ใน migration `0004_drop_notification_outbox.sql`
+   - รายละเอียด/เหตุผล/การตรวจสอบของ job ที่เหลือ (`reservation-no-show`) อยู่ที่
+     [`docs/pg-cron-schedules.md`](docs/pg-cron-schedules.md)
 5. UI การเลือกทีละบล็อก + การแสดงจำนวนครั้งที่ต้องยืนยัน ก่อนกดยืนยันการจอง
 5. จะเพิ่ม `reservation_guard()` เป็น BEFORE trigger ฝั่ง DB ด้วยหรือพึ่งชั้น server อย่างเดียว
 6. การบังคับ `max_capacity` ให้ไม่เป็น NULL เมื่อประเภทห้องเป็น `CAPACITY`

@@ -7,24 +7,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  *   server action จอง/ยกเลิก (user + admin) → performBookingAction/reservations จริง
  *   → fake DB (กติกา exclusion/unique/advisory lock ตาม migration 0001)
  *   → getDayAvailability (ฟังก์ชันเดียวกับที่หน้าตารางใช้) เห็นช่องไม่ว่าง/กลับมาว่าง
- *   → notification_outbox มีแถว BOOKING_CODE / BOOKING_CANCELLED จริง
+ *   → sendEmail ถูกเรียกทันทีหลัง commit (รหัสการจอง/ยกเลิก)
  *
- * boundary ที่ mock: `@/db` (fake DB), `@/lib/auth/guards` (ตัวตน),
- * `next/cache` / `next/navigation` (revalidatePath/redirect — แค่บันทึกการเรียก)
+ * boundary ที่ mock: `@/db` (fake DB), `@/services/email.service` (transport),
+ * `@/lib/auth/guards` (ตัวตน), `next/cache` / `next/navigation` (revalidatePath/redirect)
  *
  * ข้อที่มีเทสต์คุมอยู่แล้วและไม่เขียนซ้ำ: กติกา concurrency (booking-risk.test.ts),
- * รายละเอียดการเข้าคิวอีเมล (cancellation.test.ts, outbox.test.ts),
+ * รายละเอียดการส่งอีเมล (cancellation.test.ts, email.test.ts),
  * การเลือกช่อง/ preselect (slot-selection.test.ts, grid-booking-dialog.test.tsx)
  */
 
-const { requireUserMock, requireAdminMock, revalidatePathMock, redirectMock } = vi.hoisted(
-  () => ({
+const { requireUserMock, requireAdminMock, revalidatePathMock, redirectMock, sendEmailMock } =
+  vi.hoisted(() => ({
     requireUserMock: vi.fn(),
     requireAdminMock: vi.fn(),
     revalidatePathMock: vi.fn(),
     redirectMock: vi.fn(),
-  }),
-)
+    sendEmailMock: vi.fn<(message: unknown) => Promise<void>>(async () => {}),
+  }))
 
 vi.mock('@/db', async () => {
   const { fakeDb } = await import('@/test/fake-booking-db')
@@ -36,19 +36,15 @@ vi.mock('@/lib/auth/guards', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }))
 vi.mock('next/navigation', () => ({ redirect: redirectMock }))
+vi.mock('@/services/email.service', () => ({ sendEmail: sendEmailMock }))
 
-import { notificationOutbox, reservation as reservationTable, users as usersTable } from '@/db/schema'
+import { reservation as reservationTable, users as usersTable } from '@/db/schema'
 import { bookRoom as userBookRoom, bookRoomFromTable as userBookRoomFromTable } from '@/app/(protected)/user/booking/actions'
 import { bookRoom as adminBookRoom, bookRoomFromTable as adminBookRoomFromTable } from '@/app/(protected)/admin/booking/actions'
 import { cancelBooking as userCancelBooking } from '@/app/(protected)/user/history/actions'
 import { cancelReservationAction as adminCancelAction } from '@/app/(protected)/admin/booking-management/cancel-override-actions'
 import { performBookingAction } from '@/lib/booking/booking-action'
 import { getDayAvailability } from '@/lib/booking/day-availability'
-import {
-  BOOKING_CANCELLED_EMAIL_TYPE,
-  BOOKING_CODE_EMAIL_TYPE,
-} from '@/lib/notifications/outbox'
-
 import { resetFakeDb, seed, tableRows, tables } from './fake-booking-db'
 
 const { roomType: roomTypeTable, rooms: roomsTable, servicePeriod: servicePeriodTable } = tables
@@ -158,8 +154,16 @@ function slotOf(slots: Awaited<ReturnType<typeof slotsOf>>['room'], start: strin
   return slot
 }
 
-function outboxRows() {
-  return tableRows(notificationOutbox)
+type SentMessage = { to: string; subject: string; html: string; text: string }
+
+function sentMessages(): SentMessage[] {
+  return sendEmailMock.mock.calls.map(([message]) => message as SentMessage)
+}
+
+function sentCancellations(): SentMessage[] {
+  return sentMessages().filter((message) =>
+    message.subject.startsWith('ยกเลิกการจอง Creative Space:'),
+  )
 }
 
 function reservations() {
@@ -199,13 +203,11 @@ describe('จองผ่าน popup ของหน้าผู้ใช้ (/
     expect(confirmation.startsWith('/user/booking/confirmation?')).toBe(true)
     expect(code).toMatch(/^\d{6}$/)
 
-    const queued = outboxRows()
-    expect(queued).toHaveLength(1)
-    expect(queued[0]).toMatchObject({
-      type: BOOKING_CODE_EMAIL_TYPE,
-      toEmail: USER.email,
-      payload: { bookingCode: code },
-    })
+    const sent = sentMessages()
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toMatchObject({ to: USER.email })
+    expect(sent[0]!.subject).toContain(code!)
+    expect(sent[0]!.text).toContain(code!)
   })
 
   it('จองแล้ว: ตาราง (getDayAvailability) เปลี่ยนช่องนั้นเป็นไม่ว่างทันที ช่องอื่นยังว่าง', async () => {
@@ -352,10 +354,11 @@ describe('ยกเลิกการจองปลดล็อกช่อง�
     const after = await slotsOf('room-s')
     expect(slotOf(after.room, '09:30')).toMatchObject({ status: 'occupied', usedCount: 1, selectable: true })
 
-    // อีเมล: BOOKING_CANCELLED (reason null — ผู้ใช้ยกเลิกเอง)  alongside แถว BOOKING_CODE เดิม
-    const cancelled = outboxRows().filter((row) => row.type === BOOKING_CANCELLED_EMAIL_TYPE)
+    // อีเมลยกเลิก (reason null — ผู้ใช้ยกเลิกเอง) ถูกส่งเพิ่มจากอีเมลรหัสการจองเดิม
+    const cancelled = sentCancellations()
     expect(cancelled).toHaveLength(1)
-    expect(cancelled[0]).toMatchObject({ toEmail: USER.email, payload: { reason: null } })
+    expect(cancelled[0]!.to).toBe(USER.email)
+    expect(cancelled[0]!.text).not.toContain('เหตุผลการยกเลิก')
   })
 
   it('ยกเลิกสำเร็จ: รีเฟรชหน้าประวัติและหน้าที่แสดงความพร้อมทั้งหมด รวมถึงตารางห้อง', async () => {
@@ -386,12 +389,10 @@ describe('แอดมินยกเลิกการจองปลดล็�
     const { room } = await slotsOf('room-g')
     expect(slotOf(room, '08:30')).toMatchObject({ status: 'free', usedCount: 0, selectable: true })
 
-    const cancelled = outboxRows().filter((row) => row.type === BOOKING_CANCELLED_EMAIL_TYPE)
+    const cancelled = sentCancellations()
     expect(cancelled).toHaveLength(1)
-    expect(cancelled[0]).toMatchObject({
-      toEmail: ADMIN.email,
-      payload: { reason: 'ห้องถูกใช้จัดงานสำคัญ' },
-    })
+    expect(cancelled[0]!.to).toBe(ADMIN.email)
+    expect(cancelled[0]!.text).toContain('เหตุผลการยกเลิก: ห้องถูกใช้จัดงานสำคัญ')
   })
 
   it('แอดมินยกเลิก: รีเฟรชหน้าจัดการการจองและตารางห้องทันที', async () => {
@@ -436,9 +437,9 @@ describe('แอดมินยกเลิกการจองปลดล็�
     expect(afterSecond.canceledBy).toEqual(trace.canceledBy)
     expect(afterSecond.canceledReason).toEqual(trace.canceledReason)
 
-    const cancelled = outboxRows().filter((row) => row.type === BOOKING_CANCELLED_EMAIL_TYPE)
+    const cancelled = sentCancellations()
     expect(cancelled).toHaveLength(1)
-    expect(cancelled[0]).toMatchObject({ payload: { reason: 'เหตุผลแรก' } })
+    expect(cancelled[0]!.text).toContain('เหตุผลการยกเลิก: เหตุผลแรก')
   })
 })
 

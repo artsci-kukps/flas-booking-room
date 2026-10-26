@@ -4,7 +4,6 @@ import { getTableColumns } from "drizzle-orm";
 
 import {
   holiday,
-  notificationOutbox,
   reservation,
   roomBlock,
   roomType,
@@ -49,7 +48,6 @@ function cacheColumns(): void {
     roomBlock,
     reservation,
     users,
-    notificationOutbox,
   ]) {
     const columns = getTableColumns(table);
 
@@ -786,5 +784,4 @@ export const tables = {
   roomBlock,
   reservation,
   users,
-  notificationOutbox,
 };

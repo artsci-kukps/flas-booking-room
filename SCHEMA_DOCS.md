@@ -7,7 +7,6 @@
 | `user_role`           | `user`, `admin`                                                         | แยกบทบาทผู้ใช้งานในระบบ                                                                            |
 | `reservation_status`  | `PENDING`, `ACTIVE`, `COMPLETED`, `LATE_RETURN`, `CANCELLED`, `NO_SHOW` | วงจรชีวิตของการจองและสถานะที่ครองช่วงเวลา (`PENDING`, `ACTIVE`)                                    |
 | `booking_mode`        | `EXCLUSIVE`, `CAPACITY`                                                 | โหมดการจองของประเภทห้อง (`EXCLUSIVE` = ห้ามทับ เช่น G/P, `CAPACITY` = ทับได้จนครบความจุ เช่น S)    |
-| `outbox_status`       | `PENDING`, `SENT`, `FAILED`                                             | สถานะของรายการคิวส่งอีเมลใน `notification_outbox`                                                  |
 
 ---
 
@@ -172,30 +171,7 @@
 
 ---
 
-## 9. `notification_outbox`
-
-**จุดประสงค์:** คิวส่งอีเมลผ่าน **Resend** เมื่อมีเหตุการณ์ที่ต้องแจ้ง (เช่น ส่ง `booking_code` หลังจองสำเร็จ หรือแจ้งเตือนการยกเลิกการจอง) ใช้ `pg_cron` ดึงรายการ `PENDING` และอัพเดตสถานะ/attempts
-
-| คอลัมน์           | ประเภท                         | NULL | ค่าเริ่มต้น         | จุดประสงค์                                                                                     |
-| ----------------- | ------------------------------ | ---- | ------------------- | ---------------------------------------------------------------------------------------------- |
-| `id`              | `uuid` (PK)                    | ไม่  | `gen_random_uuid()` | ไอดีรายการคิว                                                                                  |
-| `reservation_id`  | `uuid` FK -> `reservation(id)` | ใช่  | —                   | ลิงก์ไปยังการจองที่เกี่ยวข้อง (ถ้ามี)                                                          |
-| `type`            | `varchar(50)`                  | ไม่  | `BOOKING_CODE`      | ประเภทการแจ้งเตือน: `BOOKING_CODE` (ส่งรหัสการจอง), `BOOKING_CANCELLED` (แจ้งยกเลิกการจอง)     |
-| `to_email`        | `varchar(255)`                 | ไม่  | —                   | อีเมลผู้รับ                                                                                    |
-| `subject`         | `text`                         | ใช่  | —                   | หัวข้ออีเมล (สามารถสร้างจาก payload หรือกำหนดเอง)                                              |
-| `payload`         | `jsonb`                        | ไม่  | —                   | ข้อมูลสร้างอีเมล (เช่น `bookingCode`, `roomName`, `startTime`, `endTime`, `bookingDate`, `reason`) |
-| `status`          | `outbox_status`                | ไม่  | `PENDING`           | สถานะ: `PENDING` = รอส่ง, `SENT` = ส่งแล้ว, `FAILED` = ล้มเหลว (อาจ retry)                     |
-| `attempts`        | `integer`                      | ไม่  | `0`                 | จำนวนครั้งที่พยายามส่ง                                                                         |
-| `last_error`      | `text`                         | ใช่  | —                   | ข้อความ error ล่าสุดจากผู้ให้บริการอีเมล                                                       |
-| `next_attempt_at` | `timestamptz`                  | ไม่  | `now()`             | เวลาที่ควรลองส่งครั้งถัดไป (ใช้กับ retry/backoff)                                              |
-| `sent_at`         | `timestamptz`                  | ใช่  | —                   | เวลาที่ส่งสำเร็จ                                                                               |
-| `created_at`      | `timestamptz`                  | ไม่  | `now()`             | เวลาสร้างรายการคิว                                                                             |
-
-**Index:** `outbox_pending_idx` (`status`, `next_attempt_at`) เพื่อให้ worker (`pg_cron`) เลือกเฉพาะที่ถึงเวลาส่งได้เร็ว
-
----
-
-## 10. การกู้คืนข้อมูล (Restore / Reuse)
+## 9. การกู้คืนข้อมูล (Restore / Reuse)
 
 Soft delete ใช้เฉพาะตาราง `rooms` และ `room_type` เท่านั้น (ดูข้อ 3 และ 4) ส่วน `service_period`, `holiday`, `room_block` **ลบจริง**
 

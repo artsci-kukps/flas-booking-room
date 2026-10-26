@@ -6,9 +6,14 @@
 > **หมายเหตุเรื่อง timezone (สำคัญ):** `cron.timezone` เป็น GUC ที่ `pg_cron`
 > อ่านตอนเริ่ม postmaster (postmaster context) จึงตั้งได้เฉพาะด้วย
 > `ALTER SYSTEM SET cron.timezone = '<tz>';` แล้ว **restart ฐานข้อมูล** — ตั้งจาก migration ไม่ได้
-> ทั้งสอง job ด้านล่างเลือกความถี่ "ทุกนาที" และใช้เกณฑ์ตัดสินเป็น instant
+> job ด้านล่างเลือกความถี่ "ทุกนาที" และใช้เกณฑ์ตัดสินเป็น instant
 > (`now()` เทียบกับค่าที่คำนวณจากแถว) ไม่ใช่ปฏิทินวัน จึงให้ผลเหมือนกันทุก timezone
 > โดยไม่ต้องตั้ง `cron.timezone` เลย
+
+> **ไม่มี job สำหรับอีเมลแล้ว:** ตั้งแต่ #24 ระบบส่งอีเมล (รหัสการจอง/แจ้งยกเลิก)
+> **ทันทีผ่าน SMTP (nodemailer)** ใน request path หลัง DB commit แทนการเข้าคิว
+> จึงลบตาราง `notification_outbox` และ job `notification-outbox-dispatch` ออกแล้ว
+> (ดูรายละเอียดการแจ้งเตือนใน `TOR.md` ข้อ 11)
 
 ---
 
@@ -62,50 +67,5 @@ SELECT jobid, status, return_message, start_time
 บน Supabase ให้เปิดส่วนขยาย `pg_cron` (Dashboard → Database → Extensions) ก่อน
 migration `0002_no_show_cron.sql` มี `CREATE EXTENSION IF NOT EXISTS pg_cron;` กันกรณีอื่นอยู่แล้ว
 
----
-
-## 2. `notification-outbox-dispatch` — ส่งอีเมลรหัสการจองและ retry (ตั๋ว #14)
-
-| หัวข้อ | ค่า |
-| --- | --- |
-| Job name | `notification-outbox-dispatch` |
-| ตารางเวลา | `* * * * *` (ทุกนาที ทุกวัน) |
-| คำสั่ง | `SELECT net.http_post(url := current_setting('app.outbox_url', true), ...)` |
-| ปลายทาง | `POST /api/cron/outbox` ของแอป (worker ใน `src/app/api/cron/outbox/route.ts`) |
-| ยืนยันตัวตน | header `Authorization: Bearer <app.cron_secret>` (เทียบกับ `CRON_SECRET` ของแอป) |
-| ตาราง/นโยบาย | นโยบาย retry และรูปแบบอีเมลอยู่ใน [`docs/notifications/outbox.md`](notifications/outbox.md) |
-| Timezone อ้างอิง | Asia/Bangkok (การจัดรูปแบบวัน/เวลาเป็นหน้าที่ชั้นแอป) |
-
-### ทำไม pg_cron ต้องยิงเข้าแอป
-
-`pg_cron` ส่งอีเมล (HTTP ไป Resend) เองไม่ได้ ต้องอาศัย `pg_net` ยิงออกไปที่ worker ของแอป
-worker จึงเป็นคนสร้างเนื้ออีเมล เรียก Resend แล้วอัปเดต `SENT` / retry / `FAILED`
-ในตาราง `notification_outbox` (เลือกงานด้วย index `outbox_pending_idx`)
-
-### ทำไมเลือก "ทุกนาที"
-
-- **ความหมายทางธุรกิจ:** ต้องส่งรหัสให้ผู้จองเร็วที่สุดหลังจองสำเร็จ และต้อง retry ได้ตามนโยบาย
-  ความถี่ระดับนาทีคือความละเอียดต่ำสุดของ `pg_cron` และทำให้ดีเลย์สูงสุด ~1 นาที
-- **งานเบา:** query เลือกเฉพาะ `PENDING` ที่ถึงเวลา (ปกติ 0 แถว) บน index `outbox_pending_idx (status, next_attempt_at)`
-- **ไม่ผูก timezone:** ความถี่ระดับนาทีทำให้จังหวะไม่ขึ้นกับ timezone (การแสดงวัน/เวลาเป็น Asia/Bangkok ที่ชั้นแอป)
-
-### การตั้งค่าและตรวจสอบย้อนหลัง (operations)
-
-ตั้งค่า GUC ต่อฐานข้อมูลก่อนใช้งาน (ถ้าไม่ตั้ง `app.outbox_url` งานจะไม่ยิงอะไรเลย):
-
-```sql
-ALTER DATABASE <db> SET app.outbox_url  = 'https://<app>/api/cron/outbox';
-ALTER DATABASE <db> SET app.cron_secret = '<CRON_SECRET>';
-```
-
-```sql
--- ดู job ที่ลงทะเบียนไว้
-SELECT jobid, jobname, schedule, command, active FROM cron.job;
-
--- ดูประวัติการรันล่าสุด (ผลรวม sent/retried/failed อยู่ใน body ของ net._http_response)
-SELECT jobid, status, return_message, start_time
-  FROM cron.job_run_details
- WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'notification-outbox-dispatch')
- ORDER BY start_time DESC
- LIMIT 20;
-```
+`pg_net` ยังคงเปิดไว้ในฐานข้อมูล แต่ไม่มี job ไหนใช้งานแล้ว (เดิมใช้ยิง HTTP ไปที่ worker
+ของ outbox) — จะปิดก็ได้หากต้องการลดส่วนขยายที่ไม่ได้ใช้

@@ -31,17 +31,24 @@ DATABASE_URL=postgresql://...
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 
-# อีเมลผ่าน Resend (คิว notification_outbox — ดู docs/notifications/outbox.md)
-RESEND_API_KEY=<resend-api-key>
-RESEND_FROM=Creative Space <booking@ku.th>
-# secret สำหรับ worker ของ pg_cron ที่ยิงเข้า /api/cron/outbox
-CRON_SECRET=<random-secret>
+# อีเมลผ่าน SMTP (nodemailer) — ส่งทันทีทั้ง OTP/รหัสการจอง/แจ้งยกเลิก
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=<smtp-user>
+SMTP_PASS=<smtp-password>
+SMTP_FROM=Creative Space <booking@ku.th>
 ```
 
 ### 3. เตรียมฐานข้อมูล
 
-รัน migration ในโฟลเดอร์ `drizzle/` กับฐานข้อมูลเป้าหมาย (เช่น `drizzle-kit migrate`
-หรือรันไฟล์ `drizzle/0000_initial.sql`, `drizzle/0001_reservation_rules.sql` ตามลำดับ)
+รัน migration ในโฟลเดอร์ `drizzle/` กับฐานข้อมูลเป้าหมายตามลำดับ:
+
+```bash
+npx drizzle-kit migrate
+```
+
+หรือรันไฟล์ SQL ใน `drizzle/` ทีละไฟล์ด้วยมือ (เช่นผ่าน Supabase SQL editor)
+โดยเรียงตามเลข `0000` → `0004`
 
 ### 4. รัน development server
 

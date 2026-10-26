@@ -7,6 +7,11 @@ vi.mock('@/db', async () => {
   return { default: fakeDb }
 })
 
+// ไม่ยิง SMTP จริงจากเทสต์ (เส้นทางจองเรียก sendEmail หลัง commit)
+vi.mock('@/services/email.service', () => ({
+  sendEmail: vi.fn(async () => {}),
+}))
+
 import {
   insertRaw,
   maxConcurrentOccupancy,
