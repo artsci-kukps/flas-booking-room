@@ -30,17 +30,39 @@ export default function RoomStatusSection({
   availability,
   bookRoomAction,
 }: RoomStatusSectionProps) {
+  // สรุปสั้น ๆ ให้รู้ก่อนไล่อ่านตารางว่าวันนี้มีห้องไหนว่างบ้าง
+  const freeRooms = availability.open
+    ? availability.rooms.filter((room) =>
+        room.slots.some((slot) => slot.selectable),
+      ).length
+    : 0;
+
   return (
     <section className="mt-6" aria-labelledby="room-grid-heading">
-      <h2
-        id="room-grid-heading"
-        className="text-base font-semibold tracking-tight text-ink"
-      >
-        ตารางสถานะห้องวันที่ {formatThaiDate(date)}
-      </h2>
-      <p className="mt-1 text-sm text-ink-muted">
-        สถานะช่วงเวลาของทุกห้องในวันเดียว — ว่าง ไม่ว่าง ถูกบล็อก หรือผ่านไปแล้ว
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <div>
+          <h2
+            id="room-grid-heading"
+            className="text-lg font-semibold tracking-tight text-ink"
+          >
+            ตารางสถานะห้องวันที่ {formatThaiDate(date)}
+          </h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            สถานะช่วงเวลาของทุกห้องในวันเดียว — ว่าง ไม่ว่าง ถูกบล็อก หรือผ่านไปแล้ว
+          </p>
+        </div>
+
+        {availability.open ? (
+          <p className="text-xs font-semibold text-ink-muted">
+            มีช่วงว่าง{" "}
+            <span className="tabular-nums text-ink">
+              {freeRooms}/{availability.rooms.length}
+            </span>{" "}
+            ห้อง
+          </p>
+        ) : null}
+      </div>
+
       <RoomTimeGrid
         date={date}
         today={today}

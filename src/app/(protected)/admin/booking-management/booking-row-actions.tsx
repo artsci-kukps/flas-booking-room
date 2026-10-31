@@ -55,9 +55,7 @@ export default function BookingRowActions({ row, className }: BookingRowActionsP
       <div className={wrapperClass}>
         <Alert tone="success" heading={successMessage} className="w-full" />
       </div>
-    ) : (
-      <span className="text-sm text-ink-muted">—</span>
-    );
+    ) : null;
   }
 
   const isPickup = row.status === "PENDING";
@@ -109,7 +107,7 @@ export default function BookingRowActions({ row, className }: BookingRowActionsP
         onClick={() => setConfirming(isPickup ? "pickup" : "return")}
         disabled={pending}
         aria-busy={pending}
-        className="btn btn-sm btn-outline whitespace-nowrap"
+        className="btn btn-sm btn-primary whitespace-nowrap"
       >
         {pending ? "กำลังบันทึก…" : isPickup ? "ยืนยันรับกุญแจ" : "ยืนยันคืนกุญแจ"}
       </button>

@@ -82,18 +82,18 @@ export default function GridBookingDialog({
         <div className="flex items-start gap-3">
           <RoomTypeCodeBadge code={room.roomTypeCode} />
           <div className="min-w-0 flex-1">
-            <h2 id="grid-booking-title" className="text-base font-semibold tracking-tight text-ink">
+            <h2 id="grid-booking-title" className="text-lg font-semibold tracking-tight text-ink">
               {room.name}
             </h2>
-            <p className="mt-0.5 text-sm text-ink-muted">
+            <p className="mt-0.5 text-sm leading-relaxed text-ink-muted">
               {room.roomTypeName} · {formatThaiDate(date)}
             </p>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs font-semibold text-ink-muted">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
           <span>
-            เวลาเปิด–ปิด:{" "}
+            เปิด{" "}
             <span className="tabular-nums">
               {openTime}–{closeTime}
             </span>
@@ -101,7 +101,7 @@ export default function GridBookingDialog({
           <span>บล็อกละ {slotLengthLabel(room.minDurationMinutes)}</span>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-5">
           {/* key เปลี่ยนตามห้อง/วัน — เลือกช่องเริ่มใหม่เสมอเมื่อเปิด popup ครั้งถัดไป */}
           <SlotPicker
             key={`${room.id}-${date}`}
@@ -111,7 +111,7 @@ export default function GridBookingDialog({
             initialSlot={slot.start}
             onResult={handleResult}
             secondaryAction={
-              <button type="button" onClick={close} className="btn btn-outline">
+              <button type="button" onClick={close} className="btn btn-ghost">
                 ยกเลิก
               </button>
             }

@@ -204,6 +204,25 @@ describe('admin booking-management page', () => {
     expect(html).toContain('ถูกบล็อก')
   })
 
+  it('แยกงานที่ต้องดำเนินการขึ้นก่อนรายการที่ปิดแล้ว', async () => {
+    listBookingsForDayMock.mockResolvedValue([
+      bookingRow({ id: 'closed', status: 'COMPLETED' }),
+      bookingRow({ id: 'open', status: 'PENDING' }),
+    ])
+
+    const html = await render()
+
+    expect(html).toContain('ต้องดำเนินการ')
+    expect(html).toContain('ปิดรายการแล้ว')
+    expect(html.indexOf('ต้องดำเนินการ')).toBeLessThan(html.indexOf('ปิดรายการแล้ว'))
+  })
+
+  it('เตือนขอบเขตเมื่อเปิดดูวันอื่น — ช่องค้นยังเป็นของวันนี้', async () => {
+    const html = await render({ date: '2020-01-01' })
+
+    expect(html).toContain('ช่องค้นรหัสด้านบนใช้กับวันนี้เท่านั้น')
+  })
+
   it('ตารางสถานะอยู่ร่วมหน้ากับตารางรายการจองเดิม — รับ–คืนกุญแจและลิงก์วันยังครบ', async () => {
     const html = await render()
 

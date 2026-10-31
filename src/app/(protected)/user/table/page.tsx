@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireUser } from "@/lib/auth/guards";
 import { todayInBangkok } from "@/lib/admin/service-periods";
 import BookingDayNav from "@/components/booking/booking-day-nav";
@@ -34,17 +36,38 @@ export default async function UserTablePage({
 
   return (
     <main className="page py-8 sm:py-10">
-      <div className="max-w-2xl">
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">
-          ตารางจอง
-        </h1>
-        <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-          ภาพรวมการจองของทุกห้องในหนึ่งวัน — ดูว่าช่วงเวลาใดว่างหรือถูกจองไปแล้ว
-          แล้วคลิกช่องว่างเพื่อจองผ่าน popup ได้ทันที
-        </p>
-      </div>
+      <header className="max-w-3xl">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0">
+            <h1 className="text-[1.75rem] font-semibold tracking-tight text-ink">
+              ตารางจอง
+            </h1>
+            <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
+              ภาพรวมการจองของทุกห้องในหนึ่งวัน — ดูว่าช่วงเวลาใดว่างหรือถูกจองไปแล้ว
+              แล้วคลิกช่องว่างเพื่อจองผ่าน popup ได้ทันที
+            </p>
+          </div>
 
-      <BookingDayNav path={PATH} date={date} today={today} />
+          <Link href="/user/booking" className="btn btn-outline btn-sm shrink-0">
+            จองห้อง
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
+          </Link>
+        </div>
+      </header>
+
+      <BookingDayNav path={PATH} date={date} today={today} variant="window" />
 
       <RoomStatusSection
         date={date}
@@ -52,6 +75,16 @@ export default async function UserTablePage({
         availability={availability}
         bookRoomAction={bookRoomFromTable}
       />
+
+      <p className="mt-8 text-[0.8125rem] text-ink-muted">
+        ต้องการดูรหัสหรือยกเลิกการจอง? ไปที่{" "}
+        <Link
+          href="/user/history"
+          className="font-semibold text-ku underline-offset-4 hover:underline"
+        >
+          ประวัติการจอง
+        </Link>
+      </p>
     </main>
   );
 }

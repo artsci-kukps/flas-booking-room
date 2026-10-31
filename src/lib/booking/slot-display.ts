@@ -21,7 +21,7 @@ export function slotLengthLabel(minutes: number): string {
  * เพื่อไม่ให้คัดลอกข้อความแล้วคลาดเคลื่อนจากกัน (หน้าจองห้อง, เวลาทำการ, ผนังกติกา)
  */
 export const BLOCK_LENGTH_COPY =
-  "ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง, ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง (ตามระยะเวลาขั้นต่ำของแต่ละประเภทห้อง)";
+  "ห้องทั่วไป/ละหมาด จองขั้นต่ำครั้งละ 1 ชั่วโมง, ห้องประชุมใหญ่ จองขั้นต่ำครั้งละ 2 ชั่วโมง (ตามระยะเวลาขั้นต่ำของแต่ละประเภทห้อง)";
 
 /**
  * คลาสป้ายสถานะช่องเวลาตามโทนสีระบบ (flat, ไม่มีเงา):
@@ -32,7 +32,8 @@ export const SLOT_FREE_CLASS = "bg-ku-soft text-ku";
 export const SLOT_FREE_SELECTABLE_CLASS =
   "bg-ku-soft text-ku cursor-pointer hover:bg-ku hover:text-white";
 export const SLOT_OCCUPIED_CLASS = "bg-amber-soft text-amber-ink";
-export const SLOT_OCCUPIED_SELECTABLE_CLASS = "bg-amber-soft text-amber-ink cursor-pointer";
+export const SLOT_OCCUPIED_SELECTABLE_CLASS =
+  "bg-amber-soft text-amber-ink cursor-pointer";
 export const SLOT_MUTED_CLASS = "bg-canvas text-ink-muted";
 
 /**

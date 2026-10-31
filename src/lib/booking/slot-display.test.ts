@@ -109,9 +109,9 @@ describe('slotChipClass', () => {
 })
 
 describe('BLOCK_LENGTH_COPY', () => {
-  it('บอกความยาวบล็อกตามประเภทห้อง และชี้ว่ายึดระยะเวลาขั้นต่ำของแต่ละประเภทห้อง', () => {
-    expect(BLOCK_LENGTH_COPY).toContain('ห้องทั่วไป/ละหมาด บล็อกละ 1 ชั่วโมง')
-    expect(BLOCK_LENGTH_COPY).toContain('ห้องประชุมใหญ่ บล็อกละ 2 ชั่วโมง')
+  it('บอกระยะเวลาขั้นต่ำตามประเภทห้อง และชี้ว่ายึดระยะเวลาขั้นต่ำของแต่ละประเภทห้อง', () => {
+    expect(BLOCK_LENGTH_COPY).toContain('ห้องทั่วไป/ละหมาด จองขั้นต่ำครั้งละ 1 ชั่วโมง')
+    expect(BLOCK_LENGTH_COPY).toContain('ห้องประชุมใหญ่ จองขั้นต่ำครั้งละ 2 ชั่วโมง')
     expect(BLOCK_LENGTH_COPY).toContain('ระยะเวลาขั้นต่ำของแต่ละประเภทห้อง')
   })
 })

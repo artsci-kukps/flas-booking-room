@@ -63,7 +63,9 @@ describe('หน้าการจองของฉัน (/user/history)', () 
     expect(html).toContain('123456')
     expect(html).toContain('09:30')
     expect(html).toContain('10:30')
+    expect(html).toContain('วันจันทร์')
     expect(html).toContain('รอรับกุญแจ')
+    expect(html).toContain('bg-amber-soft text-amber-ink')
   })
 
   it('PENDING ก่อนเวลาเริ่ม: มีปุ่มยกเลิกการจอง', async () => {
@@ -84,7 +86,7 @@ describe('หน้าการจองของฉัน (/user/history)', () 
     expect(html).not.toContain('ยกเลิกการจอง')
   })
 
-  it('PENDING ที่เลยเวลาเริ่ม: ไม่มีปุ่มยกเลิก', async () => {
+  it('PENDING ที่เลยเวลาเริ่ม: ไม่มีปุ่มยกเลิก และบอกเหตุผลที่ยกเลิกไม่ได้', async () => {
     listMyBookingsMock.mockResolvedValue([
       booking({ canCancel: false, cancelBlockedMessage: 'เลยเวลาเริ่มของการจองแล้ว ยกเลิกไม่ได้' }),
     ])
@@ -92,6 +94,7 @@ describe('หน้าการจองของฉัน (/user/history)', () 
     const html = renderToStaticMarkup(await HistoryPage())
 
     expect(html).not.toContain('ยกเลิกการจอง')
+    expect(html).toContain('เลยเวลาเริ่มของการจองแล้ว')
   })
 
   it('รายการที่ยกเลิกแล้ว: แสดงสถานะยกเลิกพร้อมเวลาที่ยกเลิก ไม่มีปุ่มยกเลิก', async () => {
@@ -109,6 +112,27 @@ describe('หน้าการจองของฉัน (/user/history)', () 
     expect(html).toContain('ยกเลิกแล้ว')
     expect(html).toContain('ยกเลิกเมื่อ')
     expect(html).not.toContain('ยกเลิกการจอง')
+    expect(html).not.toContain('ยกเลิกได้เฉพาะการจอง')
+  })
+
+  it('แยกกลุ่มรายการที่ยังดำเนินอยู่ก่อนรายการที่ผ่านมา', async () => {
+    listMyBookingsMock.mockResolvedValue([
+      booking(),
+      booking({
+        id: 'res-2',
+        bookingCode: '654321',
+        status: 'COMPLETED',
+        canCancel: false,
+        cancelBlockedMessage: 'ยกเลิกได้เฉพาะการจองที่รอรับกุญแจ (PENDING) เท่านั้น',
+      }),
+    ])
+
+    const html = renderToStaticMarkup(await HistoryPage())
+
+    expect(html).toContain('กำลังดำเนินการ')
+    expect(html).toContain('ที่ผ่านมา')
+    expect(html.indexOf('กำลังดำเนินการ')).toBeLessThan(html.indexOf('ที่ผ่านมา'))
+    expect(html).toContain('เสร็จสิ้น')
   })
 
   it('ยังไม่มีการจอง: แจ้งว่ายังไม่มีรายการ', async () => {

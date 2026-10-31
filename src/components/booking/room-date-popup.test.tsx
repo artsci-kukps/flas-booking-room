@@ -100,6 +100,61 @@ describe('room date popup', () => {
     expect(html).toContain('data-room-id="room-g"')
   })
 
+  it('จัดห้องเป็นกลุ่มตามประเภท โดยเรียง S → G และคงห้องเดิมไว้ในกลุ่ม', () => {
+    const html = renderPopup({
+      rooms: [
+        { ...ROOMS[1]!, id: 'room-g', name: 'G-101' },
+        { ...ROOMS[0]!, id: 'room-s-1', name: 'S-101' },
+        { ...ROOMS[0]!, id: 'room-s-2', name: 'S-102' },
+      ],
+    })
+
+    // กลุ่ม S มาก่อน G แม้ข้อมูลตั้งต้นจะเริ่มด้วย G
+    const sGroup = html.indexOf('data-room-type-group="S"')
+    const gGroup = html.indexOf('data-room-type-group="G"')
+    expect(sGroup).toBeGreaterThan(-1)
+    expect(gGroup).toBeGreaterThan(sGroup)
+
+    expect(html).toMatch(/id="room-type-S"[^>]*>ห้องทั่วไป<\/h3>/)
+    expect(html).toMatch(/id="room-type-G"[^>]*>ห้องประชุมใหญ่<\/h3>/)
+
+    // จำนวนห้องของแต่ละกลุ่ม
+    expect(html).toContain('2 ห้อง')
+    expect(html).toContain('1 ห้อง')
+
+    // การ์ดทุกห้องยังอยู่ครบ
+    expect(html).toContain('data-room-id="room-s-1"')
+    expect(html).toContain('data-room-id="room-s-2"')
+    expect(html).toContain('data-room-id="room-g"')
+  })
+
+  it('ผนังห้องบอกจำนวนช่วงว่างของวันแรกที่เปิด พร้อมวันที่กำกับ', () => {
+    const html = renderPopup()
+
+    expect(html.match(/ว่าง 1 ช่วง/g)).toHaveLength(2)
+    expect(html).toContain('สถานะวันนี้')
+    expect(html).toContain('19 ต.ค. 2569')
+  })
+
+  it('วันปิดทั้งสองวัน: ผนังห้องบอกปิดทำการ ไม่แสดงจำนวนช่วงว่าง', () => {
+    const closedToday: DayAvailability = {
+      date: '2026-10-19',
+      open: false,
+      reason: 'weekend',
+      holidayName: null,
+    }
+
+    const html = renderPopup({
+      days: [
+        { option: bookingDateOptions('2026-10-19')[0]!, availability: closedToday },
+        { option: bookingDateOptions('2026-10-19')[1]!, availability: CLOSED_TOMORROW },
+      ],
+    })
+
+    expect(html).not.toContain('ว่าง 1 ช่วง')
+    expect(html.match(/ปิดทำการ/g)).toHaveLength(2)
+  })
+
   it('เป็น popup (<dialog>) พร้อมหัวข้อเลือกวันที่จอง', () => {
     const html = renderPopup()
 

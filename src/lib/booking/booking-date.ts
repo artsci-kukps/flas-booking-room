@@ -73,7 +73,7 @@ export function parseBookingDate(
 }
 
 /** ชื่อวันในสัปดาห์ภาษาไทยของวันที่ 'YYYY-MM-DD' (เขตเวลาไทย) */
-function thaiWeekday(date: string): string {
+export function thaiWeekday(date: string): string {
   return new Intl.DateTimeFormat("th-TH", {
     timeZone: "Asia/Bangkok",
     weekday: "long",

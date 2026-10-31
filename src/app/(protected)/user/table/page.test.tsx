@@ -141,12 +141,15 @@ describe('หน้าตารางจองของผู้ใช้ (/user
     expect(html).not.toContain('คลิกช่องว่างในตารางเพื่อเปิด popup จอง')
   })
 
-  it('มีตัวเลือกวันที่ชี้กลับมาหน้าตารางของผู้ใช้เอง', async () => {
+  it('มีตัวเลือกวันที่เฉพาะวันนี้และวันพรุ่งนี้ของหน้าตารางของผู้ใช้เอง', async () => {
     const html = await renderPage()
 
-    expect(html).toContain('/user/table?date=2026-10-18')
+    expect(html).toContain('/user/table?date=2026-10-19')
     expect(html).toContain('/user/table?date=2026-10-20')
-    expect(html).toContain('ดูวันก่อนหน้า')
+    expect(html).toContain('วันนี้')
+    expect(html).toContain('พรุ่งนี้')
+    expect(html).not.toContain('/user/table?date=2026-10-18')
+    expect(html).not.toContain('/user/table?date=2026-10-21')
   })
 
   it('ส่ง action ที่จองแล้วอยู่ในตาราง (ไม่พาไปหน้ายืนยัน) ให้ตาราง', async () => {

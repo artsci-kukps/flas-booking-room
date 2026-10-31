@@ -88,6 +88,11 @@ body {
     @apply border border-border bg-surface text-ink hover:bg-canvas active:bg-canvas;
   }
 
+  /* ปุ่มข้อความสำหรับการกระทำรอง — ไม่เพิ่มขอบอีกชั้นในพื้นที่ที่มีขอบอยู่แล้ว (เช่น ใน popup) */
+  .btn-ghost {
+    @apply rounded-full text-ink-muted hover:bg-canvas hover:text-ink active:bg-canvas;
+  }
+
   /* ระงับบัญชีผู้ใช้ — ใช้โทน danger เพื่อสื่อการกระทำเชิงลบ/การปฏิเสธ (แดง = denied/error)
      ไม่ใช่ตัวแปรที่ DESIGN.md ระบุไว้โดยตรง แต่เป็นโทนเดียวกับ Alert danger ใน alert.tsx */
   .btn-danger {
@@ -97,7 +102,7 @@ body {
   /* popup เลือกวันจอง — ใช้ <dialog> แบบ modal ของเบราว์เซอร์
      พื้นผิวแบน: เส้นขอบ 1px + ฉากมืด ink/25 (ไม่มีเงา) ตาม Flat-By-Default */
   .modal {
-    @apply m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-card border border-border bg-surface p-6 text-ink;
+    @apply m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-card border border-border bg-surface p-6 text-ink;
   }
 
   .modal::backdrop {

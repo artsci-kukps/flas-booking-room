@@ -34,6 +34,6 @@ export const config = {
      * - _next/static, _next/image (ไฟล์ static / image optimization)
      * - favicon.ico และไฟล์ static ที่มีนามสกุล (รูปภาพ ฯลฯ)
      */
-    '/((?!login|auth/callback|blocked|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!login|preview-admin|auth/callback|blocked|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

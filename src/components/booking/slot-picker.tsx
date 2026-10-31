@@ -106,88 +106,99 @@ export default function SlotPicker({
     Boolean(selected) && plan.records.length > 0 && durationOk && !pending && !booked;
 
   return (
-    <div className="space-y-4">
-      <div className="panel">
-        <div className="grid grid-cols-2 gap-2 p-5 sm:grid-cols-3">
-          {room.slots.map((slot) => {
-            const aria = slotAriaLabel(slot, room.bookingMode, room.maxCapacity);
-            const status = slotStatusLabel(slot, room.bookingMode, room.maxCapacity);
-            const active = isSelected(slot.start);
-            // ช่องที่เลือกอยู่: KU เต็มสี ตัดขาดจากสถานะเดิมให้เห็นชัดว่ากำลังจะยืนยันช่องนี้
-            const chip = active
-              ? "border-ku bg-ku text-white"
-              : `border-border ${slotChipClass(slot)}`;
+    <div>
+      {/* ไม่มี panel/เส้นขอบในนี้ — popup ที่ใส่ component นี้มีขอบของตัวเองอยู่แล้ว
+          ใช้แค่ระยะห่างและโทนสีของชิปในการแบ่งกลุ่ม เพื่อลดกล่องซ้อนกล่อง */}
+      <p className="text-xs font-semibold text-ink-muted">เลือกช่วงเวลา</p>
 
-            return (
-              <button
-                key={`${room.id}-${slot.start}`}
-                type="button"
-                className={`flex flex-col items-center justify-center rounded-[12px] border px-3 py-3 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${chip}`}
-                aria-label={aria}
-                aria-pressed={active}
-                disabled={!slot.selectable || booked}
-                onClick={() =>
-                  setSelected(toggleSlotSelection(selected, room, slot))
-                }
+      <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {room.slots.map((slot) => {
+          const aria = slotAriaLabel(slot, room.bookingMode, room.maxCapacity);
+          const status = slotStatusLabel(slot, room.bookingMode, room.maxCapacity);
+          const active = isSelected(slot.start);
+          // ช่องที่เลือกอยู่: KU เต็มสี ตัดขาดจากสถานะเดิมให้เห็นชัดว่ากำลังจะยืนยันช่องนี้
+          const chip = active ? "bg-ku text-white" : slotChipClass(slot);
+
+          return (
+            <button
+              key={`${room.id}-${slot.start}`}
+              type="button"
+              className={`flex flex-col items-center justify-center rounded-[12px] px-2 py-2.5 text-center transition-colors disabled:cursor-not-allowed ${chip}`}
+              aria-label={aria}
+              aria-pressed={active}
+              disabled={!slot.selectable || booked}
+              onClick={() =>
+                setSelected(toggleSlotSelection(selected, room, slot))
+              }
+            >
+              <span
+                className={`text-base font-semibold leading-tight tabular-nums ${active ? "text-white" : "text-ink"}`}
               >
-                <span
-                  className={`text-sm font-semibold tabular-nums ${active ? "text-white" : "text-ink"}`}
-                >
-                  {slot.start}–{slot.end}
-                </span>
-                <span className="mt-1 text-xs">{status}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="panel p-5">
-        <form action={formAction} className="flex flex-wrap items-start gap-3">
-          <input type="hidden" name="date" value={date} />
-          {selected ? (
-            <>
-              <input type="hidden" name="roomId" value={selected.roomId} />
-              <input
-                type="hidden"
-                name="blocks"
-                value={JSON.stringify(selected.blocks)}
-              />
-            </>
-          ) : null}
-
-          <div className="min-w-0 flex-1">
-            <BookingSummary
-              plan={plan}
-              roomName={room.name}
-              minDurationMinutes={room.minDurationMinutes}
-              dateLabel={formatThaiDate(date)}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-              {booked ? "จองแล้ว" : pending ? "กำลังจอง…" : "ยืนยันการจอง"}
-            </button>
-            {secondaryAction}
-          </div>
-        </form>
-
-        {state?.ok === true ? (
-          // สำเร็จ: โทนเขียว KU แบน (ไม่มีเงา) ตาม DESIGN.md — รหัสการจอง + ยืนยันว่าส่งอีเมลแล้ว
-          <Alert tone="success" heading="จองสำเร็จ" className="mt-4">
-            <p>
-              รหัสการจอง:{" "}
-              <span className="font-semibold tabular-nums">
-                {state.bookingCodes.join(", ")}
+                {slot.start}–{slot.end}
               </span>
-            </p>
-            <p className="mt-1">ส่งอีเมลแจ้งเตือนพร้อมรหัสการจองไปที่อีเมลของคุณแล้ว</p>
-          </Alert>
-        ) : state?.ok === false ? (
-          <Alert tone="danger" heading="จองไม่สำเร็จ" body={state.message} className="mt-4" />
-        ) : null}
+              <span
+                className={`mt-0.5 text-[0.75rem] font-medium ${active ? "text-ku-soft" : ""}`}
+              >
+                {status}
+              </span>
+            </button>
+          );
+        })}
       </div>
+
+      {/* เส้นคั่นเดียวใน popup: แยก "เลือก" ออกจาก "ยืนยัน" โดยไม่ต้องมีกล่องเพิ่ม */}
+      <form action={formAction} className="mt-5 border-t border-border pt-4">
+        <input type="hidden" name="date" value={date} />
+        {selected ? (
+          <>
+            <input type="hidden" name="roomId" value={selected.roomId} />
+            <input
+              type="hidden"
+              name="blocks"
+              value={JSON.stringify(selected.blocks)}
+            />
+          </>
+        ) : null}
+
+        <BookingSummary
+          plan={plan}
+          roomName={room.name}
+          minDurationMinutes={room.minDurationMinutes}
+          dateLabel={formatThaiDate(date)}
+        />
+
+        {/* แถวปุ่มยืนยัน: มือถือเรียงลงมาโดยให้ปุ่มหลักอยู่ล่างสุด */}
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {secondaryAction}
+          <button
+            type="submit"
+            className="btn btn-primary w-full sm:w-auto"
+            disabled={!canSubmit}
+          >
+            {booked ? "จองแล้ว" : pending ? "กำลังจอง…" : "ยืนยันการจอง"}
+          </button>
+        </div>
+      </form>
+
+      {state?.ok === true ? (
+        // สำเร็จ: โทนเขียว KU แบน (ไม่มีเงา) ตาม DESIGN.md — รหัสการจอง + ยืนยันว่าส่งอีเมลแล้ว
+        <Alert tone="success" heading="จองสำเร็จ" className="mt-4">
+          <p>
+            รหัสการจอง:{" "}
+            <span className="font-semibold tabular-nums">
+              {state.bookingCodes.join(", ")}
+            </span>
+          </p>
+          <p className="mt-1">ส่งอีเมลแจ้งเตือนพร้อมรหัสการจองไปที่อีเมลของคุณแล้ว</p>
+        </Alert>
+      ) : state?.ok === false ? (
+        <Alert
+          tone="danger"
+          heading="จองไม่สำเร็จ"
+          body={state.message}
+          className="mt-4"
+        />
+      ) : null}
     </div>
   );
 }

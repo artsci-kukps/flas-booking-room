@@ -23,10 +23,10 @@ export default function BookingSummary({
   if (plan.records.length === 0) {
     return (
       <div className="min-w-0">
-        {dateLabel ? (
-          <p className="text-xs font-semibold text-ink-muted">วันที่ {dateLabel}</p>
-        ) : null}
-        <p className="mt-0.5 text-base font-semibold text-ink">
+        <p className="text-[0.75rem] font-semibold text-ink-muted">
+          {dateLabel ? `วันที่ ${dateLabel}` : "การจองของคุณ"}
+        </p>
+        <p className="mt-1 text-base font-semibold leading-snug text-ink">
           แตะช่องว่างเพื่อเลือกเวลาที่จะจอง (เลือกได้หลายชั่วโมง)
         </p>
       </div>
@@ -37,22 +37,30 @@ export default function BookingSummary({
 
   return (
     <div className="min-w-0">
-      <p className="text-xs font-semibold text-ink-muted">การจองของคุณ</p>
-      <p className="mt-0.5 text-base font-semibold text-ink">ห้อง {roomName}</p>
+      <p className="text-[0.75rem] font-semibold text-ink-muted">การจองของคุณ</p>
+      <p className="mt-1 text-base font-semibold text-ink">ห้อง {roomName}</p>
 
       {dateLabel ? (
-        <p className="mt-0.5 text-sm tabular-nums text-ink-muted">วันที่ {dateLabel}</p>
+        <p className="mt-0.5 text-sm tabular-nums text-ink-muted">
+          วันที่ {dateLabel}
+        </p>
       ) : null}
 
-      <ul className="mt-1.5 space-y-0.5 text-sm tabular-nums text-ink">
+      <ul className="mt-2 space-y-1 text-sm tabular-nums text-ink">
         {plan.records.map((record) => (
-          <li key={record.start}>
-            {record.start}–{record.end} น.
+          <li key={record.start} className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-ku"
+            />
+            <span>
+              {record.start}–{record.end} น.
+            </span>
           </li>
         ))}
       </ul>
 
-      <p className="mt-1.5 text-sm font-medium text-ku">
+      <p className="mt-2 text-sm font-medium text-ku">
         ต้องยืนยันกับเจ้าหน้าที่ {plan.confirmationCount} ครั้ง
       </p>
 
