@@ -190,7 +190,8 @@ export default function RoomDatePopup({
       ? (openAvailability.rooms.find((item) => item.id === room.id) ?? null)
       : null;
   /** แสดงตารางช่องว่าง + ฟอร์มยืนยันใน popup หรือแสดงข้อความวันปิด/ไม่พบห้องแทน */
-  const showPicker = room !== null && openAvailability !== null && dayRoom !== null;
+  const showPicker =
+    room !== null && openAvailability !== null && dayRoom !== null;
 
   /** วันที่ใช้สรุปสถานะบนผนัง — วันนี้ถ้าเปิด ไม่งั้นวันแรกที่เปิด */
   const statusDay =
@@ -246,7 +247,7 @@ export default function RoomDatePopup({
               </span>
             </div>
 
-            <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
               {group.rooms.map((item) => {
                 const status = plateStatus(item.id, statusDay);
 
@@ -259,7 +260,10 @@ export default function RoomDatePopup({
                       className="panel group flex h-full w-full flex-col p-4 text-left transition-colors hover:bg-canvas"
                     >
                       <span className="flex items-start justify-between gap-3">
-                        <RoomTypeCodeBadge code={item.roomTypeCode} />
+                        <span className="flex items-center justify-center gap-2 text-[1.375rem] font-semibold tabular-nums tracking-tight text-ink">
+                          <RoomTypeCodeBadge code={item.roomTypeCode} />
+                          {item.name}
+                        </span>
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.75rem] font-semibold ${
                             status.free
@@ -275,29 +279,32 @@ export default function RoomDatePopup({
                         </span>
                       </span>
 
-                      <span className="mt-3 block text-[1.375rem] font-semibold tabular-nums tracking-tight text-ink">
-                        {item.name}
+                      <span className="mt-3 block text-[0.8125rem] text-ink-muted">
+                        จองขั้นต่ำ {slotLengthLabel(item.minDurationMinutes)}
                       </span>
-                      <span className="mt-0.5 block text-[0.8125rem] text-ink-muted">
-                        {item.roomTypeName} · ขั้นต่ำ{" "}
-                        {slotLengthLabel(item.minDurationMinutes)}
-                      </span>
-
-                      <span className="mt-auto flex items-center gap-3 pt-4">
-                        <span
-                          aria-hidden="true"
-                          className="flex h-1 flex-1 items-stretch gap-1"
-                        >
-                          {status.slots.length > 0 ? (
-                            status.slots.map((slot) => (
+                      <div className="mt-3 w-full h-30 flex items-center justify-around">
+                        {status.slots.length > 0 ? (
+                          status.slots.map((slot) => (
+                            <span
+                              key={slot.start}
+                              className="mt-3 flex flex-col items-center justify-center"
+                            >
+                              <span className="text-sm">{slot.start}</span>
+                              <span className="text-sm">-</span>
+                              <span className="text-sm">{slot.end}</span>
                               <span
-                                key={slot.start}
-                                className={`flex-1 rounded-full ${slotTickClass(slot)}`}
+                                className={`mt-3 block w-full h-7 rounded-sm ${slot.status == "free" ? "bg-ku" : "bg-red-500"}`}
                               />
-                            ))
-                          ) : (
-                            <span className="h-1 flex-1 rounded-full bg-border" />
-                          )}
+                            </span>
+                          ))
+                        ) : (
+                          <span>{"ห้องนี้ไม่สามารถใช้งานได้"}</span>
+                        )}
+                      </div>
+
+                      <span className="mt-3 flex items-center justify-between gap-3 pt-4">
+                        <span className="block text-[0.8125rem] text-ink-muted">
+                          {"ดำเนินการจองห้อง"}
                         </span>
                         <span
                           aria-hidden="true"
@@ -346,7 +353,9 @@ export default function RoomDatePopup({
               <path d="M12 12.4v2.6" />
             </svg>
           </span>
-          <p className="mt-3 font-semibold text-ink">ยังไม่มีห้องที่เปิดให้จอง</p>
+          <p className="mt-3 font-semibold text-ink">
+            ยังไม่มีห้องที่เปิดให้จอง
+          </p>
           <p className="mt-1 text-sm leading-relaxed text-ink-muted">
             เมื่อแอดมินเปิดห้อง ห้องทั้งหมดจะแสดงที่นี่พร้อมช่วงเวลาว่าง
           </p>
@@ -480,7 +489,9 @@ export default function RoomDatePopup({
 
           {/* ปุ่มยกเลิกอยู่ในฟอร์มของช่องว่างเมื่อแสดงช่องว่าง — มิฉะนั้นเป็นแถวปุ่มท้าย popup */}
           {showPicker ? null : (
-            <div className="mt-5 flex flex-wrap justify-end gap-2">{cancelButton}</div>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              {cancelButton}
+            </div>
           )}
         </div>
       </dialog>

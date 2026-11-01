@@ -8,6 +8,7 @@ import { formatThaiDate } from "@/lib/format";
 import BookingCodeSearch, { type CodeSearchState } from "./booking-code-search";
 import BookingsTable from "./bookings-table";
 
+import AdminHistoryPage from "@/app/(protected)/admin/history/page";
 const BOOKING_MANAGEMENT_PATH = "/admin/booking-management";
 
 type BookingManagementViewProps = {
@@ -42,7 +43,8 @@ export default function BookingManagementView({
           การจองและรับ–คืนกุญแจ
         </h1>
         <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-muted">
-          ค้นรหัส 6 หลักเพื่อยืนยันรับ–คืนกุญแจของวันนี้ แล้วตรวจรายการจองและตารางห้องของวันที่เลือก
+          ค้นรหัส 6 หลักเพื่อยืนยันรับ–คืนกุญแจของวันนี้
+          แล้วตรวจรายการจองและตารางห้องของวันที่เลือก
         </p>
       </header>
 
@@ -57,7 +59,8 @@ export default function BookingManagementView({
 
       {date !== today ? (
         <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-          ช่องค้นรหัสด้านบนใช้กับวันนี้เท่านั้น — รายการและตารางด้านล่างเป็นของวันที่เลือก
+          ช่องค้นรหัสด้านบนใช้กับวันนี้เท่านั้น —
+          รายการและตารางด้านล่างเป็นของวันที่เลือก
         </p>
       ) : null}
 
@@ -80,6 +83,9 @@ export default function BookingManagementView({
           availability={availability}
           bookRoomAction={bookRoomAction}
         />
+      </div>
+      <div className="mt-10">
+        <AdminHistoryPage />
       </div>
     </main>
   );
