@@ -88,16 +88,8 @@ export default function CreativeSpaceRules({
 }) {
   return (
     <div className={className}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="text-[0.8125rem] font-semibold text-ink">
-          กติกาการเข้าใช้งานห้อง
-        </p>
-      </div>
-      <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
-        สรุปจาก TOR.md เพื่อให้ผู้ใช้เข้าใจกติกาและความหมายของสถานะตรงกันทั้งระบบ
-      </p>
-
-      <div className="mt-4 grid gap-8 lg:gap-10">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"></div>
+      <div className="grid gap-8 lg:gap-10">
         <RoomTypesSection />
         <ServiceHoursSection />
         <RuleSection

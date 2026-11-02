@@ -109,7 +109,10 @@ export default async function BookingPage({
             <CalendarIcon />
             จองได้วันนี้และวันพรุ่งนี้
           </span>
-          <span aria-hidden="true" className="hidden h-3 w-px bg-border sm:block" />
+          <span
+            aria-hidden="true"
+            className="hidden h-3 w-px bg-border sm:block"
+          />
           <span className="inline-flex items-center gap-1.5">
             <MailIcon />
             รับรหัส 6 หลักทางอีเมลเพื่อรับกุญแจ

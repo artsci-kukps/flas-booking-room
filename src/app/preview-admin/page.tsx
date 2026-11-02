@@ -9,7 +9,8 @@ import type { CodeSearchState } from "@/app/(protected)/admin/booking-management
 export const dynamic = "force-dynamic";
 
 function booking(
-  overrides: Partial<AdminBookingRow> & Pick<AdminBookingRow, "id" | "bookingCode" | "status">,
+  overrides: Partial<AdminBookingRow> &
+    Pick<AdminBookingRow, "id" | "bookingCode" | "status">,
 ): AdminBookingRow {
   return {
     bookerName: "สมชาย ใจดี",
@@ -96,10 +97,38 @@ const AVAILABILITY: DayAvailability = {
       maxCapacity: 2,
       minDurationMinutes: 60,
       slots: [
-        { start: "08:30", end: "09:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "09:30", end: "10:30", status: "occupied", usedCount: 1, past: false, selectable: true },
-        { start: "10:30", end: "11:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "11:30", end: "12:30", status: "blocked", usedCount: 0, past: false, selectable: false },
+        {
+          start: "08:30",
+          end: "09:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "09:30",
+          end: "10:30",
+          status: "occupied",
+          usedCount: 1,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "10:30",
+          end: "11:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "11:30",
+          end: "12:30",
+          status: "blocked",
+          usedCount: 0,
+          past: false,
+          selectable: false,
+        },
       ],
     },
     {
@@ -111,10 +140,38 @@ const AVAILABILITY: DayAvailability = {
       maxCapacity: 2,
       minDurationMinutes: 60,
       slots: [
-        { start: "08:30", end: "09:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "09:30", end: "10:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "10:30", end: "11:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "11:30", end: "12:30", status: "free", usedCount: 0, past: false, selectable: true },
+        {
+          start: "08:30",
+          end: "09:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "09:30",
+          end: "10:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "10:30",
+          end: "11:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "11:30",
+          end: "12:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
       ],
     },
     {
@@ -126,8 +183,22 @@ const AVAILABILITY: DayAvailability = {
       maxCapacity: 10,
       minDurationMinutes: 120,
       slots: [
-        { start: "08:30", end: "10:30", status: "occupied", usedCount: 1, past: false, selectable: false },
-        { start: "10:30", end: "12:30", status: "free", usedCount: 0, past: false, selectable: true },
+        {
+          start: "08:30",
+          end: "10:30",
+          status: "occupied",
+          usedCount: 1,
+          past: false,
+          selectable: false,
+        },
+        {
+          start: "10:30",
+          end: "12:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
       ],
     },
     {
@@ -139,10 +210,38 @@ const AVAILABILITY: DayAvailability = {
       maxCapacity: 4,
       minDurationMinutes: 60,
       slots: [
-        { start: "08:30", end: "09:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "09:30", end: "10:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "10:30", end: "11:30", status: "free", usedCount: 0, past: false, selectable: true },
-        { start: "11:30", end: "12:30", status: "free", usedCount: 0, past: false, selectable: true },
+        {
+          start: "08:30",
+          end: "09:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "09:30",
+          end: "10:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "10:30",
+          end: "11:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
+        {
+          start: "11:30",
+          end: "12:30",
+          status: "free",
+          usedCount: 0,
+          past: false,
+          selectable: true,
+        },
       ],
     },
   ],

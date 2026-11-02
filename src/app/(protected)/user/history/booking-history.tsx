@@ -5,7 +5,11 @@ import { thaiWeekday } from "@/lib/booking/booking-date";
 import type { MyBooking } from "@/lib/booking/my-bookings";
 import { RESERVATION_STATUS_LABEL } from "@/lib/booking/reservation-status";
 import { RESERVATION_STATUS_CLASS } from "@/lib/booking/reservation-status-style";
-import { formatBangkokTime, formatThaiDate, formatThaiDateTime } from "@/lib/format";
+import {
+  formatBangkokTime,
+  formatThaiDate,
+  formatThaiDateTime,
+} from "@/lib/format";
 
 import CancelBookingButton from "./cancel-booking-button";
 
@@ -22,7 +26,9 @@ const CURRENT_STATUSES = new Set<MyBooking["status"]>(["PENDING", "ACTIVE"]);
 
 /** สถานะที่ใช้โทนเหลืองอำพัน (ครองช่วงเวลาหรือคืนกุญแจช้า) */
 function isAmberStatus(status: MyBooking["status"]) {
-  return status === "PENDING" || status === "ACTIVE" || status === "LATE_RETURN";
+  return (
+    status === "PENDING" || status === "ACTIVE" || status === "LATE_RETURN"
+  );
 }
 
 function ArrowIcon() {
@@ -95,15 +101,19 @@ function BookingCard({ booking }: { booking: MyBooking }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <RoomTypeCodeBadge code={booking.roomTypeCode} />
-            <p className="text-base font-semibold text-ink">{booking.roomName}</p>
+            <p className="text-base font-semibold text-ink">
+              {booking.roomName}
+            </p>
           </div>
 
           <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-ink-muted">
             <span>
-              {thaiWeekday(booking.bookingDate)} {formatThaiDate(booking.bookingDate)} ·
+              {thaiWeekday(booking.bookingDate)}{" "}
+              {formatThaiDate(booking.bookingDate)} ·
             </span>
             <span className="font-semibold tabular-nums text-ink">
-              {formatBangkokTime(booking.startTime)}–{formatBangkokTime(booking.endTime)} น.
+              {formatBangkokTime(booking.startTime)}–
+              {formatBangkokTime(booking.endTime)} น.
             </span>
           </p>
 
@@ -165,7 +175,11 @@ function BookingGroup({
   );
 }
 
-export default function BookingHistory({ bookings }: { bookings: MyBooking[] }) {
+export default function BookingHistory({
+  bookings,
+}: {
+  bookings: MyBooking[];
+}) {
   const current = bookings
     .filter((booking) => CURRENT_STATUSES.has(booking.status))
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
@@ -188,7 +202,10 @@ export default function BookingHistory({ bookings }: { bookings: MyBooking[] }) 
           </div>
 
           {bookings.length > 0 ? (
-            <Link href="/user/booking" className="btn btn-outline btn-sm shrink-0">
+            <Link
+              href="/user/booking"
+              className="btn btn-outline btn-sm shrink-0"
+            >
               จองห้อง
               <ArrowIcon />
             </Link>
@@ -200,7 +217,9 @@ export default function BookingHistory({ bookings }: { bookings: MyBooking[] }) 
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ku-soft text-ku">
               <CalendarIcon />
             </span>
-            <h2 className="mt-4 text-base font-semibold text-ink">ยังไม่มีการจอง</h2>
+            <h2 className="mt-4 text-base font-semibold text-ink">
+              ยังไม่มีการจอง
+            </h2>
             <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-ink-muted">
               เมื่อจองห้องสำเร็จ รายการจะแสดงที่นี่พร้อมรหัส 6 หลักและสถานะ
             </p>
@@ -211,10 +230,18 @@ export default function BookingHistory({ bookings }: { bookings: MyBooking[] }) 
         ) : (
           <div className="mt-8 space-y-8">
             {current.length > 0 ? (
-              <BookingGroup id="current-bookings" title="กำลังดำเนินการ" bookings={current} />
+              <BookingGroup
+                id="current-bookings"
+                title="กำลังดำเนินการ"
+                bookings={current}
+              />
             ) : null}
             {past.length > 0 ? (
-              <BookingGroup id="past-bookings" title="ที่ผ่านมา" bookings={past} />
+              <BookingGroup
+                id="past-bookings"
+                title="ที่ผ่านมา"
+                bookings={past}
+              />
             ) : null}
           </div>
         )}
