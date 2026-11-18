@@ -26,6 +26,7 @@ type BookingRowActionsProps = {
  * - ACTIVE  → ปุ่ม "ยืนยันคืนกุญแจ" (→ COMPLETED/LATE_RETURN)
  * - สถานะอื่นไม่มีปุ่ม เพราะวงจรกุญแจจบแล้ว
  * ยืนยันก่อนทำเสมอ และใช้ useActionState เพื่อปิดปุ่มระหว่างบันทึก + แสดงข้อผิดพลาด inline
+ * เมื่อ action สำเร็จให้ปิดหน้าต่างยืนยันออกแล้วแสดงข้อความ success แทน
  * (การกันรับซ้ำ/คืนซ้ำจริงอยู่ที่เงื่อนไขสถานะในชั้นข้อมูล)
  */
 export default function BookingRowActions({ row, className }: BookingRowActionsProps) {
@@ -38,6 +39,22 @@ export default function BookingRowActions({ row, className }: BookingRowActionsP
     INITIAL_STATE,
   );
   const [confirming, setConfirming] = useState<ConfirmTarget>(null);
+  const [lastSuccess, setLastSuccess] = useState<BookingKeyActionState>(null);
+
+  // ดู state ของทั้งสอง action เพราะตอน response มากับสำเร็จ row.status อาจยังเป็นค่่าเก่าอยู่
+  const successState =
+    pickupState?.ok === true
+      ? pickupState
+      : returnState?.ok === true
+        ? returnState
+        : null;
+
+  // ปรับ state ตอน render ตามรูปแบบที่ React แนะนำ (ไม่เรียก setState ใน effect)
+  // ทุกครั้งที่ action สำเร็จด้วยผลลัพธ์ใหม่ ให้ปิดหน้าต่างยืนยันทันที
+  if (successState !== null && successState !== lastSuccess) {
+    setLastSuccess(successState);
+    setConfirming(null);
+  }
 
   const wrapperClass = `flex flex-wrap items-start justify-end gap-2${className ? ` ${className}` : ""}`;
 
